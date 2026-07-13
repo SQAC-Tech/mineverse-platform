@@ -4,7 +4,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Download } from 'lucide-react';
 import Image from 'next/image';
 
@@ -93,11 +93,13 @@ function PaymentContent() {
             )}
 
             {data.qr_image && (
-              <Button variant="outline" className="border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white" asChild>
-                <a href={data.qr_image} download={`payment-qr-${data.team_code}.png`}>
-                  <Download className="w-4 h-4 mr-2" /> Download QR
-                </a>
-              </Button>
+              <a 
+                href={data.qr_image} 
+                download={`payment-qr-${data.team_code}.png`}
+                className={buttonVariants({ variant: "outline", className: "border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white" })}
+              >
+                <Download className="w-4 h-4 mr-2" /> Download QR
+              </a>
             )}
 
             <div className="w-full bg-slate-950 p-6 rounded-lg border border-slate-800">

@@ -15,7 +15,7 @@ export async function POST(req: Request) {
   const parsed = registrationSchema.safeParse(body);
 
   if (!parsed.success) {
-    return NextResponse.json({ success: false, error: parsed.error.errors[0].message }, { status: 400 });
+    return NextResponse.json({ success: false, error: (parsed.error as any).errors[0].message }, { status: 400 });
   }
 
   const { challenge_id, verification_token, team_name, members } = parsed.data;

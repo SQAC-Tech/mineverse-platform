@@ -27,7 +27,7 @@ export default function AdminTeamsPage() {
       <h2 className="text-3xl font-bold text-white tracking-tight">Teams Roster</h2>
       
       <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden p-4">
-        <Accordion type="single" collapsible className="w-full">
+        <Accordion className="w-full">
           {teams.map(t => (
             <AccordionItem key={t.id} value={t.id} className="border-slate-800">
               <AccordionTrigger className="hover:no-underline hover:bg-slate-800/50 px-4 py-3 rounded-lg">

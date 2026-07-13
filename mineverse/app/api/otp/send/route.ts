@@ -12,7 +12,7 @@ export async function POST(req: Request) {
   const parsed = otpSendSchema.safeParse(body);
 
   if (!parsed.success) {
-    return NextResponse.json({ success: false, error: parsed.error.errors[0].message }, { status: 400 });
+    return NextResponse.json({ success: false, error: (parsed.error as any).errors[0].message }, { status: 400 });
   }
 
   const { college_email, turnstile_token } = parsed.data;

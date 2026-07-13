@@ -94,7 +94,7 @@ export default function AttendancePanel() {
             <CardTitle className="text-slate-200">Active Checkpoint</CardTitle>
           </CardHeader>
           <CardContent>
-            <Select value={selectedCheckpoint} onValueChange={setSelectedCheckpoint}>
+            <Select value={selectedCheckpoint} onValueChange={(val: any) => setSelectedCheckpoint(val || '')}>
               <SelectTrigger className="bg-slate-950 border-slate-800 text-white h-12 text-lg">
                 <SelectValue placeholder="Select current checkpoint..." />
               </SelectTrigger>
