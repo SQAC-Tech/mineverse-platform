@@ -39,8 +39,8 @@
 | 2.2 | `members` | Dev 1 | 🔴 | unique college_email |
 | 2.3 | `payments` | Dev 1 | 🔴 | amount snapshot from env fees |
 | 2.4 | `otp_challenges` (hashed OTPs, dual purpose) | Dev 1 | 🔴 | replaces temp_otp |
-| 2.5 | `rounds` + seed 4 | Dev 1 | 🔴 | |
-| 2.6 | `attendance_checkpoints` + seed 5 (R1, R2, R3, R4-P1, R4-P2) | Dev 1 | 🔴 | new |
+| 2.5 | `rounds` + seed 5 (3× Day 1, 2× Day 2) | Dev 1 | 🔴 | |
+| 2.6 | `attendance_checkpoints` + seed 5 (R1, R2, R3, R4, R5) | Dev 1 | 🔴 | new |
 | 2.7 | `attendance_records` (head count, unique team+checkpoint) | Dev 1 | 🔴 | new |
 | 2.8 | `team_round_access` | Dev 1 | 🔴 | |
 | 2.9 | `email_logs` (+ `provider` column) | Dev 1 | 🔴 | |
@@ -136,7 +136,7 @@
 | # | Feature | Owner | Status | Notes |
 |---|---------|-------|--------|-------|
 | 9.1 | `/attendance` main screen (mobile-first) | Dev 2 | 🔴 | |
-| 9.2 | Checkpoint dropdown (R1/R2/R3/R4-P1/R4-P2) persisted in localStorage | Dev 2 | 🔴 | from `/api/attendance/checkpoints` |
+| 9.2 | Checkpoint dropdown (R1/R2/R3/R4/R5) persisted in localStorage | Dev 2 | 🔴 | from `/api/attendance/checkpoints` |
 | 9.3 | **Camera QR scanner** using `qr-scanner` (live camera, NO upload) | Dev 2 | 🔴 | html5-qrcode is unmaintained — do not use |
 | 9.4 | Manual team code input fallback (always visible) | Dev 2 | 🔴 | |
 | 9.5 | `POST /api/attendance/resolve` (QR JWT verify + revocation check, or team_code) | Dev 2 | 🔴 | |
@@ -152,7 +152,7 @@
 | # | Feature | Owner | Status | Notes |
 |---|---------|-------|--------|-------|
 | 10.1 | `/login` page: step 1 team code → step 2 OTP input | Dev 3 | 🔴 | no password field |
-| 10.2 | `POST /api/auth/login/request-otp` — gates (EVENT_DATE env, payment verified) **before** sending | Dev 3 | 🔴 | protects Resend quota |
+| 10.2 | `POST /api/auth/login/request-otp` — gates (EVENT_DATE_DAY1/DAY2 env, payment verified) **before** sending | Dev 3 | 🔴 | protects Resend quota; passes on either day |
 | 10.3 | OTP → lead college email via `lib/email.sendOtpEmail` | Dev 3 | 🔴 | Resend under the hood |
 | 10.4 | `POST /api/auth/login/verify` → `session_token` cookie | Dev 3 | 🔴 | jose, 24 h |
 | 10.5 | `POST /api/auth/logout` | Dev 3 | 🔴 | |
@@ -168,7 +168,7 @@
 |---|---------|-------|--------|-------|
 | 11.1 | `/dashboard` layout: header, team sidebar, logout | Dev 3 | 🔴 | |
 | 11.2 | Day 1: 3 round cards (Locked/Active/Completed) | Dev 3 | 🔴 | |
-| 11.3 | Day 2 locked placeholder | Dev 3 | 🔴 | |
+| 11.3 | Day 2: 2 locked round cards (Portal Repair, The End) | Dev 3 | 🔴 | |
 | 11.4 | Resource bar placeholder (zeros) | Dev 3 | 🔴 | Phase 2 |
 | 11.5 | Realtime `round_status` subscribe + 10 s polling fallback | Dev 3 | 🔴 | |
 | 11.6 | `/dashboard/qr` — re-view attendance QR | Dev 3 | 🔴 | `GET /api/team/qr` |
@@ -233,7 +233,7 @@
 | 15.3 | Resend domain verified + SMTP app password tested | Dev 2 | D-7 | 🔴 |
 | 15.4 | Email templates reviewed on Gmail/Outlook | Dev 2 | D-7 | 🔴 |
 | 15.5 | QR generation + camera scan rehearsed on venue phones | Dev 2 | D-3 | 🔴 |
-| 15.6 | Login date gate tested (EVENT_DATE flip) | Dev 3 | D-3 | 🔴 |
+| 15.6 | Login date gate tested (EVENT_DATE_DAY1/DAY2 flip — both days pass) | Dev 3 | D-3 | 🔴 |
 | 15.7 | Round unlock flow rehearsed | Dev 3 | D-3 | 🔴 |
 | 15.8 | Attendance volunteers briefed + password distributed | Organizer | D-1 | 🔴 |
 | 15.9 | Team roster CSV exported (paper backup) | Dev 2 | D-1 | 🔴 |

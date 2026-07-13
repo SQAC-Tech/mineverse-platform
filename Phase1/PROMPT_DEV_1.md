@@ -89,7 +89,8 @@ const serverEnvSchema = z.object({
   SMTP_PASS: z.string().min(1),
   SMTP_FROM: z.string().min(1),
   TURNSTILE_SECRET_KEY: z.string().min(1),
-  EVENT_DATE: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  EVENT_DATE_DAY1: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  EVENT_DATE_DAY2: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   WHATSAPP_GROUP_LINK: z.url(),
   UPI_ID: z.string().min(3),
   UPI_PAYEE_NAME: z.string().min(1),
@@ -218,8 +219,8 @@ Use **exactly** the schema in `DATABASE.md` v2.0 — it is the source of truth. 
 2. `members` — `college_email` globally unique, `email_verified` flag.
 3. `payments` — amount snapshot, `upi_string`, `admin_notes`.
 4. `otp_challenges` — **replaces temp_otp**: `email, otp_hash, purpose('registration'|'login'), team_id, attempts, verified, verification_token, expires_at`.
-5. `rounds` — seed 4.
-6. `attendance_checkpoints` — seed 5: `ROUND_1..ROUND_3, ROUND_4_PHASE_1, ROUND_4_PHASE_2`.
+5. `rounds` — seed 5 (3× Day 1; Day 2: Nether Portal Repair + The End).
+6. `attendance_checkpoints` — seed 5: `ROUND_1..ROUND_5` (one per round).
 7. `attendance_records` — `(team_id, checkpoint_id)` unique, `members_present integer`, `method('qr_scan'|'manual')`.
 8. `team_round_access`, `email_logs` (with `provider('resend'|'smtp')`).
 9. Functions/triggers: `generate_team_code()`, `update_updated_at_column()`, `sync_payment_verification()`.
@@ -315,7 +316,7 @@ Fetch challenge → 400 if missing/expired → if `attempts >= OTP_MAX_ATTEMPTS`
 
 ### C.6 `app/api/event/config/route.ts`
 
-Returns the public env-derived config (PRD/API_GUIDE §1.1). Reads `NEXT_PUBLIC_*` display vars + fee numbers from `lib/env.ts`. **Never** return `EVENT_DATE` (machine gate) or `WHATSAPP_GROUP_LINK`.
+Returns the public env-derived config (PRD/API_GUIDE §1.1). Reads `NEXT_PUBLIC_*` display vars + fee numbers from `lib/env.ts`. **Never** return `EVENT_DATE_DAY1`/`EVENT_DATE_DAY2` (machine gates) or `WHATSAPP_GROUP_LINK`.
 
 ### C.7 `app/api/payment/status/route.ts`
 
@@ -361,7 +362,7 @@ Copy PRD §6 into `.env.example` with dummy values; fill `.env.local` locally. B
 ## PART E: Acceptance Criteria
 
 - [ ] Foundation committed and tagged `foundation-frozen`; `package.json` contains every dep all 3 devs need
-- [ ] All migrations run; 4 rounds + 5 attendance checkpoints seeded; RLS deny-all confirmed (anon select returns nothing)
+- [ ] All migrations run; 5 rounds + 5 attendance checkpoints seeded; RLS deny-all confirmed (anon select returns nothing)
 - [ ] Landing shows event details **from env vars**
 - [ ] "Verify Email" sends OTP (stub logs it), inline input verifies it, Submit unlocks **only after** verification
 - [ ] Editing the verified email re-locks Submit

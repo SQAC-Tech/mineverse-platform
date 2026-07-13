@@ -35,8 +35,9 @@ NEXT_PUBLIC_TURNSTILE_SITE_KEY=1x00000000000000000000AA        # Cloudflare alwa
 TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA
 
 NEXT_PUBLIC_EVENT_NAME="MINEVERSE TEST"
-EVENT_DATE=2026-08-15
-NEXT_PUBLIC_EVENT_DATE_DISPLAY="15 August 2026"
+EVENT_DATE_DAY1=2026-08-15
+EVENT_DATE_DAY2=2026-08-16
+NEXT_PUBLIC_EVENT_DATE_DISPLAY="15–16 August 2026"
 NEXT_PUBLIC_EVENT_TIME="11:00 AM"
 NEXT_PUBLIC_EVENT_VENUE="Test Auditorium"
 NEXT_PUBLIC_REGISTRATION_OPEN=true
@@ -60,7 +61,7 @@ OTP_EXPIRY_MINUTES=10
 OTP_MAX_ATTEMPTS=3
 ```
 
-**Infra:** separate Supabase test project with all migrations + seeds (4 rounds, 5 checkpoints); [Mailpit](https://mailpit.axllent.org/) docker container to capture SMTP mail; Resend mocked at the `lib/email/resend.ts` boundary in unit tests.
+**Infra:** separate Supabase test project with all migrations + seeds (5 rounds, 5 checkpoints); [Mailpit](https://mailpit.axllent.org/) docker container to capture SMTP mail; Resend mocked at the `lib/email/resend.ts` boundary in unit tests.
 
 **Test OTP retrieval:** tests read the OTP by intercepting `sendOtpEmail` (unit) or by querying Mailpit's API (E2E, when the SMTP fallback is exercised). For Resend-path E2E, expose a test-only `GET /api/test/last-otp?email=` route compiled only when `NODE_ENV=test`.
 
@@ -118,7 +119,7 @@ describe('OTP', () => {
     expect(hashOtp('123456')).not.toContain('123456');
   });
   it('masks emails', () => expect(maskEmail('rahul@college.edu.in')).toBe('ra•••@college.edu.in'));
-  it('isEventDay respects EVENT_DATE in IST', () => { /* fake timers around midnight IST */ });
+  it('isEventDay passes on EVENT_DATE_DAY1 and EVENT_DATE_DAY2 (IST), fails otherwise', () => { /* fake timers around midnight IST */ });
 });
 ```
 
@@ -264,7 +265,7 @@ describe('POST /api/attendance/mark', () => {
 
 ```typescript
 describe('GET /api/event/config', () => {
-  it('returns env values (name, venue, fees) and NEVER EVENT_DATE or WHATSAPP link', async () => { /* ... */ });
+  it('returns env values (name, venue, fees) and NEVER EVENT_DATE_DAY1/DAY2 or WHATSAPP link', async () => { /* ... */ });
 });
 ```
 
@@ -412,7 +413,7 @@ test('per-checkpoint head count with upsert confirm', async ({ page }) => {
 | 5 | Pick 2 of 3 present, Mark | Success toast "2/3 present at Round 1" |
 | 6 | Scan Team A again at Round 1 | "Already marked — update?" confirm |
 | 7 | Switch checkpoint to "Round 2", scan Team A | Fresh (unmarked) card — records are per checkpoint |
-| 8 | Mark Team A at R2, R3, R4-P1, R4-P2 | 5 independent rows; `/admin/teams` chips show all 5 |
+| 8 | Mark Team A at R2, R3, R4, R5 | 5 independent rows; `/admin/teams` chips show all 5 |
 | 9 | Scan in low light / glare | Decodes ≤ 3 s or falls back to manual |
 | 10 | Try `/attendance` with the ADMIN password | Rejected |
 | 11 | Refresh mid-day | Checkpoint selection restored from localStorage |
@@ -504,7 +505,7 @@ Simulate 4 volunteers marking 50 teams in 10 minutes at one checkpoint (resolve 
 | 12 | Team enumeration via login | Random team codes | Generic "Invalid team code" (401), same latency class |
 | 13 | Secrets in client bundle | grep the `.next` client chunks | No `ADMIN_PASSWORD`, `ATTENDANCE_PASSWORD`, `SMTP_PASS`, `RESEND_API_KEY`, `JWT_SECRET` |
 | 14 | Large payload | 10 MB JSON | 413 |
-| 15 | `/api/event/config` leakage | Inspect response | No `EVENT_DATE` (machine), no WhatsApp link |
+| 15 | `/api/event/config` leakage | Inspect response | No `EVENT_DATE_DAY1`/`EVENT_DATE_DAY2` (machine), no WhatsApp link |
 
 ---
 
@@ -565,7 +566,7 @@ Phase 1 is production-ready when:
 - [ ] Resend used ONLY for OTPs (email_logs audit) and daily OTP volume projection < 100
 - [ ] SMTP deliverability: Gmail, Outlook, Yahoo inbox (not spam) for the verified email
 - [ ] Both panel passwords rotated to strong values in Vercel before D-1
-- [ ] `EVENT_DATE` flip rehearsal done (login blocked D-1, open on D-0)
+- [ ] `EVENT_DATE_DAY1`/`EVENT_DATE_DAY2` flip rehearsal done (login blocked D-1, open on both event days)
 - [ ] Attendance CSV export works (paper backup ready)
 - [ ] No `middleware.ts` in repo (Next 16 `proxy.ts` only); `npm run build` green with all env vars
 

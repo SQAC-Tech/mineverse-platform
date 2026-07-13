@@ -7,7 +7,7 @@
 
 **Critical Rules:**
 - **Login is OTP-only.** Team enters their team code → OTP goes to the **team lead's college email** → verify → session. No password field exists.
-- Login gates, checked **before** sending the OTP (protects the Resend free tier): (1) today (IST) equals env `EVENT_DATE`; (2) team exists; (3) `teams.is_payment_verified = true`. **Attendance does NOT gate login** (it's per-round now, handled by Dev 2's `/attendance` panel).
+- Login gates, checked **before** sending the OTP (protects the Resend free tier): (1) today (IST) equals env `EVENT_DATE_DAY1` **or** `EVENT_DATE_DAY2` (2-day event); (2) team exists; (3) `teams.is_payment_verified = true`. **Attendance does NOT gate login** (it's per-round now, handled by Dev 2's `/attendance` panel).
 - You never call email providers directly — only the frozen façade `lib/email/index.ts` (`sendOtpEmail`, purpose `'login'`). Dev 2 implements it (Resend).
 - Sessions: `session_token` JWT cookie — httpOnly, Secure, SameSite=Strict, 24 h, signed with `JWT_SECRET` via jose.
 - **`proxy.ts`** (project root) guards team routes AND both panels (using the frozen `lib/panel/session.ts`). It runs on the Node.js runtime in Next 16.
@@ -110,10 +110,11 @@ export const maskEmail = (email: string) => {
   return `${user.slice(0, 2)}•••@${domain}`;
 };
 
-/** Event-day check in IST regardless of server timezone. */
+/** Event-day check in IST regardless of server timezone. Passes on either event day. */
 export const isEventDay = () => {
   const istNow = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
-  return istNow.toISOString().slice(0, 10) === process.env.EVENT_DATE;
+  const today = istNow.toISOString().slice(0, 10);
+  return today === process.env.EVENT_DATE_DAY1 || today === process.env.EVENT_DATE_DAY2;
 };
 ```
 
@@ -345,7 +346,7 @@ Client table (your file inside the admin tree — the frozen layout already link
 
 - [ ] File is `proxy.ts` with exported `proxy` function (no `middleware.ts` in the repo)
 - [ ] `/login` is a two-step team-code → OTP flow; **no password input exists**
-- [ ] Request-otp refuses before `EVENT_DATE` (403), for unknown codes (401, generic), and for unverified payment (403) — **without sending any email**
+- [ ] Request-otp refuses on non-event days (403, passes on both `EVENT_DATE_DAY1` and `EVENT_DATE_DAY2`), for unknown codes (401, generic), and for unverified payment (403) — **without sending any email**
 - [ ] OTP arrives via the frozen façade (`sendOtpEmail`, purpose `login`); works with Dev 2's stub replaced or not
 - [ ] Wrong OTP 3× kills the challenge; resend throttled (3/10 min per team)
 - [ ] Successful verify sets `session_token` (httpOnly, Strict) and lands on `/dashboard`

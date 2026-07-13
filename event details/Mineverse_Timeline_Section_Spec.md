@@ -33,7 +33,7 @@ Default active: `DAY 1`. Switching tabs swaps the stepper list below with a fade
 | 12:00 – 1:00 PM | Round 2 — Cave Biome | ● highlight | Coding challenges, Skeleton Archer, world event, marketplace, Stone Pickaxe crafting |
 | 1:00 – 1:10 PM | Buffer Time | ○ muted | Resource calculation, structure upgrade verification, marketplace updates, technical sync |
 | 1:10 – 2:00 PM | Lunch Break | ○ muted | 50 min (10 min counted in buffer) |
-| 2:10 – 3:20 PM | Round 3 — Mountain Biome | ● highlight | Coding challenges, Blaze Guardian, world event, marketplace, Iron Pickaxe crafting |
+| 2:10 – 3:20 PM | Round 3 — Mountain Biome | ● highlight | Coding challenges, Blaze Guardian, world event, marketplace, Iron Armor crafting |
 | 3:20 – 3:30 PM | Buffer Time | ○ muted | Final resource verification, qualification validation, leaderboard finalization |
 | 3:30 – 3:45 PM | Qualification (PvP Battle) & Leaderboard | ★ special | Verify scores and resources, announce teams qualified for Day 2 |
 | 3:45 – 4:00 PM | Snack Break | ○ muted | Tea, coffee, snacks *(if arranged)* |
@@ -73,4 +73,4 @@ Default active: `DAY 1`. Switching tabs swaps the stepper list below with a fade
 
 ---
 
-*Content sourced from `Mineverse_Full_Event_Details.md`. Update this file if round timings or names change (note: reconcile "Ice Golem" vs "Blaze Guardian" naming for Round 3 before final copy goes live).*
+*Content sourced from `Mineverse_Full_Event_Details.md`. Update this file if round timings or names change.*

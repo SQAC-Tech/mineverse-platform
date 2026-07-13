@@ -15,12 +15,14 @@
 | ❌ Dropped `teams.password_hash` | No passwords anywhere. Auth is OTP-only. |
 | ❌ Dropped `temp_otp` (form_data blob) | OTP is verified **before** submit, so the form never needs to be parked in the DB. Replaced by `otp_challenges`. |
 | ✅ New `otp_challenges` | One table for both OTP purposes (registration email verify + event-day login). OTPs stored **hashed**. |
-| 🔁 `attendance` (1 row/team) → `attendance_checkpoints` + `attendance_records` | Attendance is now taken **per checkpoint**: Rounds 1–4 and each phase of Round 4. |
+| 🔁 `attendance` (1 row/team) → `attendance_checkpoints` + `attendance_records` | Attendance is now taken **per checkpoint**: one per round (Rounds 1–5). |
 | 🔁 Per-member presence JSONB → `members_present` **integer count** | The attendance panel asks "how many members are present", not who. |
 | ✅ `teams.qr_token` | The team's attendance QR (signed JWT) moves onto `teams` since attendance rows are now per-checkpoint. |
 | ✅ `email_logs.provider` | Distinguishes Resend (OTP) sends from SMTP (everything else). |
 | 🔁 RLS simplified to deny-all | All reads/writes go through Next.js API routes using the service-role key; the anon key is used only for Realtime broadcast subscribe (no table access needed). |
 | 🔁 `teams.status` enum trimmed | `'registered'`/`'attended'` removed — attendance no longer gates login, and a team goes straight to `payment_pending` on creation. |
+| ❌ Dropped `teams.total_score` / `teams.completion_time` | Superseded by Phase 2's append-only resource ledger; the winner is the first Final Boss victory (server timestamp), not a score. |
+| 🔁 `rounds` seed 4 → **5 rows** | The event has 5 rounds: 3 on Day 1 + Round 4 (Nether Portal Repair) and Round 5 (The End) on Day 2. Phase 3 controls Round 5 through these same round controls. |
 
 ---
 
@@ -59,8 +61,6 @@ create table teams (
         check (status in ('payment_pending', 'verified', 'active', 'eliminated', 'champion')),
     is_payment_verified boolean not null default false,
     qr_token text unique,                      -- attendance QR JWT, set on payment verification
-    total_score integer not null default 0,    -- Phase 2
-    completion_time integer not null default 0,-- Phase 2, seconds
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now()
 );
@@ -155,11 +155,11 @@ create table attendance_checkpoints (
 );
 
 insert into attendance_checkpoints (code, label, round_id, day, sequence) values
-('ROUND_1',         'Round 1 — Forest & Grasslands', 1, 1, 1),
-('ROUND_2',         'Round 2 — Cave Biome',          2, 1, 2),
-('ROUND_3',         'Round 3 — Mountain Biome',      3, 1, 3),
-('ROUND_4_PHASE_1', 'Round 4 — Phase 1',             4, 2, 4),
-('ROUND_4_PHASE_2', 'Round 4 — Phase 2',             4, 2, 5);
+('ROUND_1', 'Round 1 — Forest & Grasslands',  1, 1, 1),
+('ROUND_2', 'Round 2 — Cave Biome',           2, 1, 2),
+('ROUND_3', 'Round 3 — Mountain Biome',       3, 1, 3),
+('ROUND_4', 'Round 4 — Nether Portal Repair', 4, 2, 4),
+('ROUND_5', 'Round 5 — The End',              5, 2, 5);
 ```
 
 ### 3.6 attendance_records
@@ -203,12 +203,13 @@ create table rounds (
 );
 
 insert into rounds (id, name, day, sequence, description, time_allotted) values
-(1, 'Forest & Grasslands', 1, 1, 'Round 1: Text-based riddles and aptitude', 45),
-(2, 'Cave Biome',          1, 2, 'Round 2: Code execution challenges',       45),
-(3, 'Mountain Biome',      1, 3, 'Round 3: Elimination round',               55),
-(4, 'Nether Portal Finale',2, 1, 'Final Round: Day 2 championship',          70);
+(1, 'Forest & Grasslands',  1, 1, 'Round 1: Crossword, aptitude & output prediction',        45),
+(2, 'Cave Biome',           1, 2, 'Round 2: Aptitude, debugging, code completion & offline', 60),
+(3, 'Mountain Biome',       1, 3, 'Round 3: Elimination — Blaze Guardian, Iron Armor, PvP',  70),
+(4, 'Nether Portal Repair', 2, 1, 'Round 4: Offline games & portal repair',                  60),
+(5, 'The End',              2, 2, 'Round 5: Final coding round & Final Boss',                70);
 
-select setval('rounds_id_seq', 4);
+select setval('rounds_id_seq', 5);
 ```
 
 ### 3.8 team_round_access
@@ -347,7 +348,7 @@ alter table email_logs             enable row level security;
 | members | ✅ | ✅ | ✅ | One row per person |
 | payments | ✅ | ✅ | ✅ | `amount` snapshotted for audit (env fees can change) |
 | otp_challenges | ✅ | ✅ | ✅ | Transient; no form blobs anymore |
-| attendance_checkpoints | ✅ | ✅ | ✅ | Reference data; new Round-4 phases = new rows, no schema change |
+| attendance_checkpoints | ✅ | ✅ | ✅ | Reference data; extra checkpoints (e.g., a mid-round phase) = new rows, no schema change |
 | attendance_records | ✅ | ✅ | ✅ | Head count is an atomic fact of (team, checkpoint) — the JSONB member array from v1 is gone |
 | rounds | ✅ | ✅ | ✅ | Static data |
 | team_round_access | ✅ | ✅ | ✅ | Junction, composite unique key |
@@ -363,7 +364,7 @@ Run in the Supabase SQL Editor in this exact order (each block is one migration 
 2. `002_members.sql` — members
 3. `003_payments.sql` — payments
 4. `004_otp_challenges.sql` — otp_challenges
-5. `005_rounds.sql` — rounds **+ seed 4 rounds**
+5. `005_rounds.sql` — rounds **+ seed 5 rounds**
 6. `006_attendance.sql` — attendance_checkpoints **+ seed 5 checkpoints**, attendance_records
 7. `007_team_round_access.sql` — team_round_access
 8. `008_email_logs.sql` — email_logs

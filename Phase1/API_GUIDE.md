@@ -41,7 +41,7 @@ Public event details, **read from env vars** (no DB).
   "success": true,
   "data": {
     "event_name": "MINEVERSE 2026",
-    "event_date_display": "15 August 2026",
+    "event_date_display": "15–16 August 2026",
     "event_time": "11:00 AM",
     "venue": "Main Auditorium, College",
     "registration_open": true,
@@ -51,7 +51,7 @@ Public event details, **read from env vars** (no DB).
   }
 }
 ```
-> The machine-readable `EVENT_DATE` and `WHATSAPP_GROUP_LINK` are server-only and never returned here.
+> The machine-readable `EVENT_DATE_DAY1`/`EVENT_DATE_DAY2` and `WHATSAPP_GROUP_LINK` are server-only and never returned here.
 
 ---
 
@@ -165,7 +165,7 @@ Payment page data. QR is generated on demand from env `UPI_ID`/`UPI_PAYEE_NAME`.
 **Request:** `{ "team_code": "MNV-482" }`
 
 **Gates (checked BEFORE sending, to protect Resend quota):**
-1. Today (IST) must equal env `EVENT_DATE` → else 403 `"Login opens on event day."`
+1. Today (IST) must equal env `EVENT_DATE_DAY1` **or** `EVENT_DATE_DAY2` → else 403 `"Login opens on event day."`
 2. Team must exist → else 401 `"Invalid team code"` (generic).
 3. `is_payment_verified` must be true → else 403 `"Payment verification pending. Contact organizers."`
 
@@ -289,7 +289,7 @@ The dropdown source.
   "success": true,
   "data": [
     { "id": 1, "code": "ROUND_1", "label": "Round 1 — Forest & Grasslands", "day": 1 },
-    { "id": 4, "code": "ROUND_4_PHASE_1", "label": "Round 4 — Phase 1", "day": 2 }
+    { "id": 4, "code": "ROUND_4", "label": "Round 4 — Nether Portal Repair", "day": 2 }
   ]
 }
 ```
@@ -437,7 +437,8 @@ Admin (/admin, cookie scope=admin) clicks Verify
 ### 9.3 Event-day login (OTP)
 ```
 Team enters team code → POST /api/auth/login/request-otp
-  gate: today == EVENT_DATE?      → no → 403
+  gate: today == EVENT_DATE_DAY1
+        or EVENT_DATE_DAY2?       → no → 403
   gate: is_payment_verified?      → no → 403
   → Resend OTP to lead college email
 Team enters OTP → POST /api/auth/login/verify
@@ -453,5 +454,5 @@ Volunteer opens /attendance (cookie scope=attendance)
   → team card shows: members, size, previous marks
   → selects members_present (0..team_size)
   → POST /api/attendance/mark → upsert (team, checkpoint)
-  → repeat for every team, every round, every Round-4 phase
+  → repeat for every team, every round (R1–R5)
 ```
