@@ -10,7 +10,7 @@
 - **Attendance is NOT part of the admin panel.** It is its own route tree `/attendance/**` with its **own password** (`ATTENDANCE_PASSWORD`). Admin uses `ADMIN_PASSWORD`. Both are **single input box** logins — no usernames. **No IP whitelist.**
 - Panel auth = scoped `panel_session` JWT cookie (scope `admin` or `attendance`). An admin cookie must NOT work on attendance APIs and vice versa. Route guarding in `proxy.ts` is Dev 3's file — your API routes still re-verify the cookie themselves (defense in depth) using the frozen `lib/panel/session.ts`.
 - Attendance QR scanning uses the **device camera** (no file upload). Manual team-code input is the always-visible fallback.
-- Attendance is recorded per **checkpoint** (Round 1, 2, 3, Round 4 Phase 1, Round 4 Phase 2) as a **head count** (`members_present` integer), upserted on `(team_id, checkpoint_id)`.
+- Attendance is recorded per **checkpoint** (Rounds 1–5, one per round) as a **head count** (`members_present` integer), upserted on `(team_id, checkpoint_id)`.
 - Payment verification is MANUAL (no payment gateway).
 - Event data (WhatsApp link, venue, date display, UPI) comes from **env vars** — never hardcode.
 

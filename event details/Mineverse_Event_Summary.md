@@ -3,7 +3,7 @@
 **Mineverse** is a Minecraft-themed coding event where teams of 2–3 players progress through four biomes by solving coding, debugging, and logic challenges, earning resources, crafting pickaxes, and battling guardians. The event runs over two days and ends with a Final Boss battle in The End.
 
 ## Concept
-Teams solve coding problems to earn resources (Wood, Stone, Iron, Gold, Diamonds, Emeralds), craft progressively better pickaxes, optionally build structures, face random world events, and trade at the Marketplace. The goal: survive all biomes, defeat the Ender Dragon, craft the Diamond Pickaxe, and finish first to become MINVERSE champions.
+Teams solve coding problems to earn resources (Wood, Stone, Iron, Gold, Diamonds, Emeralds), craft progressively better gear, optionally build structures, face random world events, and trade at the Marketplace. The goal: survive all biomes, craft the Diamond Pickaxe, and defeat the Ender Dragon first to become MINEVERSE champions.
 
 ## Structure at a Glance
 
@@ -11,7 +11,7 @@ Teams solve coding problems to earn resources (Wood, Stone, Iron, Gold, Diamonds
 |---|---|---|---|
 | Round 1 | Forest & Grasslands | Crossword, aptitude, output-prediction questions; optional Forest Guardian | Craft Wooden Pickaxe |
 | Round 2 | Cave Biome | Aptitude, debugging, code completion, offline games; Skeleton Archer | Craft Stone Pickaxe |
-| Round 3 | Mountain Biome | Debugging, coding, physical games; **Elimination round** — Blaze Guardian, PvP | Craft Iron Pickaxe, top 50% qualify (Day 2) |
+| Round 3 | Mountain Biome | Debugging, coding, physical games; **Elimination round** — Blaze Guardian, PvP | Craft Iron Armor, win PvP (Nether Core), top 50% qualify (Day 2) |
 | Pre-Final Round | Nether Portal | Offline/team games only (memory, PvP mini-games) | Repair Nether Portal |
 | Final Round | The End | Leetcode-style coding, logic puzzles, debugging | Craft Diamond Pickaxe, Final Boss Challenge |
 
@@ -20,7 +20,7 @@ Teams solve coding problems to earn resources (Wood, Stone, Iron, Gold, Diamonds
 - **Day 2:** Day 1 Recap → Pre-Final Round → Final Round → Final Result Compilation → Prize Distribution & Closing Ceremony.
 
 ## Winning Condition
-The first team to defeat the Final Boss (after crafting the Diamond Pickaxe) is crowned the **Champion of MINVERSE**.
+The first team to defeat the Final Boss (after crafting the Diamond Pickaxe) is crowned the **Champion of MINEVERSE**.
 
 ## Core Elements
 - **Resources:** Wood, Stone, Iron, Gold, Diamond, Emerald, Obsidian

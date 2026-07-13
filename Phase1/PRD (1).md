@@ -21,7 +21,7 @@ MINEVERSE is a 2-day Minecraft-themed coding competition platform. Phase 1 cover
 | 3 | **OTP is verified inline, before the submit button.** The registration form's Submit stays disabled until the team lead's college email is verified. |
 | 4 | **Attendance is NOT part of the admin panel.** It lives at its own route `/attendance`, protected by its own single-input-box password. |
 | 5 | **Attendance uses the device camera** to scan team QR codes (no image upload). Manual team-code entry is the fallback. Staff selects **how many members are present** (a count, not per-member checkboxes). |
-| 6 | **Attendance is taken at every checkpoint:** Round 1, Round 2, Round 3, Round 4, and each phase of Round 4. |
+| 6 | **Attendance is taken at every checkpoint:** one per round — Round 1, Round 2, Round 3, Round 4 (Nether Portal Repair), and Round 5 (The End). |
 | 7 | **Admin panel and attendance panel each use a single input-box password** (from env vars). No usernames. No IP whitelist. |
 | 8 | **All changeable data lives in env vars** — event date/time/venue, WhatsApp link, UPI ID, fees, college domain, contact info. The `event_config` DB table is gone. |
 | 9 | Stack upgraded to the latest packages (July 2026): Next.js 16, React 19, Tailwind v4, Zod 4, etc. |
@@ -63,7 +63,7 @@ Lands on page → Registers team (verifies college email by OTP **inline in the 
 Opens `/admin` → enters the admin password (single input box) → Verifies payments (toggle) → Controls rounds (lock/unlock) → Monitors teams. **Admin does not mark attendance.**
 
 ### 3.3 Attendance Volunteer (Desk / Round Marshal)
-Opens `/attendance` on a phone/laptop → enters the attendance password (single input box) → picks the current checkpoint (Round 1 / Round 2 / Round 3 / Round 4 Phase 1 / Round 4 Phase 2) → scans the team's QR with the camera (or types the team code) → selects **how many members are present** → marks. Repeats at every checkpoint.
+Opens `/attendance` on a phone/laptop → enters the attendance password (single input box) → picks the current checkpoint (Round 1 / Round 2 / Round 3 / Round 4 / Round 5) → scans the team's QR with the camera (or types the team code) → selects **how many members are present** → marks. Repeats at every checkpoint.
 
 ---
 
@@ -111,7 +111,7 @@ Opens `/attendance` on a phone/laptop → enters the attendance password (single
 ### 4.5 Attendance Panel (`/attendance`) — standalone, NOT in admin
 - `/attendance/login`: **one password input** compared against `ATTENDANCE_PASSWORD` env var → `panel_session` cookie (scope `attendance`, 24 h).
 - Main screen:
-  1. **Checkpoint selector** (dropdown): Round 1 / Round 2 / Round 3 / Round 4 – Phase 1 / Round 4 – Phase 2. Persisted in localStorage so the marshal picks once.
+  1. **Checkpoint selector** (dropdown): Round 1 / Round 2 / Round 3 / Round 4 — Nether Portal Repair / Round 5 — The End. Persisted in localStorage so the marshal picks once.
   2. **Camera QR scanner** (`qr-scanner` library, live camera — no file upload) that decodes the team QR JWT → `POST /api/attendance/resolve`.
   3. **Manual fallback:** team code input (`MNV-XXX`).
   4. Team card appears: name, code, size, payment status, previous checkpoint marks.
@@ -121,7 +121,7 @@ Opens `/attendance` on a phone/laptop → enters the attendance password (single
 
 ### 4.6 Event-Day Login (`/login`) — OTP-based, no password
 1. Team enters **team code only** → `POST /api/auth/login/request-otp`.
-2. Server gates **before** burning Resend quota: current date must equal `EVENT_DATE` (env), team must exist, `is_payment_verified` must be true. Errors are specific but non-enumerating.
+2. Server gates **before** burning Resend quota: current date (IST) must equal `EVENT_DATE_DAY1` **or** `EVENT_DATE_DAY2` (env — the event spans two days), team must exist, `is_payment_verified` must be true. Errors are specific but non-enumerating.
 3. OTP (6-digit, 10-min, hashed at rest) is sent to the **team lead's college email** via **Resend**. Response includes the masked email (`ra•••@college.edu.in`).
 4. Team enters OTP → `POST /api/auth/login/verify` → httpOnly `session_token` JWT cookie (SameSite=Strict, 24 h) → redirect `/dashboard`.
 
@@ -130,13 +130,13 @@ Opens `/attendance` on a phone/laptop → enters the attendance password (single
 ### 4.7 Dashboard (`/dashboard`)
 - Header: team code, team name, logout. Sidebar: members list, payment status.
 - **Day 1:** 3 round cards (Forest & Grasslands, Cave Biome, Mountain Biome) — Locked / Active / Completed states. Unlock only when admin toggles.
-- **Day 2:** locked placeholder ("available tomorrow").
+- **Day 2:** 2 locked round cards (Nether Portal Repair, The End) — shown as "available tomorrow" until Day 2.
 - Resource bar placeholder (zeros — Phase 2).
 - Live updates via Supabase Realtime broadcast + 10 s polling fallback.
 - `/dashboard/qr`: team can re-view their attendance QR if the email is lost.
 
 ### 4.8 Admin Round Controls (`/admin/rounds`)
-- Table of 4 rounds (3× Day 1, 1× Day 2). Toggle Lock/Unlock per round.
+- Table of 5 rounds (3× Day 1, 2× Day 2). Toggle Lock/Unlock per round.
 - Unlock → `rounds.status='active'`, `started_at=now()`, unlock `team_round_access` for all payment-verified teams, broadcast `round_unlocked` on Realtime channel.
 - Countdown timer per active round; **"+5 minutes"** emergency button; early-lock button.
 
@@ -198,8 +198,9 @@ TURNSTILE_SECRET_KEY=
 
 # ── Event details (ALL changeable event data) ───────
 NEXT_PUBLIC_EVENT_NAME="MINEVERSE 2026"
-EVENT_DATE=2026-08-15                       # server-side login gate (YYYY-MM-DD, IST)
-NEXT_PUBLIC_EVENT_DATE_DISPLAY="15 August 2026"
+EVENT_DATE_DAY1=2026-08-15                  # server-side login gate, Day 1 (YYYY-MM-DD, IST)
+EVENT_DATE_DAY2=2026-08-16                  # server-side login gate, Day 2 — login passes on either day
+NEXT_PUBLIC_EVENT_DATE_DISPLAY="15–16 August 2026"
 NEXT_PUBLIC_EVENT_TIME="11:00 AM"
 NEXT_PUBLIC_EVENT_VENUE="Main Auditorium, College"
 NEXT_PUBLIC_REGISTRATION_OPEN=true
