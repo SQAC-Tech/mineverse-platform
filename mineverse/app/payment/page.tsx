@@ -4,9 +4,6 @@ import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button, buttonVariants } from '@/components/ui/button';
-import { Download } from 'lucide-react';
-import Image from 'next/image';
 
 function PaymentContent() {
   const searchParams = useSearchParams();
@@ -80,36 +77,30 @@ function PaymentContent() {
             <p className="font-bold mb-2">Payment Verified! 🎉</p>
             <p className="text-sm text-emerald-500/80">Check your email for the attendance QR code and WhatsApp group link.</p>
           </div>
+        ) : data.payment_status === 'rejected' ? (
+          <div className="text-red-400 bg-red-500/10 p-4 rounded-lg text-center w-full border border-red-500/20">
+            <p className="font-bold mb-2">Payment Rejected</p>
+            <p className="text-sm text-red-500/80">There was an issue verifying your payment. Please contact the organizers.</p>
+          </div>
         ) : (
           <>
-            {data.qr_image ? (
-              <div className="bg-white p-4 rounded-xl shadow-lg">
-                <Image src={data.qr_image} alt="Payment QR" width={250} height={250} className="w-64 h-64 object-contain" />
+            <div className="w-full bg-slate-950 p-6 rounded-lg border border-slate-800 space-y-3">
+              <h3 className="font-semibold text-slate-200 mb-2">Submitted Payment Details</h3>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-400">Transaction ID</span>
+                <span className="text-white font-mono">{data.transaction_id}</span>
               </div>
-            ) : (
-              <div className="w-64 h-64 bg-slate-800 rounded-xl flex items-center justify-center text-slate-500">
-                QR Not Available
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-400">Sender Name</span>
+                <span className="text-white">{data.sender_name}</span>
               </div>
-            )}
-
-            {data.qr_image && (
-              <a 
-                href={data.qr_image} 
-                download={`payment-qr-${data.team_code}.png`}
-                className={buttonVariants({ variant: "outline", className: "border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white" })}
-              >
-                <Download className="w-4 h-4 mr-2" /> Download QR
-              </a>
-            )}
+            </div>
 
             <div className="w-full bg-slate-950 p-6 rounded-lg border border-slate-800">
-              <h3 className="font-semibold text-slate-200 mb-4">Instructions</h3>
-              <ol className="list-decimal list-inside space-y-2 text-sm text-slate-400">
-                <li>Scan the QR code using any UPI app (GPay, PhonePe, Paytm).</li>
-                <li>Pay the exact amount of <strong className="text-white">₹{data.amount}</strong>.</li>
-                <li>Do not modify the remarks/note. It must be <strong className="text-white">Team-{data.team_code}</strong>.</li>
-                <li>Wait for an admin to verify your payment. This page will automatically update.</li>
-              </ol>
+              <p className="text-sm text-slate-400">
+                Your payment was recorded during registration and is now awaiting verification by the organizers.
+                This page updates automatically — you&apos;ll also receive a confirmation email with your attendance QR once verified.
+              </p>
             </div>
           </>
         )}
