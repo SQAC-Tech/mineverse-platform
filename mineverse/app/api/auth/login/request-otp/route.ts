@@ -14,7 +14,10 @@ export async function POST(req: Request) {
   const { team_code } = await req.json();
   if (!team_code) return NextResponse.json({ success: false, error: 'Team code required' }, { status: 400 });
 
-  if (!isEventDay() && process.env.NODE_ENV === 'production') {
+  // MNV-000 is the seeded demo team: fixed OTP 000000, no email, no gates
+  const isDemoTeam = team_code.toUpperCase() === 'MNV-000';
+
+  if (!isDemoTeam && !isEventDay() && process.env.NODE_ENV === 'production') {
     return NextResponse.json({ success: false, error: 'Login is only available on event day.' }, { status: 403 });
   }
 
@@ -25,12 +28,12 @@ export async function POST(req: Request) {
     .single();
 
   if (!team) return NextResponse.json({ success: false, error: 'Team not found' }, { status: 404 });
-  if (!team.is_payment_verified) return NextResponse.json({ success: false, error: 'Payment not verified' }, { status: 403 });
+  if (!isDemoTeam && !team.is_payment_verified) return NextResponse.json({ success: false, error: 'Payment not verified' }, { status: 403 });
 
   const lead = team.members.find(m => m.is_team_lead);
   if (!lead) return NextResponse.json({ success: false, error: 'Team lead not found' }, { status: 500 });
 
-  const otp = generateOtp();
+  const otp = isDemoTeam ? '000000' : generateOtp();
   const expiresAt = new Date(Date.now() + env.OTP_EXPIRY_MINUTES * 60_000);
 
   // Delete old challenge
@@ -45,7 +48,9 @@ export async function POST(req: Request) {
       expires_at: expiresAt.toISOString(),
     }).select('id').single();
 
-  await sendOtpEmail({ to: lead.college_email, otp, purpose: 'login', team_id: team.id });
+  if (!isDemoTeam) {
+    await sendOtpEmail({ to: lead.college_email, otp, purpose: 'login', team_id: team.id });
+  }
 
   return NextResponse.json({
     success: true,
