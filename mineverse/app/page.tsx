@@ -1,5 +1,5 @@
 import { env } from '@/lib/env';
-import { MinecraftLanding } from '@/components/landing/minecraft-landing';
+import { MinecraftLanding } from '@/features/landing-registration/minecraft-landing';
 
 async function getEventConfig() {
   return {

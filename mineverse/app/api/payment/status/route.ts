@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase/server';
-import QRCode from 'qrcode';
-import { env } from '@/lib/env';
 
+/**
+ * Post-registration status check. Payment happens BEFORE submit (see
+ * /api/payment/qr), so this only reports verification progress — it never
+ * shows a pay-QR.
+ */
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const team_code = searchParams.get('team');
@@ -13,36 +16,26 @@ export async function GET(req: Request) {
 
   const { data: team } = await supabaseServer
     .from('teams')
-    .select('id, team_code, status, is_payment_verified, payments (amount, upi_string, status)')
+    .select('id, team_code, team_name, status, is_payment_verified, payments (amount, status, transaction_id, sender_name, verified_at)')
     .eq('team_code', team_code.toUpperCase())
     .single();
 
-  if (!team || !team.payments || team.payments.length === 0) {
+  if (!team || !team.payments) {
     return NextResponse.json({ success: false, error: 'Team or payment not found' }, { status: 404 });
   }
 
-  const payment = team.payments[0] as any; // Due to array return on join
-  let upi_string = payment.upi_string;
-
-  if (payment.status === 'pending' && !upi_string) {
-    upi_string = `upi://pay?pa=${env.UPI_ID}&pn=${encodeURIComponent(env.UPI_PAYEE_NAME)}&am=${payment.amount}&tn=Team-${team.team_code}&cu=INR`;
-    
-    // Optimistically save the upi_string back to the database
-    await supabaseServer.from('payments').update({ upi_string }).eq('team_id', team.id);
-  }
-
-  let qr_image = null;
-  if (upi_string) {
-    qr_image = await QRCode.toDataURL(upi_string, { width: 400, margin: 2 });
-  }
+  const payment = team.payments;
 
   return NextResponse.json({
     success: true,
     data: {
       team_code: team.team_code,
+      team_name: team.team_name,
       amount: payment.amount,
       payment_status: payment.status,
-      qr_image,
+      transaction_id: payment.transaction_id,
+      sender_name: payment.sender_name,
+      verified_at: payment.verified_at,
     }
   });
 }
