@@ -30,8 +30,12 @@ export const registrationSchema = z.object({
   challenge_id: z.string().uuid(),
   verification_token: z.string().uuid(),
   team_name: z.string().min(3).max(50),
-  transaction_id: z.string().min(1, 'Transaction ID is required'),
-  sender_upi_id: z.string().min(1, 'UPI ID is required'),
+  transaction_id: z.string()
+    .trim()
+    .min(6, { message: 'Enter the UPI transaction/reference ID' })
+    .max(50)
+    .regex(/^[A-Za-z0-9-]+$/, { message: 'Transaction ID can only contain letters, numbers and dashes' }),
+  sender_name: z.string().trim().min(2, { message: 'Enter the name on the paying UPI account' }).max(50),
   members: z.array(memberSchema).min(1).max(3)
     .refine((m) => m.filter(x => x.is_team_lead).length === 1 && m[0].is_team_lead,
       { message: 'First member must be the team lead' })

@@ -4,6 +4,7 @@ import { useRef, useMemo, useEffect, useState, useCallback } from 'react';
 import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import Link from 'next/link';
+import { RegistrationForm } from './registration-form';
 
 // ═══════════════════════════════════════════════════════════
 //  SCROLL STATE

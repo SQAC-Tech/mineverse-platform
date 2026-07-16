@@ -18,7 +18,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: false, error: (parsed.error as any).errors[0].message }, { status: 400 });
   }
 
-  const { challenge_id, verification_token, team_name, transaction_id, sender_upi_id, members } = parsed.data;
+  const { challenge_id, verification_token, team_name, members, transaction_id, sender_name } = parsed.data;
   const lead = members.find((m) => m.is_team_lead)!;
 
   // Verify challenge
@@ -43,8 +43,21 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: false, error: 'One or more college emails are already registered' }, { status: 409 });
   }
 
+  // Reject reused transaction IDs before creating anything
+  const { data: existingTxn } = await supabaseServer.from('payments')
+    .select('id')
+    .eq('transaction_id', transaction_id)
+    .maybeSingle();
+
+  if (existingTxn) {
+    return NextResponse.json({ success: false, error: 'This transaction ID has already been used' }, { status: 409 });
+  }
+
   // Generate team code via RPC
   const { data: teamCode } = await supabaseServer.rpc('generate_team_code');
+  if (!teamCode) {
+    return NextResponse.json({ success: false, error: 'Error generating team code' }, { status: 500 });
+  }
 
   const teamSize = members.length;
   const amount = teamSize === 1 ? env.FEE_SOLO : teamSize === 2 ? env.FEE_DUO : env.FEE_TRIO;
@@ -69,15 +82,26 @@ export async function POST(req: Request) {
   }));
   await supabaseServer.from('members').insert(membersToInsert);
 
-  // Insert Payment
-  await supabaseServer.from('payments').insert({
+  // Insert Payment — payment happened before submit; txn details await admin verification
+  const { error: paymentErr } = await supabaseServer.from('payments').insert({
     team_id: team.id,
     amount,
     team_size: teamSize,
     transaction_id,
-    sender_upi_id,
+    sender_name,
     status: 'pending',
   });
+
+  if (paymentErr) {
+    // Unique violation on transaction_id (raced past the pre-check) or other failure:
+    // roll back the team so the user can retry cleanly (members/access cascade).
+    await supabaseServer.from('teams').delete().eq('id', team.id);
+    const isDupTxn = paymentErr.code === '23505';
+    return NextResponse.json(
+      { success: false, error: isDupTxn ? 'This transaction ID has already been used' : 'Error saving payment details' },
+      { status: isDupTxn ? 409 : 500 }
+    );
+  }
 
   // Insert Round Access
   // Get all rounds first
@@ -97,6 +121,7 @@ export async function POST(req: Request) {
     team_code: teamCode,
     amount,
     team_id: team.id,
+    transaction_id,
   });
 
   return NextResponse.json({
