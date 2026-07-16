@@ -4,6 +4,8 @@ create table payments (
     amount integer not null,
     team_size integer not null,
     upi_string text,                           -- the upi:// deep link used for the QR
+    transaction_id text not null unique,       -- UPI txn ref entered by the team before submit
+    sender_name text not null,                 -- name on the paying UPI account
     status text not null default 'pending'
         check (status in ('pending', 'verified', 'rejected')),
     verified_at timestamptz,

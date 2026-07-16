@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { registrationSchema } from '@/lib/validation/schemas';
@@ -16,7 +16,7 @@ type FormValues = {
   verification_token: string;
   team_name: string;
   transaction_id: string;
-  sender_upi_id: string;
+  sender_name: string;
   members: {
     name: string;
     email: string;
@@ -53,13 +53,28 @@ export function RegistrationForm({ fees = { solo: 100, duo: 180, trio: 250 } }: 
       challenge_id: '',
       verification_token: '',
       team_name: '',
-      transaction_id: 'pending', // placeholder for step 1
-      sender_upi_id: 'pending', // placeholder for step 1
+      transaction_id: '',
+      sender_name: '',
       members: [{ name: '', email: '', college_email: '', phone: '', section: '', department: 'CSE', is_team_lead: true }],
     }
   });
 
   const { fields, append, remove } = useFieldArray({ control, name: 'members' });
+
+  // Payment step (pay first, then submit): QR for the current team size
+  const [paymentQr, setPaymentQr] = useState<{ qr_image: string; amount: number; upi_id: string } | null>(null);
+
+  useEffect(() => {
+    if (!otpVerified) return;
+    let cancelled = false;
+    fetch(`/api/payment/qr?size=${fields.length}`)
+      .then(res => res.json())
+      .then(data => {
+        if (!cancelled && data.success) setPaymentQr(data.data);
+      })
+      .catch(() => { if (!cancelled) toast.error('Failed to load payment QR'); });
+    return () => { cancelled = true; };
+  }, [otpVerified, fields.length]);
 
   const leadCollegeEmail = watch('members.0.college_email');
   const teamName = watch('team_name');
@@ -128,21 +143,24 @@ export function RegistrationForm({ fees = { solo: 100, duo: 180, trio: 250 } }: 
     }
   };
 
-  const handleProceedToPayment = async () => {
-    setValue('transaction_id', 'pending');
-    setValue('sender_upi_id', 'pending');
-    
-    const isValid = await trigger();
-    if (!isValid) {
-      toast.error('Please fill all required fields correctly');
-      return;
-    }
-    if (!otpVerified || !challengeId || !verificationToken) {
-      toast.error("Please verify the team lead's college email first");
-      return;
-    }
-    if (!turnstileToken) {
-      toast.error('Please complete the captcha first');
+  // Zod blocks submit invisibly if a field error isn't rendered — surface it
+  const onInvalid = (errs: any) => {
+    const firstMessage = (function find(obj: any): string | null {
+      if (!obj || typeof obj !== 'object') return null;
+      if (typeof obj.message === 'string') return obj.message;
+      for (const key of Object.keys(obj)) {
+        const found = find(obj[key]);
+        if (found) return found;
+      }
+      return null;
+    })(errs);
+    toast.error(firstMessage || 'Please fix the highlighted fields');
+  };
+
+  const onSubmit = async (data: FormValues) => {
+    if (data.honeypot) return; // Bot detected
+    if (!otpVerified || !data.challenge_id || !data.verification_token) {
+      toast.error('Please verify the team lead\'s college email first');
       return;
     }
 
@@ -184,9 +202,8 @@ export function RegistrationForm({ fees = { solo: 100, duo: 180, trio: 250 } }: 
       const result = await res.json();
 
       if (result.success) {
-        toast.success('Registration successful! Check your email for confirmation.');
-        router.push('/');
-        router.refresh();
+        toast.success('Registration submitted! Payment is under verification.');
+        router.push(result.redirect);
       } else {
         toast.error(result.error || 'Registration failed');
       }
@@ -236,7 +253,7 @@ export function RegistrationForm({ fees = { solo: 100, duo: 180, trio: 250 } }: 
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="w-full max-w-4xl mx-auto flex justify-center relative pb-20">
+    <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="w-full max-w-4xl mx-auto flex justify-center relative pb-20">
       {/* Honeypot field */}
       <input type="text" {...register('honeypot')} className="hidden" tabIndex={-1} autoComplete="off" />
 
@@ -267,19 +284,42 @@ export function RegistrationForm({ fees = { solo: 100, duo: 180, trio: 250 } }: 
                     {errors.team_name && <p className="text-red-700 text-xs mt-1 font-bold">{errors.team_name.message}</p>}
                   </div>
 
-                  {/* Members Loop */}
-                  {fields.map((field, index) => (
-                    <div key={field.id} className="pt-4 mt-4 border-t-2 border-[#a37b45] border-dashed">
-                      <div className="flex justify-between items-center mb-4">
-                        <h4 style={{ ...mc, color: '#315433', fontSize: '1rem' }}>
-                          {index === 0 ? 'TEAM LEADER (MEMBER 1)' : `MEMBER ${index + 1}`}
-                        </h4>
-                        {index > 0 && (
-                          <button type="button" onClick={() => remove(index)} className="text-red-800 hover:text-red-600 transition-colors">
-                            <Trash2 className="h-5 w-5" />
+                  <div className="space-y-4">
+                    <div>
+                      <label style={{ ...mc, display: 'block', color: '#3c2415', fontSize: '0.8rem', marginBottom: '6px' }}>&gt; FULL NAME</label>
+                      <div className="flex gap-2">
+                        <input {...register(`members.${index}.name`)} style={inputBg} placeholder="Enter full name" />
+                        <div style={iconBtn}>👤</div>
+                      </div>
+                      {errors.members?.[index]?.name && <p className="text-red-700 text-xs mt-1 font-bold">{errors.members[index]?.name?.message}</p>}
+                    </div>
+
+                    <div>
+                      <label style={{ ...mc, display: 'block', color: '#3c2415', fontSize: '0.8rem', marginBottom: '6px' }}>&gt; PERSONAL EMAIL</label>
+                      <div className="flex gap-2">
+                        <input {...register(`members.${index}.email`)} style={inputBg} placeholder="Enter personal email" />
+                        <div style={iconBtn}>✉️</div>
+                      </div>
+                      {errors.members?.[index]?.email && <p className="text-red-700 text-xs mt-1 font-bold">{errors.members[index]?.email?.message}</p>}
+                    </div>
+
+                    <div>
+                      <label style={{ ...mc, display: 'block', color: '#3c2415', fontSize: '0.8rem', marginBottom: '6px' }}>&gt; COLLEGE EMAIL {index === 0 && '(VERIFICATION REQ)'}</label>
+                      <div className="flex gap-2">
+                        <input 
+                          {...register(`members.${index}.college_email`)} 
+                          style={inputBg} 
+                          disabled={index === 0 && otpVerified}
+                          placeholder="Enter college email" 
+                        />
+                        {index === 0 && !otpVerified && (
+                          <button type="button" onClick={handleSendOtp} disabled={isSendingOtp || !turnstileToken} style={{...iconBtn, width: 'auto', padding: '0 10px', color: '#fde047', fontFamily: 'var(--font-minecraft)'}}>
+                            {isSendingOtp ? <Loader2 className="h-4 w-4 animate-spin" /> : 'OTP'}
                           </button>
                         )}
                       </div>
+                      {errors.members?.[index]?.college_email && <p className="text-red-700 text-xs mt-1 font-bold">{errors.members[index]?.college_email?.message}</p>}
+                    </div>
 
                       <div className="space-y-4">
                         <div>
@@ -349,9 +389,79 @@ export function RegistrationForm({ fees = { solo: 100, duo: 180, trio: 250 } }: 
                           </div>
                         </div>
                       </div>
+                    )}
+
+                    <div className="flex flex-col sm:flex-row gap-4">
+                      <div className="flex-1">
+                        <label style={{ ...mc, display: 'block', color: '#3c2415', fontSize: '0.8rem', marginBottom: '6px' }}>&gt; WHATSAPP NO.</label>
+                        <input {...register(`members.${index}.phone`)} style={inputBg} placeholder="10 digits" />
+                        {errors.members?.[index]?.phone && <p className="text-red-700 text-xs mt-1 font-bold">{errors.members[index]?.phone?.message}</p>}
+                      </div>
+                      <div className="w-full sm:w-[120px]">
+                        <label style={{ ...mc, display: 'block', color: '#3c2415', fontSize: '0.8rem', marginBottom: '6px' }}>&gt; DEPT</label>
+                        <select {...register(`members.${index}.department`)} style={inputBg}>
+                          <option value="CSE">CSE</option>
+                          <option value="IT">IT</option>
+                          <option value="ECE">ECE</option>
+                          <option value="EEE">EEE</option>
+                          <option value="MECH">MECH</option>
+                          <option value="CIVIL">CIVIL</option>
+                          <option value="OTHER">OTHER</option>
+                        </select>
+                      </div>
                     </div>
                   ))}
                 </div>
+              ))}
+
+              {/* Payment — pay first, then submit */}
+              {otpVerified && (
+                <div className="pt-4 mt-4 border-t-2 border-[#a37b45] border-dashed">
+                  <h4 style={{ ...mc, color: '#315433', fontSize: '1rem', marginBottom: '12px' }}>
+                    💰 PAYMENT ({fields.length} {fields.length === 1 ? 'MEMBER' : 'MEMBERS'})
+                  </h4>
+
+                  {paymentQr ? (
+                    <div className="flex flex-col items-center gap-3 mb-4">
+                      <p style={{ ...mc, color: '#3c2415', fontSize: '0.8rem' }}>
+                        SCAN & PAY <strong>₹{paymentQr.amount}</strong> TO {paymentQr.upi_id}
+                      </p>
+                      <img
+                        src={paymentQr.qr_image}
+                        alt="UPI payment QR"
+                        style={{ width: '220px', height: '220px', border: '4px solid #3c2415', imageRendering: 'pixelated' as any }}
+                      />
+                      <p style={{ ...mc, color: '#3c2415', fontSize: '0.65rem', textAlign: 'center' }}>
+                        AFTER PAYING, ENTER THE TRANSACTION ID AND THE SENDER&apos;S NAME BELOW, THEN SUBMIT.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="flex justify-center mb-4">
+                      <Loader2 className="h-6 w-6 animate-spin text-[#3c2415]" />
+                    </div>
+                  )}
+
+                  <div className="space-y-4">
+                    <div>
+                      <label style={{ ...mc, display: 'block', color: '#3c2415', fontSize: '0.8rem', marginBottom: '6px' }}>&gt; UPI TRANSACTION ID</label>
+                      <div className="flex gap-2">
+                        <input {...register('transaction_id')} style={inputBg} placeholder="e.g. 415223987654" />
+                        <div style={iconBtn}>🧾</div>
+                      </div>
+                      {errors.transaction_id && <p className="text-red-700 text-xs mt-1 font-bold">{errors.transaction_id.message}</p>}
+                    </div>
+                    <div>
+                      <label style={{ ...mc, display: 'block', color: '#3c2415', fontSize: '0.8rem', marginBottom: '6px' }}>&gt; SENDER&apos;S NAME (ON UPI ACCOUNT)</label>
+                      <div className="flex gap-2">
+                        <input {...register('sender_name')} style={inputBg} placeholder="Name of the person who paid" />
+                        <div style={iconBtn}>🪪</div>
+                      </div>
+                      {errors.sender_name && <p className="text-red-700 text-xs mt-1 font-bold">{errors.sender_name.message}</p>}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
 
                 <div className="mt-8 pt-6 border-t-2 border-[#a37b45] border-dashed flex flex-col items-center gap-6">
                   {fields.length < 3 && (

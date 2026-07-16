@@ -28,6 +28,9 @@ export async function POST(req: Request) {
   }
 
   // Create session
+  if (!challenge.team_id || !challenge.teams) {
+    return NextResponse.json({ success: false, error: 'Challenge is not a login challenge' }, { status: 400 });
+  }
   const token = await createSessionToken(challenge.team_id, challenge.teams.team_code);
   await setSessionCookie(token);
 

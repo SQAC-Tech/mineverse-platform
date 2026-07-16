@@ -46,20 +46,21 @@ export async function sendOtpEmail({
   return res;
 }
 
-/** SMTP — registration received (payment pending). */
+/** SMTP — registration received (payment made, verification pending). */
 export async function sendRegistrationReceivedEmail({
-  to, team_name, team_code, amount, team_id
+  to, team_name, team_code, amount, team_id, transaction_id
 }: {
   to: string; team_name: string; team_code: string; amount: number; team_id: string;
+  transaction_id: string;
 }): Promise<EmailResult> {
   const subject = `Registration Received - MINEVERSE (Team ${team_code})`;
   const html = `
     <div style="font-family: sans-serif; max-w: 600px; margin: 0 auto; padding: 20px;">
       <h2>Welcome to MINEVERSE, ${team_name}!</h2>
-      <p>We have received your registration details. Your team code is <strong>${team_code}</strong>.</p>
-      <p>Please complete your payment of <strong>₹${amount}</strong> to finalize your registration.</p>
-      <p>You can check your payment status and get the payment QR here:</p>
-      <a href="${process.env.NEXT_PUBLIC_APP_URL}/payment?team=${team_code}" style="display:inline-block;background:#10b981;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;">Go to Payment Page</a>
+      <p>We have received your registration and payment details. Your team code is <strong>${team_code}</strong>.</p>
+      <p>Payment of <strong>₹${amount}</strong> (transaction ID <strong>${transaction_id}</strong>) is now <strong>under verification</strong> by the organizers. You'll receive a confirmation email with your attendance QR once it's verified.</p>
+      <p>You can check your verification status here:</p>
+      <a href="${process.env.NEXT_PUBLIC_APP_URL}/payment?team=${team_code}" style="display:inline-block;background:#10b981;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;">Check Status</a>
     </div>
   `;
 

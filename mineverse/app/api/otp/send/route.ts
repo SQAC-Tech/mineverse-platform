@@ -17,6 +17,11 @@ export async function POST(req: Request) {
 
   const { college_email, turnstile_token } = parsed.data;
 
+  const collegeDomain = process.env.NEXT_PUBLIC_COLLEGE_EMAIL_DOMAIN || '@college.edu.in';
+  if (!college_email.toLowerCase().endsWith(collegeDomain.toLowerCase())) {
+    return NextResponse.json({ success: false, error: `Use your college email (${collegeDomain})` }, { status: 400 });
+  }
+
   if (!rateLimit('otp:' + college_email, 3, 10 * 60_000)) {
     return NextResponse.json({ success: false, error: 'Too many OTP requests. Wait a few minutes.' }, { status: 429 });
   }
