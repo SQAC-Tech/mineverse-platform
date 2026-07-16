@@ -30,6 +30,8 @@ export const registrationSchema = z.object({
   challenge_id: z.string().uuid(),
   verification_token: z.string().uuid(),
   team_name: z.string().min(3).max(50),
+  transaction_id: z.string().min(1, 'Transaction ID is required'),
+  sender_upi_id: z.string().min(1, 'UPI ID is required'),
   members: z.array(memberSchema).min(1).max(3)
     .refine((m) => m.filter(x => x.is_team_lead).length === 1 && m[0].is_team_lead,
       { message: 'First member must be the team lead' })

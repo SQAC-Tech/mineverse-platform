@@ -18,7 +18,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: false, error: (parsed.error as any).errors[0].message }, { status: 400 });
   }
 
-  const { challenge_id, verification_token, team_name, members } = parsed.data;
+  const { challenge_id, verification_token, team_name, transaction_id, sender_upi_id, members } = parsed.data;
   const lead = members.find((m) => m.is_team_lead)!;
 
   // Verify challenge
@@ -74,6 +74,8 @@ export async function POST(req: Request) {
     team_id: team.id,
     amount,
     team_size: teamSize,
+    transaction_id,
+    sender_upi_id,
     status: 'pending',
   });
 
@@ -101,6 +103,5 @@ export async function POST(req: Request) {
     success: true,
     team_code: teamCode,
     payment_amount: amount,
-    redirect: '/payment?team=' + teamCode,
   });
 }
