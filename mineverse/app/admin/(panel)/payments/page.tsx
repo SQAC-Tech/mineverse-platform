@@ -52,7 +52,8 @@ export default function AdminPaymentsPage() {
             <TableRow className="border-slate-800">
               <TableHead className="text-slate-400">Team Code</TableHead>
               <TableHead className="text-slate-400">Amount</TableHead>
-              <TableHead className="text-slate-400">Size</TableHead>
+              <TableHead className="text-slate-400">Txn ID</TableHead>
+              <TableHead className="text-slate-400">UPI ID</TableHead>
               <TableHead className="text-slate-400">Status</TableHead>
               <TableHead className="text-slate-400 text-right">Actions</TableHead>
             </TableRow>
@@ -62,7 +63,8 @@ export default function AdminPaymentsPage() {
               <TableRow key={p.id} className="border-slate-800 hover:bg-slate-800/50">
                 <TableCell className="font-medium text-slate-200">{p.teams?.team_code}</TableCell>
                 <TableCell className="text-slate-300">₹{p.amount}</TableCell>
-                <TableCell className="text-slate-300">{p.team_size}</TableCell>
+                <TableCell className="text-slate-300 font-mono text-xs">{p.transaction_id}</TableCell>
+                <TableCell className="text-slate-300 text-xs">{p.sender_upi_id}</TableCell>
                 <TableCell>
                   {p.status === 'verified' ? (
                     <Badge className="bg-emerald-500/20 text-emerald-400">Verified</Badge>
@@ -81,7 +83,7 @@ export default function AdminPaymentsPage() {
             ))}
             {payments.length === 0 && (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-slate-500 py-8">No payments found</TableCell>
+                <TableCell colSpan={6} className="text-center text-slate-500 py-8">No payments found</TableCell>
               </TableRow>
             )}
           </TableBody>
