@@ -12,10 +12,16 @@ export default function AdminRoundsPage() {
   const [loading, setLoading] = useState(true);
 
   const fetchRounds = async () => {
-    const res = await fetch('/api/admin/rounds');
-    const json = await res.json();
-    if (json.success) setRounds(json.data);
-    setLoading(false);
+    try {
+      const res = await fetch('/api/admin/rounds');
+      const json = await res.json();
+      if (json.success) setRounds(json.data || []);
+      else toast.error(json.error || 'Failed to load rounds');
+    } catch (e) {
+      toast.error('Network error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {

@@ -6,9 +6,13 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { registrationSchema } from '@/lib/validation/schemas';
 import { Turnstile } from '@marsidev/react-turnstile';
 import { useRouter } from 'next/navigation';
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Loader2, Trash2, Plus, ArrowLeft } from 'lucide-react';
-import Image from 'next/image';
+import { Loader2, Trash2, Plus } from 'lucide-react';
 
 type FormValues = {
   honeypot: '';
@@ -28,15 +32,10 @@ type FormValues = {
   }[];
 };
 
-export function RegistrationForm({ fees = { solo: 100, duo: 180, trio: 250 } }: { fees?: { solo: number, duo: number, trio: number } }) {
+export function RegistrationForm() {
   const router = useRouter();
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   
-  // Steps
-  const [step, setStep] = useState<1 | 2>(1);
-  const [qrImage, setQrImage] = useState<string | null>(null);
-  const [paymentAmount, setPaymentAmount] = useState<number>(0);
-
   // OTP State
   const [otpSent, setOtpSent] = useState(false);
   const [otpVerified, setOtpVerified] = useState(false);
@@ -46,7 +45,7 @@ export function RegistrationForm({ fees = { solo: 100, duo: 180, trio: 250 } }: 
   const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
 
-  const { register, control, handleSubmit, watch, setValue, trigger, formState: { errors, isSubmitting } } = useForm<FormValues>({
+  const { register, control, handleSubmit, watch, setValue, formState: { errors, isSubmitting } } = useForm<FormValues>({
     resolver: zodResolver(registrationSchema),
     defaultValues: {
       honeypot: '',
@@ -77,7 +76,6 @@ export function RegistrationForm({ fees = { solo: 100, duo: 180, trio: 250 } }: 
   }, [otpVerified, fields.length]);
 
   const leadCollegeEmail = watch('members.0.college_email');
-  const teamName = watch('team_name');
 
   const handleSendOtp = async () => {
     if (!turnstileToken) {
@@ -164,35 +162,6 @@ export function RegistrationForm({ fees = { solo: 100, duo: 180, trio: 250 } }: 
       return;
     }
 
-    const teamSize = fields.length;
-    const amount = teamSize === 1 ? fees.solo : teamSize === 2 ? fees.duo : fees.trio;
-    setPaymentAmount(amount);
-
-    toast.loading('Generating Payment QR...', { id: 'qr' });
-    try {
-      const res = await fetch('/api/payment/generate-qr', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount, team_name: teamName })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setQrImage(data.qr_image);
-        setValue('transaction_id', '');
-        setValue('sender_upi_id', '');
-        setStep(2);
-        toast.success('Proceeding to payment...', { id: 'qr' });
-      } else {
-        toast.error(data.error || 'Failed to generate QR', { id: 'qr' });
-      }
-    } catch (e) {
-      toast.error('Network error', { id: 'qr' });
-    }
-  };
-
-  const onSubmit = async (data: FormValues) => {
-    if (data.honeypot) return; // Bot detected
-    
     try {
       const res = await fetch('/api/register', {
         method: 'POST',
@@ -265,23 +234,35 @@ export function RegistrationForm({ fees = { solo: 100, duo: 180, trio: 250 } }: 
          <div style={{ position: 'absolute', bottom: '10px', left: '10px', width: '12px', height: '12px', background: '#333', boxShadow: 'inset -2px -2px 0 #111, inset 2px 2px 0 #666', imageRendering: 'pixelated' as any }} />
          <div style={{ position: 'absolute', bottom: '10px', right: '10px', width: '12px', height: '12px', background: '#333', boxShadow: 'inset -2px -2px 0 #111, inset 2px 2px 0 #666', imageRendering: 'pixelated' as any }} />
 
-         {step === 1 ? (
-           <>
-             <div className="text-center mb-8">
-                <h3 style={{ ...mc, color: '#315433', fontSize: '1.8rem', textShadow: '1px 1px 0 rgba(255,255,255,0.4)' }}>
-                  ⚔️ REGISTER NOW ⚔️
-                </h3>
-             </div>
+         <div className="text-center mb-8">
+            <h3 style={{ ...mc, color: '#315433', fontSize: '1.8rem', textShadow: '1px 1px 0 rgba(255,255,255,0.4)' }}>
+              ⚔️ REGISTER NOW ⚔️
+            </h3>
+         </div>
 
-             <div className="space-y-6">
-                  {/* Team Name */}
-                  <div>
-                    <label style={{ ...mc, display: 'block', color: '#3c2415', fontSize: '0.8rem', marginBottom: '6px' }}>&gt; TEAM NAME</label>
-                    <div className="flex gap-2">
-                      <input {...register('team_name')} style={inputBg} placeholder="Enter your team name" />
-                      <div style={iconBtn}>👥</div>
-                    </div>
-                    {errors.team_name && <p className="text-red-700 text-xs mt-1 font-bold">{errors.team_name.message}</p>}
+         <div className="space-y-6">
+              {/* Team Name */}
+              <div>
+                <label style={{ ...mc, display: 'block', color: '#3c2415', fontSize: '0.8rem', marginBottom: '6px' }}>&gt; TEAM NAME</label>
+                <div className="flex gap-2">
+                  <input {...register('team_name')} style={inputBg} placeholder="Enter your team name" />
+                  <div style={iconBtn}>👥</div>
+                </div>
+                {errors.team_name && <p className="text-red-700 text-xs mt-1 font-bold">{errors.team_name.message}</p>}
+              </div>
+
+              {/* Members Loop */}
+              {fields.map((field, index) => (
+                <div key={field.id} className="pt-4 mt-4 border-t-2 border-[#a37b45] border-dashed">
+                  <div className="flex justify-between items-center mb-4">
+                    <h4 style={{ ...mc, color: '#315433', fontSize: '1rem' }}>
+                      {index === 0 ? 'TEAM LEADER (MEMBER 1)' : `MEMBER ${index + 1}`}
+                    </h4>
+                    {index > 0 && (
+                      <button type="button" onClick={() => remove(index)} className="text-red-800 hover:text-red-600 transition-colors">
+                        <Trash2 className="h-5 w-5" />
+                      </button>
+                    )}
                   </div>
 
                   <div className="space-y-4">
@@ -317,76 +298,21 @@ export function RegistrationForm({ fees = { solo: 100, duo: 180, trio: 250 } }: 
                             {isSendingOtp ? <Loader2 className="h-4 w-4 animate-spin" /> : 'OTP'}
                           </button>
                         )}
+                        {index === 0 && otpVerified && (
+                          <div style={{...iconBtn, width: 'auto', padding: '0 10px', color: '#4ade80'}}>✓</div>
+                        )}
                       </div>
                       {errors.members?.[index]?.college_email && <p className="text-red-700 text-xs mt-1 font-bold">{errors.members[index]?.college_email?.message}</p>}
                     </div>
 
-                      <div className="space-y-4">
-                        <div>
-                          <label style={{ ...mc, display: 'block', color: '#3c2415', fontSize: '0.8rem', marginBottom: '6px' }}>&gt; FULL NAME</label>
-                          <div className="flex gap-2">
-                            <input {...register(`members.${index}.name`)} style={inputBg} placeholder="Enter full name" />
-                            <div style={iconBtn}>👤</div>
-                          </div>
-                        </div>
-
-                        <div>
-                          <label style={{ ...mc, display: 'block', color: '#3c2415', fontSize: '0.8rem', marginBottom: '6px' }}>&gt; PERSONAL EMAIL</label>
-                          <div className="flex gap-2">
-                            <input {...register(`members.${index}.email`)} style={inputBg} placeholder="Enter personal email" />
-                            <div style={iconBtn}>✉️</div>
-                          </div>
-                        </div>
-
-                        <div>
-                          <label style={{ ...mc, display: 'block', color: '#3c2415', fontSize: '0.8rem', marginBottom: '6px' }}>&gt; COLLEGE EMAIL {index === 0 && '(VERIFICATION REQ)'}</label>
-                          <div className="flex gap-2">
-                            <input 
-                              {...register(`members.${index}.college_email`)} 
-                              style={inputBg} 
-                              disabled={index === 0 && otpVerified}
-                              placeholder="Enter college email" 
-                            />
-                            {index === 0 && !otpVerified && (
-                              <button type="button" onClick={handleSendOtp} disabled={isSendingOtp || !turnstileToken} style={{...iconBtn, width: 'auto', padding: '0 10px', color: '#fde047', fontFamily: 'var(--font-minecraft)'}}>
-                                {isSendingOtp ? <Loader2 className="h-4 w-4 animate-spin" /> : 'OTP'}
-                              </button>
-                            )}
-                            {index === 0 && otpVerified && (
-                              <div style={{...iconBtn, width: 'auto', padding: '0 10px', color: '#4ade80'}}>✓</div>
-                            )}
-                          </div>
-                        </div>
-
-                        {index === 0 && otpSent && !otpVerified && (
-                          <div className="p-3 bg-[#3c2415]/20 border border-[#3c2415] rounded">
-                            <label style={{ ...mc, display: 'block', color: '#3c2415', fontSize: '0.8rem', marginBottom: '6px' }}>&gt; ENTER OTP</label>
-                            <div className="flex gap-2">
-                              <input value={otpValue} onChange={e => setOtpValue(e.target.value)} maxLength={6} style={inputBg} placeholder="6-digit code" />
-                              <button type="button" onClick={handleVerifyOtp} disabled={isVerifyingOtp || otpValue.length !== 6} style={{...iconBtn, width: 'auto', padding: '0 10px', color: '#fde047', fontFamily: 'var(--font-minecraft)'}}>
-                                {isVerifyingOtp ? <Loader2 className="h-4 w-4 animate-spin" /> : 'VERIFY'}
-                              </button>
-                            </div>
-                          </div>
-                        )}
-
-                        <div className="flex flex-col sm:flex-row gap-4">
-                          <div className="flex-1">
-                            <label style={{ ...mc, display: 'block', color: '#3c2415', fontSize: '0.8rem', marginBottom: '6px' }}>&gt; WHATSAPP NO.</label>
-                            <input {...register(`members.${index}.phone`)} style={inputBg} placeholder="10 digits" />
-                          </div>
-                          <div className="w-full sm:w-[120px]">
-                            <label style={{ ...mc, display: 'block', color: '#3c2415', fontSize: '0.8rem', marginBottom: '6px' }}>&gt; DEPT</label>
-                            <select {...register(`members.${index}.department`)} style={inputBg}>
-                              <option value="CSE">CSE</option>
-                              <option value="IT">IT</option>
-                              <option value="ECE">ECE</option>
-                              <option value="EEE">EEE</option>
-                              <option value="MECH">MECH</option>
-                              <option value="CIVIL">CIVIL</option>
-                              <option value="OTHER">OTHER</option>
-                            </select>
-                          </div>
+                    {index === 0 && otpSent && !otpVerified && (
+                      <div className="p-3 bg-[#3c2415]/20 border border-[#3c2415] rounded">
+                        <label style={{ ...mc, display: 'block', color: '#3c2415', fontSize: '0.8rem', marginBottom: '6px' }}>&gt; ENTER OTP</label>
+                        <div className="flex gap-2">
+                          <input value={otpValue} onChange={e => setOtpValue(e.target.value)} maxLength={6} style={inputBg} placeholder="6-digit code" />
+                          <button type="button" onClick={handleVerifyOtp} disabled={isVerifyingOtp || otpValue.length !== 6} style={{...iconBtn, width: 'auto', padding: '0 10px', color: '#fde047', fontFamily: 'var(--font-minecraft)'}}>
+                            {isVerifyingOtp ? <Loader2 className="h-4 w-4 animate-spin" /> : 'VERIFY'}
+                          </button>
                         </div>
                       </div>
                     )}
@@ -410,7 +336,7 @@ export function RegistrationForm({ fees = { solo: 100, duo: 180, trio: 250 } }: 
                         </select>
                       </div>
                     </div>
-                  ))}
+                  </div>
                 </div>
               ))}
 
@@ -463,124 +389,71 @@ export function RegistrationForm({ fees = { solo: 100, duo: 180, trio: 250 } }: 
               )}
             </div>
 
-                <div className="mt-8 pt-6 border-t-2 border-[#a37b45] border-dashed flex flex-col items-center gap-6">
-                  {fields.length < 3 && (
-                    <button 
-                      type="button" 
-                      onClick={() => append({ name: '', email: '', college_email: '', phone: '', section: '', department: 'CSE', is_team_lead: false })}
-                      style={{
-                        ...woodBg,
-                        padding: '10px 24px',
-                        color: '#fca311',
-                        fontSize: '0.8rem',
-                        ...mc,
-                        cursor: 'pointer'
-                      }}
-                      className="hover:brightness-110 active:scale-95 transition-all w-full max-w-sm flex items-center justify-center gap-2"
-                    >
-                      <Plus className="w-4 h-4" /> ADD MEMBER
-                    </button>
-                  )}
-
-                  <div className="bg-[#3c2415]/20 p-2 rounded">
-                    <Turnstile
-                      siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
-                      onSuccess={(token) => setTurnstileToken(token)}
-                    />
-                  </div>
-
-                  <button 
-                    type="button" 
-                    onClick={handleProceedToPayment}
-                    style={{
-                      background: '#3e8e2b',
-                      borderTop: `4px solid #5aba3c`,
-                      borderLeft: `4px solid #5aba3c`,
-                      borderBottom: `4px solid #1f4a15`,
-                      borderRight: `4px solid #1f4a15`,
-                      padding: '16px 32px',
-                      cursor: 'pointer',
-                      color: '#fff',
-                      textShadow: '2px 2px 0 #111',
-                      fontSize: '1.2rem',
-                      letterSpacing: '0.1em',
-                      ...mc,
-                      width: '100%',
-                      maxWidth: '384px'
-                    }}
-                    className="transition-all hover:brightness-110 active:scale-95"
-                  >
-                    PROCEED TO PAYMENT
-                  </button>
-                </div>
-           </>
-         ) : (
-           <>
-             <div className="mb-6 flex items-center gap-4">
-               <button type="button" onClick={() => setStep(1)} className="text-[#3c2415] hover:text-[#315433]">
-                 <ArrowLeft className="w-6 h-6" />
-               </button>
-               <h3 style={{ ...mc, color: '#315433', fontSize: '1.8rem', textShadow: '1px 1px 0 rgba(255,255,255,0.4)', margin: 0 }}>
-                 PAYMENT
-               </h3>
-             </div>
-
-             <div className="flex flex-col items-center gap-6">
-               <div className="text-center space-y-2">
-                 <p style={{ ...mc, color: '#3c2415' }}>TOTAL AMOUNT</p>
-                 <p style={{ ...mc, color: '#315433', fontSize: '2rem' }}>₹{paymentAmount}</p>
-                 <p className="text-sm text-[#5c3a21] font-semibold mt-2 px-4 py-2 bg-[#dbb778]/50 border border-[#a37b45] rounded">
-                   NOTE: Do NOT edit the UPI remarks while paying. It must be <strong className="text-red-900">Team-{teamName}</strong>
-                 </p>
-               </div>
-
-               {qrImage && (
-                 <div className="bg-white p-4 rounded-xl shadow-lg border-4 border-[#3c2415]">
-                   <Image src={qrImage} alt="Payment QR" width={200} height={200} className="w-48 h-48 object-contain" />
-                 </div>
-               )}
-
-               <div className="w-full space-y-4">
-                 <div>
-                   <label style={{ ...mc, display: 'block', color: '#3c2415', fontSize: '0.8rem', marginBottom: '6px' }}>&gt; YOUR UPI ID (Sender)</label>
-                   <input {...register('sender_upi_id')} style={inputBg} placeholder="e.g. john@ybl" />
-                   {errors.sender_upi_id && <p className="text-red-700 text-xs mt-1 font-bold">{errors.sender_upi_id.message}</p>}
-                 </div>
-
-                 <div>
-                   <label style={{ ...mc, display: 'block', color: '#3c2415', fontSize: '0.8rem', marginBottom: '6px' }}>&gt; TRANSACTION ID / UTR</label>
-                   <input {...register('transaction_id')} style={inputBg} placeholder="12-digit UTR number" />
-                   {errors.transaction_id && <p className="text-red-700 text-xs mt-1 font-bold">{errors.transaction_id.message}</p>}
-                 </div>
-               </div>
-
-               <button 
-                  type="submit" 
-                  disabled={isSubmitting}
+            {/* Form Footer */}
+            <div className="mt-8 pt-6 border-t-2 border-[#a37b45] border-dashed flex flex-col items-center gap-6">
+              
+              {fields.length < 3 && (
+                <button 
+                  type="button" 
+                  onClick={() => append({ name: '', email: '', college_email: '', phone: '', section: '', department: 'CSE', is_team_lead: false })}
                   style={{
-                    background: isSubmitting ? '#555' : '#3e8e2b',
-                    borderTop: `4px solid ${isSubmitting ? '#777' : '#5aba3c'}`,
-                    borderLeft: `4px solid ${isSubmitting ? '#777' : '#5aba3c'}`,
-                    borderBottom: `4px solid ${isSubmitting ? '#333' : '#1f4a15'}`,
-                    borderRight: `4px solid ${isSubmitting ? '#333' : '#1f4a15'}`,
-                    padding: '16px 32px',
-                    cursor: isSubmitting ? 'not-allowed' : 'pointer',
-                    color: '#fff',
-                    textShadow: '2px 2px 0 #111',
-                    fontSize: '1.2rem',
-                    letterSpacing: '0.1em',
+                    ...woodBg,
+                    padding: '10px 24px',
+                    color: '#fca311',
+                    fontSize: '0.8rem',
                     ...mc,
-                    width: '100%',
-                    maxWidth: '384px'
+                    cursor: 'pointer'
                   }}
-                  className={`transition-all ${isSubmitting ? '' : 'hover:brightness-110 active:scale-95'}`}
+                  className="hover:brightness-110 active:scale-95 transition-all w-full max-w-sm flex items-center justify-center gap-2"
                 >
-                  {isSubmitting ? 'SUBMITTING...' : 'COMPLETE REGISTRATION'}
+                  <Plus className="w-4 h-4" /> ADD MEMBER
                 </button>
-             </div>
-           </>
-         )}
+              )}
+
+              <div className="bg-[#3c2415]/20 p-2 rounded">
+                <Turnstile
+                  siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
+                  onSuccess={(token) => setTurnstileToken(token)}
+                />
+              </div>
+
+              <button 
+                type="submit" 
+                disabled={isSubmitting || !otpVerified || !turnstileToken}
+                style={{
+                  background: (isSubmitting || !otpVerified || !turnstileToken) ? '#555' : '#3e8e2b',
+                  borderTop: `4px solid ${(isSubmitting || !otpVerified || !turnstileToken) ? '#777' : '#5aba3c'}`,
+                  borderLeft: `4px solid ${(isSubmitting || !otpVerified || !turnstileToken) ? '#777' : '#5aba3c'}`,
+                  borderBottom: `4px solid ${(isSubmitting || !otpVerified || !turnstileToken) ? '#333' : '#1f4a15'}`,
+                  borderRight: `4px solid ${(isSubmitting || !otpVerified || !turnstileToken) ? '#333' : '#1f4a15'}`,
+                  padding: '16px 32px',
+                  cursor: (isSubmitting || !otpVerified || !turnstileToken) ? 'not-allowed' : 'pointer',
+                  color: '#fff',
+                  textShadow: '2px 2px 0 #111',
+                  fontSize: '1.2rem',
+                  letterSpacing: '0.1em',
+                  ...mc,
+                  width: '100%',
+                  maxWidth: '384px'
+                }}
+                className={`transition-all ${(isSubmitting || !otpVerified || !turnstileToken) ? '' : 'hover:brightness-110 active:scale-95'}`}
+              >
+                {isSubmitting ? 'PROCESSING...' : 'REGISTER NOW'}
+              </button>
+
+              <div style={{
+                ...woodBg,
+                padding: '8px 20px',
+                marginTop: '10px'
+              }}>
+                <span style={{ ...mc, color: '#d4c4a8', fontSize: '0.7rem', letterSpacing: '0.1em' }}>
+                  GEAR UP. CODE ON. CONQUER.
+                </span>
+              </div>
+            </div>
+
       </div>
     </form>
   );
 }
+

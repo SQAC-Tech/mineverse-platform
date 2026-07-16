@@ -1,17 +1,24 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase/server';
+
+export const dynamic = 'force-dynamic';
 import { sendPaymentVerifiedEmail } from '@/lib/email';
 import { SignJWT } from 'jose';
 import { env } from '@/lib/env';
 import QRCode from 'qrcode';
 
 export async function GET() {
-  const { data: payments } = await supabaseServer
+  const { data: payments, error } = await supabaseServer
     .from('payments')
     .select('*, teams(team_code, team_name, is_payment_verified)')
     .order('created_at', { ascending: false });
 
-  return NextResponse.json({ success: true, data: payments });
+  if (error) {
+    console.error('Supabase error fetching payments:', error);
+    return NextResponse.json({ success: false, error: 'Database error: ' + error.message });
+  }
+
+  return NextResponse.json({ success: true, data: payments || [] });
 }
 
 export async function POST(req: Request) {

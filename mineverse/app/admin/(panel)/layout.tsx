@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { LayoutDashboard, CreditCard, Users, Clock } from "lucide-react";
 import { LogoutButton } from "@/components/admin/logout-button";
-import { headers } from "next/headers";
 
 export default function AdminLayout({
   children,

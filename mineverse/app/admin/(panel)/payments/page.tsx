@@ -11,10 +11,16 @@ export default function AdminPaymentsPage() {
   const [loading, setLoading] = useState(true);
 
   const fetchPayments = async () => {
-    const res = await fetch('/api/admin/payments');
-    const json = await res.json();
-    if (json.success) setPayments(json.data);
-    setLoading(false);
+    try {
+      const res = await fetch('/api/admin/payments');
+      const json = await res.json();
+      if (json.success) setPayments(json.data || []);
+      else toast.error(json.error || 'Failed to load payments');
+    } catch (e) {
+      toast.error('Network error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
