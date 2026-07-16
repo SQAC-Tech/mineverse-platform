@@ -2,12 +2,10 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Users } from 'lucide-react';
+import Link from 'next/link';
+import { ArrowLeft } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -19,6 +17,8 @@ export default function LoginPage() {
   const [challengeId, setChallengeId] = useState('');
   const [maskedEmail, setMaskedEmail] = useState('');
   const [otp, setOtp] = useState('');
+
+  const mc = { fontFamily: 'var(--font-minecraft), system-ui, sans-serif' };
 
   const requestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,57 +69,184 @@ export default function LoginPage() {
     }
   };
 
+  const buttonStyle = {
+    width: '100%',
+    background: '#3e8e2b',
+    borderTop: '4px solid #5aba3c',
+    borderLeft: '4px solid #5aba3c',
+    borderBottom: '4px solid #1f4a15',
+    borderRight: '4px solid #1f4a15',
+    color: '#fff',
+    padding: '16px',
+    fontSize: '1.2rem',
+    cursor: 'pointer',
+    textShadow: '2px 2px 0 #111',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+    ...mc
+  };
+
+  const inputStyle = {
+    width: '100%',
+    background: '#1a110a',
+    borderTop: '4px solid #0f0a06',
+    borderLeft: '4px solid #0f0a06',
+    borderBottom: '4px solid #332316',
+    borderRight: '4px solid #332316',
+    color: '#fff',
+    padding: '16px',
+    fontSize: '1.2rem',
+    textAlign: 'center' as const,
+    outline: 'none',
+    ...mc
+  };
+
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4">
-      <Card className="w-full max-w-sm bg-slate-900 border-slate-800">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold text-white tracking-tight">Team Login</CardTitle>
-          <p className="text-slate-400 text-sm">MINEVERSE 2026</p>
-        </CardHeader>
-        <CardContent>
+    <div className="min-h-screen bg-[#0a0a0a] flex flex-col relative overflow-hidden">
+      {/* Background with slight tint */}
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        zIndex: 0,
+        backgroundImage: 'url(/cavern-bg.png)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        filter: 'brightness(0.3)',
+      }} />
+
+      <div className="relative z-10 w-full p-6 flex items-center justify-between pointer-events-none">
+        <Link href="/" className="pointer-events-auto">
+          <button style={{
+            background: '#4a3320',
+            borderTop: '3px solid #6c4b31',
+            borderLeft: '3px solid #6c4b31',
+            borderBottom: '3px solid #1f140c',
+            borderRight: '3px solid #1f140c',
+            padding: '8px 16px',
+            color: '#fca311',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            ...mc
+          }} className="hover:brightness-110 active:scale-95 transition-all">
+            <ArrowLeft className="w-4 h-4" /> BACK TO HOME
+          </button>
+        </Link>
+      </div>
+
+      <div className="relative z-10 flex-1 flex flex-col items-center justify-center p-4">
+        <div style={{
+          background: '#4a3320',
+          borderTop: '6px solid #6c4b31',
+          borderLeft: '6px solid #6c4b31',
+          borderBottom: '6px solid #1f140c',
+          borderRight: '6px solid #1f140c',
+          padding: '32px',
+          width: '100%',
+          maxWidth: '400px',
+          boxShadow: '0 20px 25px -5px rgba(0,0,0,0.8)',
+        }}>
+          <div className="text-center space-y-4 mb-8">
+            <div className="flex justify-center">
+              <Users className="w-12 h-12 text-[#fca311]" />
+            </div>
+            <h1 style={{
+              ...mc,
+              fontSize: '1.8rem',
+              color: '#fde047',
+              textShadow: '2px 2px 0 #000',
+              letterSpacing: '0.1em'
+            }}>
+              TEAM LOGIN
+            </h1>
+            <p style={{ ...mc, color: '#aaa', fontSize: '0.8rem', textShadow: '1px 1px 0 #000' }}>
+              MINEVERSE 2026
+            </p>
+          </div>
+          
           {step === 1 ? (
-            <form onSubmit={requestOtp} className="space-y-4">
+            <form onSubmit={requestOtp} className="space-y-6">
               <div>
-                <Label className="text-slate-300">Team Code</Label>
-                <Input 
+                <label style={{ ...mc, display: 'block', color: '#fca311', fontSize: '0.8rem', marginBottom: '8px', textShadow: '1px 1px 0 #000' }}>
+                  &gt; TEAM CODE
+                </label>
+                <input 
                   placeholder="MNV-XXX" 
                   value={teamCode}
                   onChange={(e) => setTeamCode(e.target.value.toUpperCase())}
-                  className="bg-slate-950 border-slate-800 text-white h-12 uppercase"
+                  style={inputStyle}
                   autoFocus
                 />
               </div>
-              <Button type="submit" className="w-full h-12 bg-emerald-500 hover:bg-emerald-600 text-white font-bold" disabled={loading || !teamCode}>
-                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Send OTP'}
-              </Button>
+              <button 
+                type="submit" 
+                disabled={loading || !teamCode}
+                style={{
+                  ...buttonStyle,
+                  opacity: (loading || !teamCode) ? 0.7 : 1,
+                  cursor: (loading || !teamCode) ? 'not-allowed' : 'pointer'
+                }}
+                className="hover:brightness-110 active:scale-95 transition-all"
+              >
+                {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : 'SEND OTP'}
+              </button>
             </form>
           ) : (
-            <form onSubmit={verifyOtp} className="space-y-4">
-              <div className="text-center mb-4">
-                <p className="text-sm text-slate-300">OTP sent to team lead:</p>
-                <p className="font-semibold text-emerald-400">{maskedEmail}</p>
+            <form onSubmit={verifyOtp} className="space-y-6">
+              <div className="text-center mb-6 p-3" style={{ background: '#1a110a', border: '2px solid #332316' }}>
+                <p style={{ ...mc, fontSize: '0.7rem', color: '#aaa', marginBottom: '4px' }}>OTP SENT TO TEAM LEAD:</p>
+                <p style={{ ...mc, fontSize: '0.9rem', color: '#5aba3c' }}>{maskedEmail}</p>
               </div>
               <div>
-                <Label className="text-slate-300">Enter OTP</Label>
-                <Input 
-                  placeholder="6-digit code" 
+                <label style={{ ...mc, display: 'block', color: '#fca311', fontSize: '0.8rem', marginBottom: '8px', textShadow: '1px 1px 0 #000' }}>
+                  &gt; ENTER OTP
+                </label>
+                <input 
+                  placeholder="6-DIGIT CODE" 
                   value={otp}
                   onChange={(e) => setOtp(e.target.value)}
                   maxLength={6}
-                  className="bg-slate-950 border-slate-800 text-center text-lg tracking-widest text-white h-12"
+                  style={{ ...inputStyle, letterSpacing: '0.2em' }}
                   autoFocus
                 />
               </div>
-              <Button type="submit" className="w-full h-12 bg-emerald-500 hover:bg-emerald-600 text-white font-bold" disabled={loading || otp.length !== 6}>
-                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Enter Dashboard'}
-              </Button>
-              <Button type="button" variant="ghost" className="w-full text-slate-400" onClick={() => setStep(1)}>
-                Back
-              </Button>
+              <button 
+                type="submit" 
+                disabled={loading || otp.length !== 6}
+                style={{
+                  ...buttonStyle,
+                  opacity: (loading || otp.length !== 6) ? 0.7 : 1,
+                  cursor: (loading || otp.length !== 6) ? 'not-allowed' : 'pointer'
+                }}
+                className="hover:brightness-110 active:scale-95 transition-all"
+              >
+                {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : 'ENTER DASHBOARD'}
+              </button>
+              <button 
+                type="button" 
+                onClick={() => setStep(1)}
+                style={{
+                  ...mc,
+                  width: '100%',
+                  background: 'transparent',
+                  color: '#aaa',
+                  border: 'none',
+                  padding: '12px',
+                  fontSize: '0.9rem',
+                  cursor: 'pointer',
+                  textDecoration: 'underline'
+                }}
+                className="hover:text-white transition-colors"
+              >
+                BACK
+              </button>
             </form>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }

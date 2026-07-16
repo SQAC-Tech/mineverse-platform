@@ -1268,7 +1268,7 @@ function CavernContent({ config }: { config: any }) {
         </div>
       </div>
 
-      {/* ═══════ REGISTRATION & LOGIN CTA ═══════ */}
+      {/* ═══════ REGISTRATION FORM ═══════ */}
       <div id="register" style={{
         padding: '60px 20px 80px',
         textAlign: 'center',
@@ -1284,49 +1284,48 @@ function CavernContent({ config }: { config: any }) {
           color: '#fde047',
           textShadow: '0 2px 0 #b8860b, 3px 4px 8px rgba(0,0,0,0.8)',
           letterSpacing: '0.15em',
-          marginBottom: '10px',
         }}>
-          READY TO START?
+          READY TO ENTER?
         </h2>
         
-        <div className="flex flex-col sm:flex-row gap-6 mt-4">
-          <Link href="/register">
+        <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', justifyContent: 'center' }}>
+          <a href="/register" style={{ textDecoration: 'none' }}>
             <button style={{
               background: '#3e8e2b',
               borderTop: '4px solid #5aba3c',
               borderLeft: '4px solid #5aba3c',
               borderBottom: '4px solid #1f4a15',
               borderRight: '4px solid #1f4a15',
-              padding: '16px 40px',
-              cursor: 'pointer',
               color: '#fff',
-              textShadow: '2px 2px 0 #111',
+              padding: '16px 32px',
               fontSize: '1.2rem',
-              letterSpacing: '0.1em',
-              ...mc,
+              cursor: 'pointer',
+              textShadow: '2px 2px 0 #111',
+              boxShadow: '0 8px 15px rgba(0,0,0,0.5)',
+              ...mc
             }} className="hover:brightness-110 active:scale-95 transition-all">
               REGISTER TEAM
             </button>
-          </Link>
+          </a>
           
-          <Link href="/login">
+          <a href="/login" style={{ textDecoration: 'none' }}>
             <button style={{
               background: '#4a3320',
               borderTop: '4px solid #6c4b31',
               borderLeft: '4px solid #6c4b31',
               borderBottom: '4px solid #1f140c',
               borderRight: '4px solid #1f140c',
-              padding: '16px 40px',
-              cursor: 'pointer',
               color: '#fca311',
-              textShadow: '2px 2px 0 #111',
+              padding: '16px 32px',
               fontSize: '1.2rem',
-              letterSpacing: '0.1em',
-              ...mc,
+              cursor: 'pointer',
+              textShadow: '2px 2px 0 #111',
+              boxShadow: '0 8px 15px rgba(0,0,0,0.5)',
+              ...mc
             }} className="hover:brightness-110 active:scale-95 transition-all">
               TEAM LOGIN
             </button>
-          </Link>
+          </a>
         </div>
       </div>
       

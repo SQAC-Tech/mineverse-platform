@@ -128,5 +128,6 @@ export async function POST(req: Request) {
     success: true,
     team_code: teamCode,
     payment_amount: amount,
+    redirect: '/payment?team=' + teamCode,
   });
 }
