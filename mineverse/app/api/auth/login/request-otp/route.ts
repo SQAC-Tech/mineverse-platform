@@ -49,6 +49,11 @@ export async function POST(req: Request) {
     }).select('id').single();
 
   if (!isDemoTeam) {
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`\n================================`);
+      console.log(`[DEV LOGIN OTP] OTP for ${lead.college_email}: ${otp}`);
+      console.log(`================================\n`);
+    }
     await sendOtpEmail({ to: lead.college_email, otp, purpose: 'login', team_id: team.id });
   }
 
