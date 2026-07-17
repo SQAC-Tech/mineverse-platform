@@ -71,12 +71,6 @@ export async function POST(req: Request) {
     .select('id')
     .single();
 
-  if (process.env.NODE_ENV === 'development') {
-    console.log(`\n================================`);
-    console.log(`[DEV OTP] OTP for ${college_email}: ${otp}`);
-    console.log(`================================\n`);
-  }
-
   await sendOtpEmail({ to: college_email, otp, purpose: 'registration' });
 
   return NextResponse.json({
