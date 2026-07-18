@@ -22,15 +22,17 @@ export function Scanner({ onScan }: ScannerProps) {
       if (hasCamera && videoRef.current) {
         scannerRef.current = new QrScanner(
           videoRef.current,
-          (result) => {
-            if (result.data) {
-              onScan(result.data);
+          (result: any) => {
+            const data = typeof result === 'string' ? result : result?.data;
+            if (data) {
+              onScan(data);
             }
           },
           {
             highlightScanRegion: true,
             highlightCodeOutline: true,
-          }
+            returnDetailedScanResult: true,
+          } as any
         );
         scannerRef.current.start();
       }
