@@ -2,11 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { Lock, Loader2 } from 'lucide-react';
+import { Loader2, Pickaxe } from 'lucide-react';
 
 export default function AdminLoginPage() {
   const [password, setPassword] = useState('');
@@ -26,11 +23,11 @@ export default function AdminLoginPage() {
       
       const data = await res.json();
       if (data.success) {
-        toast.success('Login successful');
+        toast.success('Access Granted');
         router.push(data.redirect);
         router.refresh();
       } else {
-        toast.error(data.error || 'Login failed');
+        toast.error(data.error || 'Access Denied');
       }
     } catch (err) {
       toast.error('Network error');
@@ -39,33 +36,105 @@ export default function AdminLoginPage() {
     }
   };
 
+  const mc = { fontFamily: 'var(--font-minecraft), system-ui, sans-serif' };
+
   return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
-      <Card className="w-full max-w-sm bg-slate-900 border-slate-800">
-        <CardHeader className="text-center space-y-2">
-          <div className="flex justify-center mb-4">
-            <div className="w-12 h-12 bg-emerald-500/10 rounded-full flex items-center justify-center">
-              <Lock className="w-6 h-6 text-emerald-500" />
-            </div>
+    <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Background with slight tint */}
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        zIndex: 0,
+        backgroundImage: 'url(/cavern-bg.png)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        filter: 'brightness(0.3)',
+      }} />
+
+      <div style={{
+        position: 'relative',
+        zIndex: 10,
+        background: '#4a3320',
+        borderTop: '6px solid #6c4b31',
+        borderLeft: '6px solid #6c4b31',
+        borderBottom: '6px solid #1f140c',
+        borderRight: '6px solid #1f140c',
+        padding: '32px',
+        width: '100%',
+        maxWidth: '400px',
+        boxShadow: '0 20px 25px -5px rgba(0,0,0,0.8)',
+      }}>
+        <div className="text-center space-y-4 mb-8">
+          <div className="flex justify-center">
+            <Pickaxe className="w-12 h-12 text-[#fca311]" />
           </div>
-          <CardTitle className="text-2xl font-bold text-white tracking-tight">Admin Login</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <Input 
+          <h1 style={{
+            ...mc,
+            fontSize: '1.8rem',
+            color: '#fde047',
+            textShadow: '2px 2px 0 #000',
+            letterSpacing: '0.1em'
+          }}>
+            COMMAND BLOCK
+          </h1>
+          <p style={{ ...mc, color: '#aaa', fontSize: '0.8rem', textShadow: '1px 1px 0 #000' }}>
+            ENTER ADMIN PASSWORD TO PROCEED
+          </p>
+        </div>
+        
+        <form onSubmit={handleLogin} className="space-y-6">
+          <div>
+            <input 
               type="password" 
-              placeholder="Enter Admin Password" 
+              placeholder="PASSWORD" 
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="bg-slate-950 border-slate-800 text-center text-lg h-12 text-white placeholder:text-slate-500"
+              style={{
+                width: '100%',
+                background: '#1a110a',
+                borderTop: '4px solid #0f0a06',
+                borderLeft: '4px solid #0f0a06',
+                borderBottom: '4px solid #332316',
+                borderRight: '4px solid #332316',
+                color: '#fff',
+                padding: '16px',
+                fontSize: '1.2rem',
+                textAlign: 'center',
+                outline: 'none',
+                ...mc
+              }}
               autoFocus
             />
-            <Button type="submit" className="w-full h-12 bg-emerald-500 hover:bg-emerald-600 text-white font-bold" disabled={loading || !password}>
-              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Enter Platform'}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+          </div>
+          <button 
+            type="submit" 
+            disabled={loading || !password}
+            style={{
+              width: '100%',
+              background: '#3e8e2b',
+              borderTop: '4px solid #5aba3c',
+              borderLeft: '4px solid #5aba3c',
+              borderBottom: '4px solid #1f4a15',
+              borderRight: '4px solid #1f4a15',
+              color: '#fff',
+              padding: '16px',
+              fontSize: '1.2rem',
+              cursor: (loading || !password) ? 'not-allowed' : 'pointer',
+              opacity: (loading || !password) ? 0.7 : 1,
+              textShadow: '2px 2px 0 #111',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              ...mc
+            }}
+            className="hover:brightness-110 active:scale-95 transition-all"
+          >
+            {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : 'AUTHENTICATE'}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }
