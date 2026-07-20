@@ -1,0 +1,5 @@
+# Agent/AI tool configs
+.agents/
+.claude/
+.mcp.json
+skills-lock.json
