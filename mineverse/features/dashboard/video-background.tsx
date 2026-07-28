@@ -1,0 +1,400 @@
+'use client';
+
+import Image from 'next/image';
+import { useRef, useEffect, useState, useCallback } from 'react';
+
+const CROSSFADE_MS = 600;
+const TRIGGER_BEFORE_END_S = CROSSFADE_MS / 1000 + 0.15;
+
+const DASH_VIDEO = '/dashboard.mp4';
+const LEVEL1_VIDEO = '/final transition level1-1.mp4';
+
+export function VideoBackground() {
+  const videoA = useRef<HTMLVideoElement>(null);
+  const videoB = useRef<HTMLVideoElement>(null);
+
+  const [opacityA, setOpacityA] = useState(1);
+  const [opacityB, setOpacityB] = useState(0);
+
+  const activeRef = useRef<'A' | 'B'>('A');
+  const crossfadingRef = useRef(false);
+  const rafRef = useRef<number>(0);
+
+  // ── Drag slider ────────────────────────────────────────────────
+  const [hintDone, setHintDone] = useState(false);
+  const [dragPct, setDragPct] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const isDraggingRef = useRef(false);
+
+  // ── Transition triggered when slider hits the right end ────────
+  const [sliderComplete, setSliderComplete] = useState(false);
+  const transitionedRef = useRef(false); // prevent double-firing
+
+  // Hint → interactive after 3.2 s
+  useEffect(() => {
+    const t = setTimeout(() => setHintDone(true), 3200);
+    return () => clearTimeout(t);
+  }, []);
+
+  const calcPct = useCallback((clientX: number) => {
+    const track = trackRef.current;
+    if (!track) return;
+    const { left, width } = track.getBoundingClientRect();
+    const travel = width - 40 - 12;
+    const raw = ((clientX - left - 6) / travel) * 100;
+    setDragPct(Math.max(0, Math.min(100, raw)));
+  }, []);
+
+  const onMouseDown = useCallback((e: React.MouseEvent) => {
+    isDraggingRef.current = true;
+    setIsDragging(true);
+    calcPct(e.clientX);
+  }, [calcPct]);
+
+  const onTouchStart = useCallback((e: React.TouchEvent) => {
+    isDraggingRef.current = true;
+    setIsDragging(true);
+    calcPct(e.touches[0].clientX);
+  }, [calcPct]);
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => { if (isDraggingRef.current) calcPct(e.clientX); };
+    const onUp = () => { isDraggingRef.current = false; setIsDragging(false); };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+  }, [calcPct]);
+
+  useEffect(() => {
+    const onMove = (e: TouchEvent) => { if (isDraggingRef.current) calcPct(e.touches[0].clientX); };
+    const onEnd = () => { isDraggingRef.current = false; setIsDragging(false); };
+    window.addEventListener('touchmove', onMove, { passive: true });
+    window.addEventListener('touchend', onEnd);
+    return () => {
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('touchend', onEnd);
+    };
+  }, [calcPct]);
+
+  // Fire transition when slider reaches the right end
+  useEffect(() => {
+    if (dragPct >= 98 && !transitionedRef.current) {
+      transitionedRef.current = true;
+      setSliderComplete(true);
+    }
+  }, [dragPct]);
+
+  // ── Video crossfade (dashboard loop) ──────────────────────────
+  const doSwap = useCallback(() => {
+    if (crossfadingRef.current) return;
+    crossfadingRef.current = true;
+
+    const active = activeRef.current;
+    const standby = active === 'A' ? 'B' : 'A';
+    const standbyEl = standby === 'A' ? videoA.current : videoB.current;
+
+    if (!standbyEl) { crossfadingRef.current = false; return; }
+
+    standbyEl.currentTime = 0;
+
+    if (standby === 'A') { setOpacityA(1); setOpacityB(0); }
+    else { setOpacityA(0); setOpacityB(1); }
+
+    setTimeout(() => {
+      activeRef.current = standby;
+      crossfadingRef.current = false;
+    }, CROSSFADE_MS);
+  }, []);
+
+  useEffect(() => {
+    const vA = videoA.current;
+    const vB = videoB.current;
+    if (!vA || !vB) return;
+
+    vA.src = DASH_VIDEO;
+    vB.src = DASH_VIDEO;
+    vA.play().catch(() => { });
+    vB.play().catch(() => { });
+
+    const tick = () => {
+      // Stop the dash-loop RAF once transition is triggered
+      if (transitionedRef.current) return;
+      if (!crossfadingRef.current) {
+        const activeEl = activeRef.current === 'A' ? vA : vB;
+        if (activeEl.duration) {
+          const remaining = activeEl.duration - activeEl.currentTime;
+          if (remaining > 0 && remaining <= TRIGGER_BEFORE_END_S) doSwap();
+        }
+      }
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+
+    return () => { cancelAnimationFrame(rafRef.current); vA.pause(); vB.pause(); };
+  }, [doSwap]);
+
+  // ── When slider completes: swap to level-1 transition video ───
+  useEffect(() => {
+    if (!sliderComplete) return;
+
+    const vA = videoA.current;
+    const vB = videoB.current;
+    if (!vA || !vB) return;
+
+    // Cancel the RAF loop so it stops trying to do dashboard crossfades
+    cancelAnimationFrame(rafRef.current);
+
+    // Load the level-1 video into the STANDBY element and crossfade to it
+    const standby = activeRef.current === 'A' ? 'B' : 'A';
+    const standbyEl = standby === 'A' ? vA : vB;
+    const activeEl = activeRef.current === 'A' ? vA : vB;
+
+    // Pause the active dashboard video
+    activeEl.loop = false;
+
+    // Set up the transition video on the standby element
+    standbyEl.loop = false;
+    standbyEl.src = LEVEL1_VIDEO;
+    standbyEl.load();
+    standbyEl.play().catch(() => { });
+
+    // Crossfade
+    if (standby === 'A') { setOpacityA(1); setOpacityB(0); }
+    else { setOpacityA(0); setOpacityB(1); }
+
+    setTimeout(() => {
+      activeEl.pause();
+      activeRef.current = standby;
+    }, CROSSFADE_MS);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sliderComplete]);
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, width: '100vw', height: '100vh', overflow: 'hidden', background: '#000' }}>
+
+      {/* Video A */}
+      <video ref={videoA} muted playsInline loop preload="auto" style={{
+        position: 'absolute', inset: 0, width: '100%', height: '100%',
+        objectFit: 'cover', opacity: opacityA,
+        transition: `opacity ${CROSSFADE_MS}ms ease-in-out`, zIndex: 1,
+      }} />
+
+      {/* Video B */}
+      <video ref={videoB} muted playsInline loop preload="auto" style={{
+        position: 'absolute', inset: 0, width: '100%', height: '100%',
+        objectFit: 'cover', opacity: opacityB,
+        transition: `opacity ${CROSSFADE_MS}ms ease-in-out`, zIndex: 2,
+      }} />
+
+      {/* ── SCENE IMAGES — fade out when slider completes ── */}
+
+      {/* Steve */}
+      <div style={{
+        position: 'absolute', bottom: '46%', left: '-1%', zIndex: 10,
+        pointerEvents: 'none', width: 'clamp(240px, 30vw, 520px)',
+        opacity: sliderComplete ? 0 : 1,
+        transition: 'opacity 0.7s ease-out',
+      }}>
+        <Image src="/steve.png" alt="Steve" width={680} height={560}
+          style={{ width: '100%', height: 'auto', display: 'block', filter: 'drop-shadow(0 12px 32px rgba(0,0,0,0.65))' }}
+          priority />
+      </div>
+
+      {/* Crafting Table */}
+      <div style={{
+        position: 'absolute', bottom: '28%', right: '19%', zIndex: 10,
+        pointerEvents: 'none', width: 'clamp(160px, 18vw, 300px)',
+        opacity: sliderComplete ? 0 : 1,
+        transition: 'opacity 0.7s ease-out',
+      }}>
+        <Image src="/crafting.png" alt="Crafting Table" width={680} height={500}
+          style={{ width: '100%', height: 'auto', display: 'block', filter: 'drop-shadow(0 8px 28px rgba(0,0,0,0.65))' }}
+          priority />
+      </div>
+
+      {/* Trader + Llama */}
+      <div style={{
+        position: 'absolute', bottom: -19, right: '-5%', zIndex: 10,
+        pointerEvents: 'none', width: 'clamp(260px, 60vw, 560px)',
+        opacity: sliderComplete ? 0 : 1,
+        transition: 'opacity 0.7s ease-out',
+      }}>
+        <Image src="/traderbg.png" alt="Wandering Trader" width={900} height={800}
+          style={{ width: '100%', height: 'auto', display: 'block', filter: 'drop-shadow(0 10px 30px rgba(0,0,0,0.6))' }}
+          priority />
+      </div>
+
+      {/* ── DRAG SLIDER ── */}
+      <style>{`
+        @keyframes drag-thumb-once {
+          0%   { left: 6px;               opacity: 1; }
+          60%  { left: calc(100% - 46px); opacity: 1; }
+          85%  { left: calc(100% - 46px); opacity: 0; }
+          100% { left: 6px;               opacity: 0; }
+        }
+        @keyframes drag-trail-once {
+          0%   { width: 0px;               opacity: 0; }
+          8%   {                           opacity: 0.85; }
+          60%  { width: calc(100% - 52px); opacity: 0.85; }
+          85%  { width: calc(100% - 52px); opacity: 0; }
+          100% { width: 0px;               opacity: 0; }
+        }
+        @keyframes drag-chevron-hint {
+          0%, 100% { opacity: 0.2; transform: translateX(0px); }
+          50%      { opacity: 0.9; transform: translateX(6px); }
+        }
+        @keyframes drag-label-pulse {
+          0%, 100% { opacity: 0.5; }
+          50%      { opacity: 1; }
+        }
+        @keyframes slider-done-pulse {
+          0%, 100% { box-shadow: 0 2px 20px rgba(80,220,120,0.6), 0 0 0 4px rgba(80,220,120,0.2); }
+          50%      { box-shadow: 0 2px 28px rgba(80,220,120,1),   0 0 0 8px rgba(80,220,120,0.35); }
+        }
+      `}</style>
+
+      {/* Hide the entire slider once transition fires */}
+      {!sliderComplete && (
+        <div style={{
+          position: 'absolute', bottom: '9%', left: '50%',
+          transform: 'translateX(-50%)', zIndex: 15,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px',
+          width: '60%', maxWidth: '680px', minWidth: '320px',
+          pointerEvents: hintDone ? 'auto' : 'none',
+        }}>
+          {/* Label */}
+          <div style={{
+            color: 'rgba(255,255,255,0.9)', fontSize: '10px', letterSpacing: '4px',
+            textTransform: 'uppercase', fontFamily: 'var(--font-minecraft, monospace)',
+            textShadow: '0 0 20px rgba(0,0,0,1), 0 2px 6px rgba(0,0,0,0.9)',
+            animation: hintDone ? 'none' : 'drag-label-pulse 2s ease-in-out infinite',
+            opacity: hintDone ? 0.85 : undefined,
+          }}>
+            drag to explore
+          </div>
+
+          {/* Track */}
+          <div ref={trackRef}
+            onMouseDown={hintDone ? onMouseDown : undefined}
+            onTouchStart={hintDone ? onTouchStart : undefined}
+            style={{
+              position: 'relative', width: '100%', height: '52px',
+              cursor: hintDone ? (isDragging ? 'grabbing' : 'grab') : 'default',
+              userSelect: 'none', WebkitUserSelect: 'none',
+            }}
+          >
+            {/* Frosted pill */}
+            <div style={{
+              position: 'absolute', inset: 0,
+              background: 'rgba(0,0,0,0.32)', backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)', borderRadius: '26px',
+              border: '1px solid rgba(255,255,255,0.2)',
+              boxShadow: '0 4px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.15)',
+            }} />
+
+            {/* Dashed rail */}
+            <div style={{
+              position: 'absolute', left: '52px', right: '52px', top: '50%',
+              height: '2px', marginTop: '-1px',
+              backgroundImage: 'repeating-linear-gradient(90deg, rgba(255,255,255,0.4) 0 7px, transparent 7px 14px)',
+            }} />
+
+            {/* Hint trail (one-shot) */}
+            {!hintDone && (
+              <div style={{
+                position: 'absolute', left: '26px', top: '50%', height: '3px',
+                marginTop: '-1.5px', width: '0px',
+                background: 'linear-gradient(90deg, rgba(100,210,255,1), rgba(60,160,255,0.3))',
+                borderRadius: '2px', boxShadow: '0 0 10px rgba(100,210,255,0.8)',
+                animation: 'drag-trail-once 2.8s cubic-bezier(0.25,0,0.2,1) 1 forwards',
+              }} />
+            )}
+
+            {/* Interactive fill bar */}
+            {hintDone && (
+              <div style={{
+                position: 'absolute', left: '26px', top: '50%', height: '3px',
+                marginTop: '-1.5px',
+                width: `calc((100% - 52px) * ${dragPct / 100})`,
+                background: 'linear-gradient(90deg, rgba(100,210,255,1), rgba(60,160,255,0.3))',
+                borderRadius: '2px', boxShadow: '0 0 10px rgba(100,210,255,0.8)',
+                transition: isDragging ? 'none' : 'width 0.05s linear',
+              }} />
+            )}
+
+            {/* Left dot */}
+            <div style={{
+              position: 'absolute', left: '14px', top: '50%',
+              width: '12px', height: '12px', marginTop: '-6px', borderRadius: '50%',
+              background: 'rgba(255,255,255,0.6)', border: '2px solid rgba(255,255,255,0.9)',
+              boxShadow: '0 0 10px rgba(255,255,255,0.5)',
+            }} />
+
+            {/* Right dot */}
+            <div style={{
+              position: 'absolute', right: '14px', top: '50%',
+              width: '12px', height: '12px', marginTop: '-6px', borderRadius: '50%',
+              background: 'rgba(255,255,255,0.25)', border: '2px solid rgba(255,255,255,0.5)',
+            }} />
+
+            {/* Hint chevrons */}
+            {!hintDone && [0, 1, 2].map((i) => (
+              <div key={i} style={{
+                position: 'absolute', left: `${36 + i * 11}%`, top: '50%', marginTop: '-9px',
+                color: 'rgba(255,255,255,0.4)', fontSize: '18px', lineHeight: 1,
+                animation: 'drag-chevron-hint 1s ease-in-out infinite',
+                animationDelay: `${i * 0.2}s`,
+              }}>›</div>
+            ))}
+
+            {/* Hint thumb (one-shot) */}
+            {!hintDone && (
+              <div style={{
+                position: 'absolute', top: '50%', marginTop: '-20px', left: '6px',
+                width: '40px', height: '40px', borderRadius: '50%',
+                background: 'radial-gradient(circle at 36% 32%, #ffffff, #c8e8ff)',
+                border: '2px solid rgba(255,255,255,0.95)',
+                boxShadow: '0 2px 20px rgba(80,180,255,0.85), 0 0 0 4px rgba(100,210,255,0.25)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                animation: 'drag-thumb-once 2.8s cubic-bezier(0.25,0,0.2,1) 1 forwards',
+              }}>
+                <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+                  <path d="M4 10H16M16 10L11 5M16 10L11 15" stroke="#1a5c8a" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+            )}
+
+            {/* Interactive thumb */}
+            {hintDone && (
+              <div
+                onMouseDown={onMouseDown}
+                onTouchStart={onTouchStart}
+                style={{
+                  position: 'absolute', top: '50%', marginTop: '-20px',
+                  left: `calc(6px + (100% - 52px) * ${dragPct / 100})`,
+                  width: '40px', height: '40px', borderRadius: '50%',
+                  background: 'radial-gradient(circle at 36% 32%, #ffffff, #c8e8ff)',
+                  border: '2px solid rgba(255,255,255,0.95)',
+                  boxShadow: '0 2px 20px rgba(80,180,255,0.85), 0 0 0 4px rgba(100,210,255,0.25)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: isDragging ? 'grabbing' : 'grab',
+                  transition: isDragging ? 'none' : 'left 0.05s linear',
+                  touchAction: 'none',
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+                  <path d="M4 10H16M16 10L11 5M16 10L11 15" stroke="#1a5c8a" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}
