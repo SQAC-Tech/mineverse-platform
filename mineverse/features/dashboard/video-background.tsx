@@ -3,11 +3,21 @@
 import Image from 'next/image';
 import { useRef, useEffect, useState, useCallback } from 'react';
 
-const CROSSFADE_MS = 600;
-const TRIGGER_BEFORE_END_S = CROSSFADE_MS / 1000 + 0.15;
+// Longer crossfade for a more cinematic, seamless feel
+const CROSSFADE_MS = 1200;
+const TRIGGER_BEFORE_END_S = CROSSFADE_MS / 1000 + 0.3;
 
 const DASH_VIDEO = '/dashboard.mp4';
 const LEVEL1_VIDEO = '/final transition level1-1.mp4';
+const BIOME1_VIDEO = '/biome1-1.mp4';
+
+// ── Team members ────────────────────────────────────────────────
+const TEAM_PLAYERS = [
+  { name: 'ChiragPaul', icon: '👾', ping: 4 },
+  { name: 'SkyForger',  icon: '👽', ping: 3 },
+  { name: 'NovaBlaze',  icon: '💖', ping: 3 },
+  { name: 'LunaStrike', icon: '⭐', ping: 4 },
+];
 
 export function VideoBackground() {
   const videoA = useRef<HTMLVideoElement>(null);
@@ -29,7 +39,19 @@ export function VideoBackground() {
 
   // ── Transition triggered when slider hits the right end ────────
   const [sliderComplete, setSliderComplete] = useState(false);
-  const transitionedRef = useRef(false); // prevent double-firing
+  const transitionedRef = useRef(false);
+
+  // ── Toast notification ────────────────────────────────────────
+  const [toast, setToast] = useState<{ icon: string; title: string; subtitle: string; key: number } | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showToast = (icon: string, title: string, subtitle: string) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToast({ icon, title, subtitle, key: Date.now() });
+    toastTimerRef.current = setTimeout(() => setToast(null), 3500);
+  };
+
+  // ── Player list (Steve click) ─────────────────────────────────
+  const [showPlayerList, setShowPlayerList] = useState(false);
 
   // Hint → interactive after 3.2 s
   useEffect(() => {
@@ -148,27 +170,75 @@ export function VideoBackground() {
     // Cancel the RAF loop so it stops trying to do dashboard crossfades
     cancelAnimationFrame(rafRef.current);
 
-    // Load the level-1 video into the STANDBY element and crossfade to it
     const standby = activeRef.current === 'A' ? 'B' : 'A';
     const standbyEl = standby === 'A' ? vA : vB;
     const activeEl = activeRef.current === 'A' ? vA : vB;
 
-    // Pause the active dashboard video
+    // Stop dashboard looping on the active element
     activeEl.loop = false;
 
-    // Set up the transition video on the standby element
+    // Load transition video (plays once)
     standbyEl.loop = false;
     standbyEl.src = LEVEL1_VIDEO;
     standbyEl.load();
     standbyEl.play().catch(() => { });
 
-    // Crossfade
+    // Crossfade: bring transition video forward
     if (standby === 'A') { setOpacityA(1); setOpacityB(0); }
     else { setOpacityA(0); setOpacityB(1); }
 
     setTimeout(() => {
       activeEl.pause();
       activeRef.current = standby;
+
+      // ── Pre-load biome1 into the hidden element while transition plays ──
+      const biomeTarget = standby === 'A' ? 'B' : 'A';
+      const biomeEl = biomeTarget === 'A' ? vA : vB;
+
+      biomeEl.loop = true;
+      biomeEl.src = BIOME1_VIDEO;
+      biomeEl.load();
+      // Start playing silently (it's transparent, so no visual pop)
+      biomeEl.play().catch(() => { });
+
+      // ── When the transition video nears its end → crossfade to biome1 ──
+      const transitionEl = standbyEl;
+
+      const onTimeUpdate = () => {
+        if (!transitionEl.duration) return;
+        const remaining = transitionEl.duration - transitionEl.currentTime;
+        // Begin crossfade CROSSFADE_MS before the transition video ends
+        if (remaining > 0 && remaining <= CROSSFADE_MS / 1000 + 0.1) {
+          transitionEl.removeEventListener('timeupdate', onTimeUpdate);
+          transitionEl.removeEventListener('ended', onEnded);
+
+          // Crossfade: bring biome1 forward
+          if (biomeTarget === 'A') { setOpacityA(1); setOpacityB(0); }
+          else { setOpacityA(0); setOpacityB(1); }
+
+          setTimeout(() => {
+            transitionEl.pause();
+            activeRef.current = biomeTarget;
+          }, CROSSFADE_MS);
+        }
+      };
+
+      // Fallback: ended event in case timeupdate fires late
+      const onEnded = () => {
+        transitionEl.removeEventListener('timeupdate', onTimeUpdate);
+        transitionEl.removeEventListener('ended', onEnded);
+
+        if (biomeTarget === 'A') { setOpacityA(1); setOpacityB(0); }
+        else { setOpacityA(0); setOpacityB(1); }
+
+        setTimeout(() => {
+          transitionEl.pause();
+          activeRef.current = biomeTarget;
+        }, CROSSFADE_MS);
+      };
+
+      transitionEl.addEventListener('timeupdate', onTimeUpdate);
+      transitionEl.addEventListener('ended', onEnded);
     }, CROSSFADE_MS);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sliderComplete]);
@@ -190,43 +260,240 @@ export function VideoBackground() {
         transition: `opacity ${CROSSFADE_MS}ms ease-in-out`, zIndex: 2,
       }} />
 
+      {/* ── DIM OVERLAY — darkens all videos uniformly ── */}
+      <div style={{
+        position: 'absolute', inset: 0,
+        background: 'rgba(0,0,0,0.35)',
+        zIndex: 3,
+        pointerEvents: 'none',
+      }} />
+
       {/* ── SCENE IMAGES — fade out when slider completes ── */}
 
-      {/* Steve */}
+
+      {/* TEXT 1 — 3D block "Dashboard" title, centered upper area */}
       <div style={{
-        position: 'absolute', bottom: '46%', left: '-1%', zIndex: 10,
-        pointerEvents: 'none', width: 'clamp(240px, 30vw, 520px)',
+        position: 'absolute',
+        top: '8%',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        zIndex: 8,
+        pointerEvents: 'none',
         opacity: sliderComplete ? 0 : 1,
         transition: 'opacity 0.7s ease-out',
+        width: 'clamp(320px, 68vw, 900px)',
       }}>
+        <Image
+          src="/text1.png"
+          alt="Dashboard"
+          width={700}
+          height={300}
+          style={{
+            width: '100%',
+            height: 'auto',
+            display: 'block',
+            filter: 'drop-shadow(0 12px 40px rgba(0,0,0,0.7))',
+          }}
+          priority
+        />
+      </div>
+
+      {/* TEXT 2 — Wooden sign "Welcome to Mineverse 2.0", centered below text1 */}
+      <div style={{
+        position: 'absolute',
+        top: '34%',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        zIndex: 8,
+        pointerEvents: 'none',
+        opacity: sliderComplete ? 0 : 1,
+        transition: 'opacity 0.7s ease-out',
+        width: 'clamp(200px, 44vw, 620px)',
+      }}>
+        <Image
+          src="/text2.png"
+          alt="Welcome to Mineverse 2.0"
+          width={620}
+          height={80}
+          style={{
+            width: '100%',
+            height: 'auto',
+            display: 'block',
+            filter: 'drop-shadow(0 6px 20px rgba(0,0,0,0.75))',
+          }}
+          priority
+        />
+      </div>
+
+      {/* Steve — click to toggle player list */}
+      <div
+        role="button"
+        tabIndex={sliderComplete ? -1 : 0}
+        onClick={() => !sliderComplete && setShowPlayerList(p => !p)}
+        style={{
+          position: 'absolute', bottom: '46%', left: '-1%', zIndex: 10,
+          width: 'clamp(240px, 30vw, 520px)',
+          opacity: sliderComplete ? 0 : 1,
+          transition: 'opacity 0.7s ease-out, transform 0.18s ease',
+          cursor: sliderComplete ? 'default' : 'pointer',
+          outline: 'none',
+        }}
+        className="scene-btn steve-btn"
+      >
         <Image src="/steve.png" alt="Steve" width={680} height={560}
           style={{ width: '100%', height: 'auto', display: 'block', filter: 'drop-shadow(0 12px 32px rgba(0,0,0,0.65))' }}
           priority />
       </div>
 
-      {/* Crafting Table */}
-      <div style={{
-        position: 'absolute', bottom: '28%', right: '19%', zIndex: 10,
-        pointerEvents: 'none', width: 'clamp(160px, 18vw, 300px)',
-        opacity: sliderComplete ? 0 : 1,
-        transition: 'opacity 0.7s ease-out',
-      }}>
+      {/* Player list panel — bottom-left, toggled by Steve */}
+      {showPlayerList && !sliderComplete && (
+        <div style={{
+          position: 'absolute', bottom: '4%', left: '1%', zIndex: 20,
+          minWidth: '210px',
+          animation: 'mc-playerlist-in 0.22s ease-out forwards',
+          pointerEvents: 'none',
+        }}>
+          <div style={{
+            background: 'rgba(0,0,0,0.72)',
+            borderBottom: '1px solid rgba(255,255,255,0.12)',
+            padding: '4px 10px',
+            display: 'flex', alignItems: 'center',
+          }}>
+            <span style={{
+              color: 'rgba(255,255,255,0.55)', fontSize: '9px',
+              fontFamily: 'var(--font-minecraft, monospace)',
+              letterSpacing: '2px', textTransform: 'uppercase',
+            }}>Team ({TEAM_PLAYERS.length} players)</span>
+          </div>
+          {TEAM_PLAYERS.map((player) => (
+            <div key={player.name} style={{
+              background: 'rgba(0,0,0,0.68)',
+              borderBottom: '1px solid rgba(255,255,255,0.06)',
+              padding: '5px 10px', display: 'flex', alignItems: 'center', gap: '8px',
+            }}>
+              <div style={{
+                width: '20px', height: '20px',
+                background: 'rgba(80,60,40,0.8)',
+                border: '1px solid rgba(255,255,255,0.15)',
+                borderRadius: '2px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '13px', flexShrink: 0,
+              }}>{player.icon}</div>
+              <span style={{
+                color: '#ffffff', fontSize: '10px',
+                fontFamily: 'var(--font-minecraft, monospace)',
+                letterSpacing: '0.5px',
+                textShadow: '1px 1px 0 rgba(0,0,0,0.9)', flex: 1,
+              }}>{player.name}</span>
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: '2px', height: '14px' }}>
+                {[1,2,3,4].map(bar => (
+                  <div key={bar} style={{
+                    width: '3px', height: `${bar * 3 + 2}px`,
+                    background: bar <= player.ping ? '#55FF55' : 'rgba(255,255,255,0.15)',
+                    borderRadius: '1px',
+                  }} />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Crafting Table — click shows "coming soon" toast */}
+      <div
+        role="button"
+        tabIndex={sliderComplete ? -1 : 0}
+        onClick={() => !sliderComplete && showToast('🪵', 'Coming Soon!', 'Crafting Table is not accessible right now')}
+        style={{
+          position: 'absolute', bottom: '28%', right: '19%', zIndex: 10,
+          width: 'clamp(160px, 18vw, 300px)',
+          opacity: sliderComplete ? 0 : 1,
+          transition: 'opacity 0.7s ease-out, transform 0.18s ease',
+          cursor: sliderComplete ? 'default' : 'pointer',
+          outline: 'none',
+        }}
+        className="scene-btn crafting-btn"
+      >
+        {/* Counter badge */}
+        <div style={{
+          position: 'absolute', top: '-10px', right: '-10px', zIndex: 20,
+          background: 'linear-gradient(135deg,#1a1a2e,#16213e)',
+          border: '2px solid rgba(100,210,255,0.6)',
+          borderRadius: '50%', width: '32px', height: '32px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: 'rgba(100,210,255,0.9)', fontSize: '13px', fontWeight: 700,
+          fontFamily: 'var(--font-minecraft, monospace)',
+          boxShadow: '0 0 12px rgba(100,210,255,0.5)',
+        }}>0</div>
         <Image src="/crafting.png" alt="Crafting Table" width={680} height={500}
           style={{ width: '100%', height: 'auto', display: 'block', filter: 'drop-shadow(0 8px 28px rgba(0,0,0,0.65))' }}
           priority />
       </div>
 
-      {/* Trader + Llama */}
-      <div style={{
-        position: 'absolute', bottom: -19, right: '-5%', zIndex: 10,
-        pointerEvents: 'none', width: 'clamp(260px, 60vw, 560px)',
-        opacity: sliderComplete ? 0 : 1,
-        transition: 'opacity 0.7s ease-out',
-      }}>
+      {/* Trader + Llama — click shows "coming soon" toast */}
+      <div
+        role="button"
+        tabIndex={sliderComplete ? -1 : 0}
+        onClick={() => !sliderComplete && showToast('🧙', 'Coming Soon!', 'Wandering Trader is not accessible right now')}
+        style={{
+          position: 'absolute', bottom: -19, right: '-5%', zIndex: 10,
+          width: 'clamp(260px, 60vw, 560px)',
+          opacity: sliderComplete ? 0 : 1,
+          transition: 'opacity 0.7s ease-out, transform 0.18s ease',
+          cursor: sliderComplete ? 'default' : 'pointer',
+          outline: 'none',
+        }}
+        className="scene-btn trader-btn"
+      >
+        {/* Counter badge */}
+        <div style={{
+          position: 'absolute', top: '18%', left: '30%', zIndex: 20,
+          background: 'linear-gradient(135deg,#1a1a2e,#16213e)',
+          border: '2px solid rgba(255,180,60,0.7)',
+          borderRadius: '50%', width: '32px', height: '32px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: 'rgba(255,200,80,0.95)', fontSize: '13px', fontWeight: 700,
+          fontFamily: 'var(--font-minecraft, monospace)',
+          boxShadow: '0 0 12px rgba(255,180,60,0.5)',
+        }}>0</div>
         <Image src="/traderbg.png" alt="Wandering Trader" width={900} height={800}
           style={{ width: '100%', height: 'auto', display: 'block', filter: 'drop-shadow(0 10px 30px rgba(0,0,0,0.6))' }}
           priority />
       </div>
+
+      {/* Minecraft advancement toast — top-right */}
+      {toast && (
+        <div key={toast.key} style={{
+          position: 'fixed', top: '24px', right: '24px', zIndex: 9999,
+          display: 'flex', alignItems: 'center',
+          background: 'rgba(14,14,14,0.92)',
+          border: '2px solid rgba(80,80,80,0.9)',
+          borderRadius: '4px', overflow: 'hidden',
+          boxShadow: '4px 4px 0 rgba(0,0,0,0.8)',
+          minWidth: '260px', maxWidth: '340px',
+          animation: 'mc-toast-in 0.35s cubic-bezier(0.22,1,0.36,1) forwards',
+          pointerEvents: 'none',
+          fontFamily: 'var(--font-minecraft, monospace)',
+        }}>
+          <div style={{
+            width: '52px', minWidth: '52px', height: '52px',
+            background: 'rgba(30,30,30,0.95)',
+            borderRight: '2px solid rgba(80,80,80,0.7)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '26px', flexShrink: 0,
+          }}>{toast.icon}</div>
+          <div style={{ padding: '8px 14px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+            <div style={{
+              color: '#FFAA00', fontSize: '11px', fontWeight: 700,
+              letterSpacing: '0.5px', textShadow: '1px 1px 0 rgba(0,0,0,0.9)', lineHeight: 1.2,
+            }}>{toast.title}</div>
+            <div style={{
+              color: 'rgba(255,255,255,0.88)', fontSize: '10px',
+              letterSpacing: '0.3px', textShadow: '1px 1px 0 rgba(0,0,0,0.9)', lineHeight: 1.3,
+            }}>{toast.subtitle}</div>
+          </div>
+        </div>
+      )}
 
       {/* ── DRAG SLIDER ── */}
       <style>{`
@@ -255,6 +522,43 @@ export function VideoBackground() {
           0%, 100% { box-shadow: 0 2px 20px rgba(80,220,120,0.6), 0 0 0 4px rgba(80,220,120,0.2); }
           50%      { box-shadow: 0 2px 28px rgba(80,220,120,1),   0 0 0 8px rgba(80,220,120,0.35); }
         }
+
+        /* ── Scene character hover glow ── */
+        .scene-btn { position: relative; }
+
+        .steve-btn:hover img, .steve-btn:focus-visible img {
+          filter: drop-shadow(0 12px 32px rgba(0,0,0,0.65))
+                  drop-shadow(0 0 22px rgba(100,200,255,0.75))
+                  brightness(1.12) !important;
+        }
+        .steve-btn:active { transform: scale(0.96) !important; }
+
+        .crafting-btn:hover img, .crafting-btn:focus-visible img {
+          filter: drop-shadow(0 8px 28px rgba(0,0,0,0.65))
+                  drop-shadow(0 0 26px rgba(100,210,255,0.8))
+                  brightness(1.15) !important;
+        }
+        .crafting-btn:active { transform: scale(0.94) !important; }
+
+        .trader-btn:hover img, .trader-btn:focus-visible img {
+          filter: drop-shadow(0 10px 30px rgba(0,0,0,0.6))
+                  drop-shadow(0 0 28px rgba(255,190,60,0.75))
+                  brightness(1.12) !important;
+        }
+        .trader-btn:active { transform: scale(0.96) !important; }
+
+        /* ── Toast slide-in from right ── */
+        @keyframes mc-toast-in {
+          from { opacity: 0; transform: translateX(110%); }
+          to   { opacity: 1; transform: translateX(0); }
+        }
+
+        /* ── Player list slide up ── */
+        @keyframes mc-playerlist-in {
+          from { opacity: 0; transform: translateY(12px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+
       `}</style>
 
       {/* Hide the entire slider once transition fires */}
