@@ -335,7 +335,7 @@ export function VideoBackground() {
           width: 'clamp(240px, 30vw, 520px)',
           opacity: sliderComplete ? 0 : 1,
           transition: 'opacity 0.7s ease-out, transform 0.18s ease',
-          cursor: sliderComplete ? 'default' : 'pointer',
+          cursor: sliderComplete ? 'var(--mv-cursor-sword)' : 'var(--mv-cursor-pickaxe)',
           outline: 'none',
         }}
         className="scene-btn steve-btn"
@@ -409,7 +409,7 @@ export function VideoBackground() {
           width: 'clamp(160px, 18vw, 300px)',
           opacity: sliderComplete ? 0 : 1,
           transition: 'opacity 0.7s ease-out, transform 0.18s ease',
-          cursor: sliderComplete ? 'default' : 'pointer',
+          cursor: sliderComplete ? 'var(--mv-cursor-sword)' : 'var(--mv-cursor-pickaxe)',
           outline: 'none',
         }}
         className="scene-btn crafting-btn"
@@ -440,7 +440,7 @@ export function VideoBackground() {
           width: 'clamp(260px, 60vw, 560px)',
           opacity: sliderComplete ? 0 : 1,
           transition: 'opacity 0.7s ease-out, transform 0.18s ease',
-          cursor: sliderComplete ? 'default' : 'pointer',
+          cursor: sliderComplete ? 'var(--mv-cursor-sword)' : 'var(--mv-cursor-pickaxe)',
           outline: 'none',
         }}
         className="scene-btn trader-btn"
@@ -587,7 +587,7 @@ export function VideoBackground() {
             onTouchStart={hintDone ? onTouchStart : undefined}
             style={{
               position: 'relative', width: '100%', height: '52px',
-              cursor: hintDone ? (isDragging ? 'grabbing' : 'grab') : 'default',
+              cursor: hintDone ? (isDragging ? 'var(--mv-cursor-hand-closed)' : 'var(--mv-cursor-hand-open)') : 'var(--mv-cursor-sword)',
               userSelect: 'none', WebkitUserSelect: 'none',
             }}
           >
@@ -685,7 +685,7 @@ export function VideoBackground() {
                   border: '2px solid rgba(255,255,255,0.95)',
                   boxShadow: '0 2px 20px rgba(80,180,255,0.85), 0 0 0 4px rgba(100,210,255,0.25)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  cursor: isDragging ? 'grabbing' : 'grab',
+                  cursor: isDragging ? 'var(--mv-cursor-hand-closed)' : 'var(--mv-cursor-hand-open)',
                   transition: isDragging ? 'none' : 'left 0.05s linear',
                   touchAction: 'none',
                 }}

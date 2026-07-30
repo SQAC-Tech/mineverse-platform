@@ -4,6 +4,7 @@ import { rateLimit } from '@/lib/rate-limit';
 import { supabaseServer } from '@/lib/supabase/server';
 import { sendRegistrationReceivedEmail } from '@/lib/email';
 import { env } from '@/lib/env';
+import { verifyTurnstileToken } from '@/lib/turnstile';
 
 export async function POST(req: Request) {
   const ip = req.headers.get('x-forwarded-for') ?? 'unknown';
@@ -18,7 +19,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: false, error: (parsed.error as any).errors[0].message }, { status: 400 });
   }
 
-  const { challenge_id, verification_token, team_name, members, transaction_id, sender_name } = parsed.data;
+  const { challenge_id, verification_token, turnstile_token, team_name, members, transaction_id, sender_name } = parsed.data;
+
+  // Turnstile verification (canonical siteverify with remoteip)
+  const turnstileOk = await verifyTurnstileToken(turnstile_token, ip);
+  if (!turnstileOk) {
+    return NextResponse.json({ success: false, error: 'Captcha verification failed' }, { status: 403 });
+  }
+
   const lead = members.find((m) => m.is_team_lead)!;
 
   // Verify challenge

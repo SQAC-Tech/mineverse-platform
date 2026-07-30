@@ -1,121 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "./cursors.css";
 
-@custom-variant dark (&:is(.dark *));
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
-}
-
-:root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-}
-
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
-}
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -234,20 +121,10 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
-    cursor: url("/pickaxe.png") 0 0, auto;
-  }
-  a, button, [role="button"], .cursor-pointer {
-    cursor: url("/pickaxe.png") 0 0, pointer !important;
   }
   body {
     @apply bg-background text-foreground font-sans;
   }
-  
-  /* Apply custom cursor globally */
-  * {
-    cursor: url('/pickaxe.png') 0 0, auto;
-  }
-  
   html {
     @apply font-sans;
   }
@@ -342,4 +219,78 @@
   background-repeat: repeat-y;
   image-rendering: pixelated;
   box-shadow: 0 0 20px rgba(0,0,0,0.9);
+}
+
+/* ── MINEVERSE cursors ──────────────────────────────────────────────────────
+   Pixel-art set generated into cursors.css by scripts/generate-cursors.mjs.
+   Every rule uses :where() so its specificity is zero: later rules in this
+   block win over earlier ones (disabled beats pointer), and any Tailwind
+   cursor-* utility on a specific element still overrides the lot.
+
+   Gated on a fine pointer so touch and pen devices keep their native
+   behaviour — a 32px sword is not something you want chasing a stylus. */
+@media (hover: hover) and (pointer: fine) {
+  html {
+    cursor: var(--mv-cursor-sword);
+  }
+
+  /* Anything you can click gets the pickaxe: hover means "mineable". */
+  :where(
+    a[href], button, summary, label[for], select,
+    [role="button"], [role="link"], [role="tab"], [role="option"],
+    [role="menuitem"], [role="checkbox"], [role="radio"], [role="switch"],
+    input[type="button"], input[type="submit"], input[type="reset"],
+    input[type="checkbox"], input[type="radio"], input[type="file"],
+    input[type="range"], input[type="color"]
+  ) {
+    cursor: var(--mv-cursor-pickaxe);
+  }
+
+  /* Text entry keeps a real I-beam so the caret position stays readable. */
+  :where(
+    textarea, [contenteditable="true"],
+    input:not([type]), input[type="text"], input[type="email"],
+    input[type="password"], input[type="search"], input[type="tel"],
+    input[type="url"], input[type="number"], input[type="date"],
+    input[type="datetime-local"], input[type="month"], input[type="time"]
+  ) {
+    cursor: var(--mv-cursor-beam);
+  }
+
+  /* Barrier block = you cannot do that yet. Last word over the rules above. */
+  :where(:disabled, [aria-disabled="true"], [data-disabled]) {
+    cursor: var(--mv-cursor-barrier);
+  }
+
+  :where([draggable="true"]) {
+    cursor: var(--mv-cursor-hand-open);
+  }
+}
+
+/* Opt-in utilities. Outside the media query and without :where() so they beat
+   the defaults above and can be applied deliberately — including the Tailwind
+   class names the pages already use. */
+.cursor-pointer {
+  cursor: var(--mv-cursor-pickaxe);
+}
+
+.cursor-default {
+  cursor: var(--mv-cursor-sword);
+}
+
+.cursor-not-allowed {
+  cursor: var(--mv-cursor-barrier);
+}
+
+.cursor-grab {
+  cursor: var(--mv-cursor-hand-open);
+}
+
+.cursor-grabbing {
+  cursor: var(--mv-cursor-hand-closed);
+}
+
+/* For the round/game screens, where the pointer is an aiming reticle. */
+.cursor-crosshair {
+  cursor: var(--mv-cursor-crosshair);
 }

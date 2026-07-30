@@ -5,6 +5,7 @@ import { supabaseServer } from '@/lib/supabase/server';
 import { sendOtpEmail } from '@/lib/email';
 import { generateOtp, hashOtp } from '@/lib/auth/otp';
 import { env } from '@/lib/env';
+import { verifyTurnstileToken } from '@/lib/turnstile';
 
 export async function POST(req: Request) {
   const ip = req.headers.get('x-forwarded-for') ?? 'unknown';
@@ -26,20 +27,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: false, error: 'Too many OTP requests. Wait a few minutes.' }, { status: 429 });
   }
 
-  // Turnstile verification
-  const formData = new URLSearchParams();
-  formData.append('secret', env.TURNSTILE_SECRET_KEY);
-  formData.append('response', turnstile_token);
-
-  const turnstileRes = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
-    method: 'POST',
-    body: formData,
-  });
-  const turnstileData = await turnstileRes.json();
-  
-  // NOTE: For local dev without real turnstile, we might need a bypass, but sticking to PRD
-  if (!turnstileData.success && process.env.NODE_ENV === 'production') {
-    return NextResponse.json({ success: false, error: 'Captcha verification failed' }, { status: 400 });
+  // Turnstile verification (canonical siteverify with remoteip)
+  const turnstileOk = await verifyTurnstileToken(turnstile_token, ip);
+  if (!turnstileOk) {
+    return NextResponse.json({ success: false, error: 'Captcha verification failed' }, { status: 403 });
   }
 
   // Reject if already in members

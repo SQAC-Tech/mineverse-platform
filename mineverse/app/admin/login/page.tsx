@@ -120,7 +120,7 @@ export default function AdminLoginPage() {
               color: '#fff',
               padding: '16px',
               fontSize: '1.2rem',
-              cursor: (loading || !password) ? 'not-allowed' : 'pointer',
+              cursor: (loading || !password) ? 'var(--mv-cursor-barrier)' : 'var(--mv-cursor-pickaxe)',
               opacity: (loading || !password) ? 0.7 : 1,
               textShadow: '2px 2px 0 #111',
               display: 'flex',
