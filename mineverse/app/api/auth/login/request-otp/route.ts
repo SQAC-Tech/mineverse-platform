@@ -4,6 +4,19 @@ import { rateLimit } from '@/lib/rate-limit';
 import { sendOtpEmail } from '@/lib/email';
 import { generateOtp, hashOtp, isEventDay } from '@/lib/auth/otp';
 import { env } from '@/lib/env';
+import { verifyTurnstileToken } from '@/lib/turnstile';
+
+/**
+ * Normalise team-code to canonical MNV-XXX format on the server side.
+ * Strips all non-alphanumeric chars, uppercases, and re-inserts the dash.
+ */
+function normalizeTeamCode(raw: string): string {
+  const stripped = raw.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (stripped.length > 3 && stripped.startsWith('MNV')) {
+    return `${stripped.slice(0, 3)}-${stripped.slice(3)}`;
+  }
+  return stripped;
+}
 
 export async function POST(req: Request) {
   const ip = req.headers.get('x-forwarded-for') ?? 'unknown';
@@ -11,12 +24,27 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: false, error: 'Too many requests' }, { status: 429 });
   }
 
-  const { team_code } = await req.json();
-  if (!team_code) return NextResponse.json({ success: false, error: 'Team code required' }, { status: 400 });
+  const { team_code: rawTeamCode, turnstile_token } = await req.json();
+  if (!rawTeamCode) return NextResponse.json({ success: false, error: 'Team code required' }, { status: 400 });
 
-  // MNV-000 is the seeded demo team: fixed OTP 000000, no email, no gates
-  const isDemoTeam = team_code.toUpperCase() === 'MNV-000';
+  const team_code = normalizeTeamCode(rawTeamCode);
 
+  // MNV-000 is the seeded demo team: fixed OTP 000000, no email, no gates.
+  // It always has dashboard access (developer mode) — no event-day restriction.
+  const isDemoTeam = team_code === 'MNV-000';
+
+  // Turnstile verification — skip for demo team so devs can test without CAPTCHA
+  if (!isDemoTeam) {
+    if (!turnstile_token) {
+      return NextResponse.json({ success: false, error: 'Captcha token required' }, { status: 400 });
+    }
+    const turnstileOk = await verifyTurnstileToken(turnstile_token, ip);
+    if (!turnstileOk) {
+      return NextResponse.json({ success: false, error: 'Captcha verification failed' }, { status: 403 });
+    }
+  }
+
+  // Event-day gate applies only to real teams, never to the demo team
   if (!isDemoTeam && !isEventDay() && process.env.NODE_ENV === 'production') {
     return NextResponse.json({ success: false, error: 'Login is only available on event day.' }, { status: 403 });
   }
@@ -24,7 +52,7 @@ export async function POST(req: Request) {
   const { data: team } = await supabaseServer
     .from('teams')
     .select('id, is_payment_verified, members(email, college_email, is_team_lead)')
-    .eq('team_code', team_code.toUpperCase())
+    .eq('team_code', team_code)
     .single();
 
   if (!team) return NextResponse.json({ success: false, error: 'Team not found' }, { status: 404 });
@@ -59,3 +87,4 @@ export async function POST(req: Request) {
     expires_in: env.OTP_EXPIRY_MINUTES * 60,
   });
 }
+

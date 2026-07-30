@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { registrationSchema } from '@/lib/validation/schemas';
-import { Turnstile } from '@marsidev/react-turnstile';
+import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile';
 import { useRouter } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,7 @@ type FormValues = {
   honeypot: '';
   challenge_id: string;
   verification_token: string;
+  turnstile_token: string;
   team_name: string;
   transaction_id: string;
   sender_name: string;
@@ -35,6 +36,7 @@ type FormValues = {
 export function RegistrationForm() {
   const router = useRouter();
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstileRef = useRef<TurnstileInstance | undefined>(undefined);
   
   // OTP State
   const [otpSent, setOtpSent] = useState(false);
@@ -51,6 +53,7 @@ export function RegistrationForm() {
       honeypot: '',
       challenge_id: '',
       verification_token: '',
+      turnstile_token: '',
       team_name: '',
       transaction_id: '',
       sender_name: '',
@@ -169,12 +172,16 @@ export function RegistrationForm() {
       toast.error('Please verify the team lead\'s college email first');
       return;
     }
+    if (!turnstileToken) {
+      toast.error('Please complete the captcha');
+      return;
+    }
 
     try {
       const res = await fetch('/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify({ ...data, turnstile_token: turnstileToken }),
       });
       const result = await res.json();
 
@@ -183,9 +190,14 @@ export function RegistrationForm() {
         router.push(result.redirect);
       } else {
         toast.error(result.error || 'Registration failed');
+        // Reset Turnstile — token is single-use, must get a fresh one for retry
+        turnstileRef.current?.reset();
+        setTurnstileToken(null);
       }
     } catch (e) {
       toast.error('An error occurred during registration');
+      turnstileRef.current?.reset();
+      setTurnstileToken(null);
     }
   };
 
@@ -226,7 +238,7 @@ export function RegistrationForm() {
     justifyContent: 'center',
     boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.5)',
     color: '#aaa',
-    cursor: 'pointer'
+    cursor: 'var(--mv-cursor-pickaxe)'
   };
 
   return (
@@ -410,7 +422,7 @@ export function RegistrationForm() {
                     color: '#fca311',
                     fontSize: '0.8rem',
                     ...mc,
-                    cursor: 'pointer'
+                    cursor: 'var(--mv-cursor-pickaxe)'
                   }}
                   className="hover:brightness-110 active:scale-95 transition-all w-full max-w-sm flex items-center justify-center gap-2"
                 >
@@ -420,8 +432,12 @@ export function RegistrationForm() {
 
               <div className="bg-[#3c2415]/20 p-2 rounded">
                 <Turnstile
-                  siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
+                  ref={turnstileRef}
+                  siteKey="0x4AAAAAAEB7O-NKSvtQ5iNu"
+                  options={{ action: 'turnstile-spin-v2' }}
                   onSuccess={(token) => setTurnstileToken(token)}
+                  onError={() => setTurnstileToken(null)}
+                  onExpire={() => setTurnstileToken(null)}
                 />
               </div>
 
@@ -435,7 +451,7 @@ export function RegistrationForm() {
                   borderBottom: `4px solid ${(isSubmitting || !otpVerified || !turnstileToken) ? '#333' : '#1f4a15'}`,
                   borderRight: `4px solid ${(isSubmitting || !otpVerified || !turnstileToken) ? '#333' : '#1f4a15'}`,
                   padding: '16px 32px',
-                  cursor: (isSubmitting || !otpVerified || !turnstileToken) ? 'not-allowed' : 'pointer',
+                  cursor: (isSubmitting || !otpVerified || !turnstileToken) ? 'var(--mv-cursor-barrier)' : 'var(--mv-cursor-pickaxe)',
                   color: '#fff',
                   textShadow: '2px 2px 0 #111',
                   fontSize: '1.2rem',

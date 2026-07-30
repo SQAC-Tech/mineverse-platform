@@ -1,5 +1,5 @@
-import { DashboardView } from '@/features/dashboard/dashboard-view';
+import { VideoBackground } from '@/features/dashboard/video-background';
 
 export default function DashboardPage() {
-  return <DashboardView />;
+  return <VideoBackground />;
 }

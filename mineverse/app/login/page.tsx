@@ -1,11 +1,25 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Loader2, Users } from 'lucide-react';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
+import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile';
+
+/**
+ * Normalise team-code input to the canonical MNV-XXX format.
+ * Accepts "MNV000", "mnv-000", "mnv 000", etc. and always returns "MNV-XXX".
+ */
+function normalizeTeamCode(raw: string): string {
+  const upper = raw.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  // Insert dash after the 3-letter prefix when the user types the 4th char
+  if (upper.length > 3 && upper.startsWith('MNV')) {
+    return `${upper.slice(0, 3)}-${upper.slice(3)}`;
+  }
+  return upper;
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -18,16 +32,24 @@ export default function LoginPage() {
   const [maskedEmail, setMaskedEmail] = useState('');
   const [otp, setOtp] = useState('');
 
+  // Turnstile state
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstileRef = useRef<TurnstileInstance | undefined>(undefined);
+
   const mc = { fontFamily: 'var(--font-minecraft), system-ui, sans-serif' };
 
   const requestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!turnstileToken) {
+      toast.error('Please complete the captcha first');
+      return;
+    }
     setLoading(true);
     try {
       const res = await fetch('/api/auth/login/request-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ team_code: teamCode })
+        body: JSON.stringify({ team_code: teamCode, turnstile_token: turnstileToken })
       });
       const data = await res.json();
       if (data.success) {
@@ -37,9 +59,14 @@ export default function LoginPage() {
         toast.success('OTP sent to lead\'s college email');
       } else {
         toast.error(data.error);
+        // Reset Turnstile — token is single-use
+        turnstileRef.current?.reset();
+        setTurnstileToken(null);
       }
     } catch (err) {
       toast.error('Network error');
+      turnstileRef.current?.reset();
+      setTurnstileToken(null);
     } finally {
       setLoading(false);
     }
@@ -79,7 +106,7 @@ export default function LoginPage() {
     color: '#fff',
     padding: '16px',
     fontSize: '1.2rem',
-    cursor: 'pointer',
+    cursor: 'var(--mv-cursor-pickaxe)',
     textShadow: '2px 2px 0 #111',
     display: 'flex',
     alignItems: 'center',
@@ -176,18 +203,29 @@ export default function LoginPage() {
                 <input 
                   placeholder="MNV-XXX" 
                   value={teamCode}
-                  onChange={(e) => setTeamCode(e.target.value.toUpperCase())}
+                  onChange={(e) => setTeamCode(normalizeTeamCode(e.target.value))}
+                  maxLength={7}
                   style={inputStyle}
                   autoFocus
                 />
               </div>
+              <div className="flex justify-center">
+                <Turnstile
+                  ref={turnstileRef}
+                  siteKey="0x4AAAAAAEB7O-NKSvtQ5iNu"
+                  options={{ action: 'turnstile-spin-v2' }}
+                  onSuccess={(token) => setTurnstileToken(token)}
+                  onError={() => setTurnstileToken(null)}
+                  onExpire={() => setTurnstileToken(null)}
+                />
+              </div>
               <button 
                 type="submit" 
-                disabled={loading || !teamCode}
+                disabled={loading || !teamCode || !turnstileToken}
                 style={{
                   ...buttonStyle,
-                  opacity: (loading || !teamCode) ? 0.7 : 1,
-                  cursor: (loading || !teamCode) ? 'not-allowed' : 'pointer'
+                  opacity: (loading || !teamCode || !turnstileToken) ? 0.7 : 1,
+                  cursor: (loading || !teamCode || !turnstileToken) ? 'var(--mv-cursor-barrier)' : 'var(--mv-cursor-pickaxe)'
                 }}
                 className="hover:brightness-110 active:scale-95 transition-all"
               >
@@ -219,7 +257,7 @@ export default function LoginPage() {
                 style={{
                   ...buttonStyle,
                   opacity: (loading || otp.length !== 6) ? 0.7 : 1,
-                  cursor: (loading || otp.length !== 6) ? 'not-allowed' : 'pointer'
+                  cursor: (loading || otp.length !== 6) ? 'var(--mv-cursor-barrier)' : 'var(--mv-cursor-pickaxe)'
                 }}
                 className="hover:brightness-110 active:scale-95 transition-all"
               >
@@ -236,7 +274,7 @@ export default function LoginPage() {
                   border: 'none',
                   padding: '12px',
                   fontSize: '0.9rem',
-                  cursor: 'pointer',
+                  cursor: 'var(--mv-cursor-pickaxe)',
                   textDecoration: 'underline'
                 }}
                 className="hover:text-white transition-colors"
@@ -250,3 +288,4 @@ export default function LoginPage() {
     </div>
   );
 }
+
