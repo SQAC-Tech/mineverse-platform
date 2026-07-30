@@ -12,7 +12,7 @@ const serverEnvSchema = z.object({
   SMTP_USER: z.string().optional().default(''),
   SMTP_PASS: z.string().optional().default(''),
   SMTP_FROM: z.string().optional().default(''),
-  TURNSTILE_SECRET_KEY: z.string().min(1),
+  TURNSTILE_SECRET: z.string().min(1),
   EVENT_DATE: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   WHATSAPP_GROUP_LINK: z.string().url(),
   UPI_ID: z.string().min(3),

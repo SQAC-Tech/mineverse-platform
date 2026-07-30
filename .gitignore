@@ -3,3 +3,6 @@
 .claude/
 .mcp.json
 skills-lock.json
+.env
+.claude
+.env.example

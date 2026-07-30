@@ -42,3 +42,6 @@ yarn-error.log*
 next-env.d.ts
 .agents
 .claude
+
+# local scratch space (cursor previews, throwaway scripts)
+/scratch
