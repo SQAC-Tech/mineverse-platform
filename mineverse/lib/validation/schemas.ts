@@ -29,6 +29,7 @@ export const registrationSchema = z.object({
   honeypot: z.literal(''),
   challenge_id: z.string().uuid(),
   verification_token: z.string().uuid(),
+  turnstile_token: z.string().min(1, { message: 'Complete the captcha' }),
   team_name: z.string().min(3).max(50),
   transaction_id: z.string()
     .trim()
