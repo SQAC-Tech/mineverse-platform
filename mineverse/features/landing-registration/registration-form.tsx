@@ -101,6 +101,14 @@ export function RegistrationForm() {
         setValue('challenge_id', data.challenge_id);
         setOtpSent(true);
         toast.success('OTP sent to your college email!');
+        
+        // Show OTP directly in dev mode if SMTP isn't set up yet
+        if (data.devOtp) {
+          toast.info(`DEV MODE OTP: ${data.devOtp}`, {
+            duration: 15000,
+            description: "Use this since real emails aren't configured yet."
+          });
+        }
       } else {
         toast.error(data.error || 'Failed to send OTP');
       }
