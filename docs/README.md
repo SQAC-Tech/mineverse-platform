@@ -35,3 +35,4 @@ These are non-negotiable, and they show up in every doc below, so learn them onc
 - **File ownership is real and enforced by convention, not by tooling.** Each dev owns a set of files. Do not edit a file someone else owns, even to "quickly fix" something — ping them instead. This is how a 3–5 person team avoids merge conflicts without a strict branching workflow. The exact ownership map is in each phase's backend doc.
 
 If you only read one more thing after this page, make it `01-nextjs-and-typescript-for-beginners.md`.
+Done
