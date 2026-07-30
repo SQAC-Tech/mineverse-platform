@@ -361,7 +361,7 @@ export function VideoBackground() {
           }}>
             <span style={{
               color: 'rgba(255,255,255,0.55)', fontSize: '9px',
-              fontFamily: 'var(--font-minecraft, monospace)',
+              fontFamily: 'var(--font-minecraft), system-ui, sans-serif',
               letterSpacing: '2px', textTransform: 'uppercase',
             }}>Team ({TEAM_PLAYERS.length} players)</span>
           </div>
@@ -381,7 +381,7 @@ export function VideoBackground() {
               }}>{player.icon}</div>
               <span style={{
                 color: '#ffffff', fontSize: '10px',
-                fontFamily: 'var(--font-minecraft, monospace)',
+                fontFamily: 'var(--font-minecraft), system-ui, sans-serif',
                 letterSpacing: '0.5px',
                 textShadow: '1px 1px 0 rgba(0,0,0,0.9)', flex: 1,
               }}>{player.name}</span>
@@ -416,13 +416,13 @@ export function VideoBackground() {
       >
         {/* Counter badge */}
         <div style={{
-          position: 'absolute', top: '-10px', right: '-10px', zIndex: 20,
+          position: 'absolute', top: '15%', right: '15%', zIndex: 20,
           background: 'linear-gradient(135deg,#1a1a2e,#16213e)',
           border: '2px solid rgba(100,210,255,0.6)',
           borderRadius: '50%', width: '32px', height: '32px',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           color: 'rgba(100,210,255,0.9)', fontSize: '13px', fontWeight: 700,
-          fontFamily: 'var(--font-minecraft, monospace)',
+          fontFamily: 'var(--font-minecraft), system-ui, sans-serif',
           boxShadow: '0 0 12px rgba(100,210,255,0.5)',
         }}>0</div>
         <Image src="/crafting.png" alt="Crafting Table" width={680} height={500}
@@ -447,13 +447,13 @@ export function VideoBackground() {
       >
         {/* Counter badge */}
         <div style={{
-          position: 'absolute', top: '18%', left: '30%', zIndex: 20,
+          position: 'absolute', top: '28%', left: '38%', zIndex: 20,
           background: 'linear-gradient(135deg,#1a1a2e,#16213e)',
           border: '2px solid rgba(255,180,60,0.7)',
           borderRadius: '50%', width: '32px', height: '32px',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           color: 'rgba(255,200,80,0.95)', fontSize: '13px', fontWeight: 700,
-          fontFamily: 'var(--font-minecraft, monospace)',
+          fontFamily: 'var(--font-minecraft), system-ui, sans-serif',
           boxShadow: '0 0 12px rgba(255,180,60,0.5)',
         }}>0</div>
         <Image src="/traderbg.png" alt="Wandering Trader" width={900} height={800}
@@ -473,7 +473,7 @@ export function VideoBackground() {
           minWidth: '260px', maxWidth: '340px',
           animation: 'mc-toast-in 0.35s cubic-bezier(0.22,1,0.36,1) forwards',
           pointerEvents: 'none',
-          fontFamily: 'var(--font-minecraft, monospace)',
+          fontFamily: 'var(--font-minecraft), system-ui, sans-serif',
         }}>
           <div style={{
             width: '52px', minWidth: '52px', height: '52px',
@@ -526,24 +526,27 @@ export function VideoBackground() {
         /* ── Scene character hover glow ── */
         .scene-btn { position: relative; }
 
-        .steve-btn:hover img, .steve-btn:focus-visible img {
+        .steve-btn:hover, .steve-btn:focus-visible {
           filter: drop-shadow(0 12px 32px rgba(0,0,0,0.65))
                   drop-shadow(0 0 22px rgba(100,200,255,0.75))
                   brightness(1.12) !important;
+          z-index: 50 !important;
         }
         .steve-btn:active { transform: scale(0.96) !important; }
 
-        .crafting-btn:hover img, .crafting-btn:focus-visible img {
+        .crafting-btn:hover, .crafting-btn:focus-visible {
           filter: drop-shadow(0 8px 28px rgba(0,0,0,0.65))
                   drop-shadow(0 0 26px rgba(100,210,255,0.8))
                   brightness(1.15) !important;
+          z-index: 50 !important;
         }
         .crafting-btn:active { transform: scale(0.94) !important; }
 
-        .trader-btn:hover img, .trader-btn:focus-visible img {
+        .trader-btn:hover, .trader-btn:focus-visible {
           filter: drop-shadow(0 10px 30px rgba(0,0,0,0.6))
                   drop-shadow(0 0 28px rgba(255,190,60,0.75))
                   brightness(1.12) !important;
+          z-index: 50 !important;
         }
         .trader-btn:active { transform: scale(0.96) !important; }
 
@@ -573,7 +576,7 @@ export function VideoBackground() {
           {/* Label */}
           <div style={{
             color: 'rgba(255,255,255,0.9)', fontSize: '10px', letterSpacing: '4px',
-            textTransform: 'uppercase', fontFamily: 'var(--font-minecraft, monospace)',
+            textTransform: 'uppercase', fontFamily: 'var(--font-minecraft), system-ui, sans-serif',
             textShadow: '0 0 20px rgba(0,0,0,1), 0 2px 6px rgba(0,0,0,0.9)',
             animation: hintDone ? 'none' : 'drag-label-pulse 2s ease-in-out infinite',
             opacity: hintDone ? 0.85 : undefined,

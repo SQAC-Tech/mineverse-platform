@@ -67,7 +67,7 @@ export async function POST(req: Request) {
   // Delete old challenge
   await supabaseServer.from('otp_challenges').delete().match({ team_id: team.id, purpose: 'login' });
 
-  const { data: challenge } = await supabaseServer.from('otp_challenges')
+  const { data: challenge, error } = await supabaseServer.from('otp_challenges')
     .insert({
       email: lead.college_email,
       otp_hash: hashOtp(otp),
@@ -76,15 +76,25 @@ export async function POST(req: Request) {
       expires_at: expiresAt.toISOString(),
     }).select('id').single();
 
+  if (error || !challenge) {
+    console.error("Login OTP Insert Error:", error);
+    return NextResponse.json({ success: false, error: 'Database error generating OTP' }, { status: 500 });
+  }
+
   if (!isDemoTeam) {
-    await sendOtpEmail({ to: lead.college_email, otp, purpose: 'login', team_id: team.id });
+    try {
+      await sendOtpEmail({ to: lead.college_email, otp, purpose: 'login', team_id: team.id });
+    } catch (e) {
+      console.error("Email send error:", e);
+    }
   }
 
   return NextResponse.json({
     success: true,
-    challenge_id: challenge!.id,
+    challenge_id: challenge.id,
     lead_email_masked: lead.college_email.replace(/^(.{2})(.*)(@.*)$/, '$1***$3'),
     expires_in: env.OTP_EXPIRY_MINUTES * 60,
+    devOtp: process.env.NODE_ENV !== 'production' ? otp : undefined
   });
 }
 
