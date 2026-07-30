@@ -633,7 +633,7 @@ function McButton({ children, onClick, href, variant = 'primary' }: { children: 
     borderBottom: `4px solid ${colors.bottom}`,
     borderRight: `4px solid ${colors.bottom}`,
     padding: '12px 32px',
-    cursor: 'pointer',
+    cursor: 'var(--mv-cursor-pickaxe)',
     fontFamily: 'system-ui, sans-serif',
     color: '#fff',
     textShadow: '2px 2px 0 #111',
@@ -1314,7 +1314,7 @@ function CavernContent({ config }: { config: any }) {
               color: '#fff',
               padding: '16px 32px',
               fontSize: '1.2rem',
-              cursor: 'pointer',
+              cursor: 'var(--mv-cursor-pickaxe)',
               textShadow: '2px 2px 0 #111',
               boxShadow: '0 8px 15px rgba(0,0,0,0.5)',
               ...mc
@@ -1333,7 +1333,7 @@ function CavernContent({ config }: { config: any }) {
               color: '#fca311',
               padding: '16px 32px',
               fontSize: '1.2rem',
-              cursor: 'pointer',
+              cursor: 'var(--mv-cursor-pickaxe)',
               textShadow: '2px 2px 0 #111',
               boxShadow: '0 8px 15px rgba(0,0,0,0.5)',
               ...mc
