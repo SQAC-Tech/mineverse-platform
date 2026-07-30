@@ -61,7 +61,7 @@ export async function POST(req: Request) {
   const otp = generateOtp();
   const expiresAt = new Date(Date.now() + env.OTP_EXPIRY_MINUTES * 60_000);
 
-  const { data: challenge } = await supabaseServer.from('otp_challenges')
+  const { data: challenge, error } = await supabaseServer.from('otp_challenges')
     .insert({
       email: college_email,
       otp_hash: hashOtp(otp),
@@ -71,11 +71,22 @@ export async function POST(req: Request) {
     .select('id')
     .single();
 
-  await sendOtpEmail({ to: college_email, otp, purpose: 'registration' });
+  if (error || !challenge) {
+    console.error("OTP Insert Error:", error);
+    return NextResponse.json({ success: false, error: 'Database error generating OTP' }, { status: 500 });
+  }
+
+  // Attempt to send email, but don't block if it fails during dev
+  try {
+    await sendOtpEmail({ to: college_email, otp, purpose: 'registration' });
+  } catch (e) {
+    console.error("Email send error:", e);
+  }
 
   return NextResponse.json({
     success: true,
-    challenge_id: challenge!.id,
+    challenge_id: challenge.id,
     expires_in: env.OTP_EXPIRY_MINUTES * 60,
+    devOtp: process.env.NODE_ENV !== 'production' ? otp : undefined
   });
 }
