@@ -57,6 +57,14 @@ export default function LoginPage() {
         setMaskedEmail(data.lead_email_masked);
         setStep(2);
         toast.success('OTP sent to lead\'s college email');
+        
+        // Show OTP directly in dev mode
+        if (data.devOtp) {
+          toast.info(`DEV MODE OTP: ${data.devOtp}`, {
+            duration: 15000,
+            description: "Use this since real emails aren't configured yet."
+          });
+        }
       } else {
         toast.error(data.error);
         // Reset Turnstile — token is single-use
