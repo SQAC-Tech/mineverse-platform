@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import Link from 'next/link';
 import { RegistrationForm } from './registration-form';
+import { Footer } from '@/components/Footer';
 
 // ═══════════════════════════════════════════════════════════
 //  SCROLL STATE
@@ -1154,7 +1155,21 @@ function CavernContent({ config }: { config: any }) {
           </McPanel>
           
           <McPanel style={{ flex: '1 1 200px', maxWidth: '260px', padding: '20px 16px', textAlign: 'center' }}>
-            <div style={{ fontSize: '1.5rem', marginBottom: '8px' }}>📍</div>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '8px' }}>
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                viewBox="0 0 16 16" 
+                style={{ width: '24px', height: '24px', shapeRendering: 'crispEdges' }}
+              >
+                <path fill="#000000" d="M6 1h4v1h2v1h1v5h-1v2h-1v2h-1v2H9v2H7v-2H6v-2H5v-2H4V8H3V3h1V2h2V1z"/>
+                <path fill="#fc5454" d="M6 2h4v1h2v5h-1v2h-1v2H6v-2H5V8H4V3h2V2z"/>
+                <path fill="#ffffff" d="M7 4h2v2H7V4z"/>
+                <rect x="11" y="3" width="1" height="5" fill="#aa0000" />
+                <rect x="10" y="8" width="1" height="2" fill="#aa0000" />
+                <rect x="9" y="10" width="1" height="2" fill="#aa0000" />
+                <rect x="6" y="11" width="3" height="1" fill="#aa0000" />
+              </svg>
+            </div>
             <h3 style={{ fontFamily: 'system-ui, sans-serif', fontSize: '0.55rem', color: '#fca311', textShadow: '1px 1px 0 #000', marginBottom: '6px' }}>VENUE</h3>
             <p style={{ fontFamily: 'system-ui, sans-serif', fontSize: '1rem', color: '#e5e5e5', textShadow: '1px 1px 0 #000', lineHeight: '1.6' }}>ONLINE + SELECT<br/>VENUES</p>
           </McPanel>
@@ -1329,23 +1344,7 @@ function CavernContent({ config }: { config: any }) {
         </div>
       </div>
       
-      {/* Footer */}
-      <div style={{
-        padding: '20px',
-        textAlign: 'center',
-        borderTop: '3px solid #1a110a',
-        background: 'rgba(0,0,0,0.5)',
-      }}>
-        <p style={{
-          ...mc,
-          fontSize: '0.8rem',
-          color: '#555555',
-          textShadow: '1px 1px 0 #000',
-          letterSpacing: '0.15em',
-        }}>
-          MINEVERSE © 2025 — CRAFTED WITH ❤️
-        </p>
-      </div>
+      <Footer />
     </div>
   );
 }
