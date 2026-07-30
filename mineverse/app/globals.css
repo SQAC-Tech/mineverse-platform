@@ -234,11 +234,112 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    cursor: url("/pickaxe.png") 0 0, auto;
+  }
+  a, button, [role="button"], .cursor-pointer {
+    cursor: url("/pickaxe.png") 0 0, pointer !important;
   }
   body {
     @apply bg-background text-foreground font-sans;
   }
+  
+  /* Apply custom cursor globally */
+  * {
+    cursor: url('/pickaxe.png') 0 0, auto;
+  }
+  
   html {
     @apply font-sans;
   }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 12px rgba(170, 0, 0, 0.4), inset 0 0 8px rgba(255, 255, 255, 0.08); }
+  50% { box-shadow: 0 0 24px rgba(255, 85, 85, 0.7), inset 0 0 16px rgba(255, 255, 255, 0.2); }
+}
+
+@keyframes bg-zoom {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+}
+
+.animate-float {
+  animation: float 5s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2.5s ease-in-out infinite;
+}
+
+.animate-bg-zoom {
+  animation: bg-zoom 25s ease-in-out infinite;
+}
+
+@keyframes rise {
+  0% { transform: translateY(0) translateX(0) scale(1); opacity: 0; }
+  10% { opacity: 0.9; }
+  50% { transform: translateY(-50vh) translateX(15px) scale(0.7); opacity: 0.7; }
+  80% { opacity: 0.4; }
+  100% { transform: translateY(-100vh) translateX(-10px) scale(0.2); opacity: 0; }
+}
+
+.animate-rise {
+  animation-name: rise;
+  animation-timing-function: ease-out;
+  animation-iteration-count: infinite;
+}
+
+/* Gamification Elements */
+.btn-minecraft {
+  position: relative;
+  border: 4px solid #000;
+  box-shadow: inset -4px -4px 0px 0px rgba(0,0,0,0.5), inset 4px 4px 0px 0px rgba(255,255,255,0.3), 0 4px 0px #000;
+  image-rendering: pixelated;
+  transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1), filter 0.2s, box-shadow 0.1s;
+}
+
+.btn-minecraft:hover {
+  transform: scale(1.02) translateY(-2px);
+  box-shadow: inset -4px -4px 0px 0px rgba(0,0,0,0.5), inset 4px 4px 0px 0px rgba(255,255,255,0.4), 0 6px 0px #000;
+  filter: brightness(1.1);
+}
+
+.btn-minecraft:active {
+  transform: scale(0.98) translateY(4px);
+  box-shadow: inset -4px -4px 0px 0px rgba(0,0,0,0.2), inset 4px 4px 0px 0px rgba(0,0,0,0.5), 0 0px 0px #000;
+  animation: shake 0.2s cubic-bezier(.36,.07,.19,.97) both;
+  filter: brightness(0.9);
+}
+
+@keyframes shake {
+  10%, 90% { transform: scale(0.98) translateY(4px) translateX(-1px); }
+  20%, 80% { transform: scale(0.98) translateY(4px) translateX(2px); }
+  30%, 50%, 70% { transform: scale(0.98) translateY(4px) translateX(-4px); }
+  40%, 60% { transform: scale(0.98) translateY(4px) translateX(4px); }
+}
+
+/* Custom CSS Board */
+.minecraft-board {
+  background-color: #c69f70;
+  border: 8px solid #5a3a1f;
+  box-shadow: 
+    inset -4px -4px 0px rgba(0,0,0,0.3),
+    inset 4px 4px 0px rgba(255,255,255,0.4),
+    0 10px 20px rgba(0,0,0,0.7);
+  position: relative;
+}
+
+/* Custom CSS Grass Path */
+.minecraft-grass-path {
+  background-color: #5d8c3e;
+  background-image: url('/grass-block.svg');
+  background-size: 64px 64px;
+  background-repeat: repeat-y;
+  image-rendering: pixelated;
+  box-shadow: 0 0 20px rgba(0,0,0,0.9);
 }
