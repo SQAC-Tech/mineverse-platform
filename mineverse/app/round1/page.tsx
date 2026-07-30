@@ -7,10 +7,12 @@ type TabType = 'crosswords' | 'aptitudes' | 'output';
 export default function Round1Page() {
   const [timeLeft, setTimeLeft] = useState(60 * 60); // 60 minutes
   
-  const [toasts, setToasts] = useState<{ id: number; icon: string; title: string; subtitle: string; }[]>([]);
+  const [toasts, setToasts] = useState<{ id: number; icon: string; title: string; subtitle: React.ReactNode; }[]>([]);
   const [activeSlot, setActiveSlot] = useState(1);
   const [isCraftingOpen, setIsCraftingOpen] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState<any>(null);
+  const [isVideoToggled, setIsVideoToggled] = useState(false);
+  const [timerClickCount, setTimerClickCount] = useState(0);
   
   const [activeTab, setActiveTab] = useState<TabType>('crosswords');
   const [questionIndices, setQuestionIndices] = useState<Record<TabType, number>>({
@@ -139,7 +141,7 @@ export default function Round1Page() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const addToast = (icon: string, title: string, subtitle: string) => {
+  const addToast = (icon: string, title: string, subtitle: React.ReactNode) => {
     const id = Date.now() + Math.random();
     setToasts(prev => [...prev, { id, icon, title, subtitle }]);
     setTimeout(() => {
@@ -173,39 +175,72 @@ export default function Round1Page() {
         }
       `}</style>
       
-      {/* Minecraft Toasts */}
-      <div style={{ position: 'fixed', top: '24px', right: '4px', zIndex: 9999, display: 'flex', flexDirection: 'column', gap: '8px', pointerEvents: 'none' }}>
-        {toasts.map(toast => (
-          <div key={toast.id} style={{
-            display: 'flex', alignItems: 'center',
-            background: 'rgba(14,14,14,0.92)',
-            border: '2px solid rgba(80,80,80,0.9)',
-            borderRadius: '4px', overflow: 'hidden',
-            boxShadow: '4px 4px 0 rgba(0,0,0,0.8)',
-            minWidth: '260px', maxWidth: '340px',
-            animation: 'mc-toast-in 0.35s cubic-bezier(0.22,1,0.36,1) forwards',
-            fontFamily: 'var(--font-minecraft, monospace)',
-          }}>
-            <div style={{
-              width: '52px', minWidth: '52px', height: '52px',
-              background: 'rgba(30,30,30,0.95)',
-              borderRight: '2px solid rgba(80,80,80,0.7)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '26px', flexShrink: 0,
-            }}>{toast.icon}</div>
-            <div style={{ padding: '8px 14px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+      {/* Notifications Panel */}
+      <div style={{ 
+        position: 'fixed', top: '24px', right: '5px', zIndex: 9999, 
+        display: 'flex', flexDirection: 'column', 
+        width: '340px', 
+        background: 'rgba(0, 0, 0, 0.65)',
+        border: '2px solid rgba(80, 80, 80, 0.9)',
+        padding: '12px',
+        pointerEvents: 'none',
+        fontFamily: 'var(--font-minecraft, monospace)'
+      }}>
+        <div style={{
+          color: '#ffffff',
+          fontSize: '16px',
+          fontWeight: 'bold',
+          marginBottom: '12px',
+          textShadow: '2px 2px 0 rgba(0,0,0,0.9)',
+          borderBottom: '2px solid rgba(80, 80, 80, 0.9)',
+          paddingBottom: '8px'
+        }}>
+          Notifications
+        </div>
+        <div style={{
+          display: 'flex', flexDirection: 'column', gap: '8px',
+        }}>
+          {toasts.slice(-6).map(toast => {
+            const isWorldEvent = toast.title.includes('World Event');
+            const isGuardian = toast.title.includes('Forest Guardian');
+            const borderColor = isWorldEvent ? '#FFAA00' : isGuardian ? '#FF5555' : 'rgba(80,80,80,0.9)';
+            const titleColor = isWorldEvent ? '#FFAA00' : isGuardian ? '#FF5555' : toast.title.includes('Advancement') ? '#FFAA00' : toast.title.includes('Challenge') ? '#FF55FF' : '#FFFF55';
+            const subtitleColor = isWorldEvent ? '#FFD700' : isGuardian ? '#FF8888' : 'rgba(255,255,255,0.88)';
+            const iconBg = isWorldEvent ? 'rgba(80,50,0,0.95)' : isGuardian ? 'rgba(80,0,0,0.95)' : 'rgba(30,30,30,0.95)';
+            const iconBorder = isWorldEvent ? '#FFAA00' : isGuardian ? '#FF5555' : 'rgba(80,80,80,0.7)';
+
+            return (
+            <div key={toast.id} style={{
+              display: 'flex', alignItems: 'center',
+              background: 'rgba(14,14,14,0.92)',
+              border: `2px solid ${borderColor}`,
+              borderRadius: '4px', overflow: 'hidden',
+              boxShadow: '4px 4px 0 rgba(0,0,0,0.8)',
+              width: '100%',
+              animation: 'mc-toast-in 0.35s cubic-bezier(0.22,1,0.36,1) forwards',
+            }}>
               <div style={{
-                color: toast.title.includes('Advancement') ? '#FFAA00' : toast.title.includes('Challenge') ? '#FF55FF' : '#FFFF55', 
-                fontSize: '11px', fontWeight: 700,
-                letterSpacing: '0.5px', textShadow: '1px 1px 0 rgba(0,0,0,0.9)', lineHeight: 1.2,
-              }}>{toast.title}</div>
-              <div style={{
-                color: 'rgba(255,255,255,0.88)', fontSize: '10px',
-                letterSpacing: '0.3px', textShadow: '1px 1px 0 rgba(0,0,0,0.9)', lineHeight: 1.3,
-              }}>{toast.subtitle}</div>
+                width: '52px', minWidth: '52px', alignSelf: 'stretch',
+                background: iconBg,
+                borderRight: `2px solid ${iconBorder}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '26px', flexShrink: 0,
+              }}>{toast.icon}</div>
+              <div style={{ padding: '8px 14px', display: 'flex', flexDirection: 'column', gap: '3px', width: '100%' }}>
+                <div style={{
+                  color: titleColor, 
+                  fontSize: '11px', fontWeight: 700,
+                  letterSpacing: '0.5px', textShadow: '1px 1px 0 rgba(0,0,0,0.9)', lineHeight: 1.2,
+                }}>{toast.title}</div>
+                <div style={{
+                  color: subtitleColor, fontSize: '10px',
+                  letterSpacing: '0.3px', textShadow: '1px 1px 0 rgba(0,0,0,0.9)', lineHeight: 1.3,
+                  whiteSpace: 'pre-wrap'
+                }}>{toast.subtitle}</div>
+              </div>
             </div>
-          </div>
-        ))}
+          )})}
+        </div>
       </div>
 
       {/* Background Video Loop */}
@@ -227,7 +262,14 @@ export default function Round1Page() {
         <div 
           role="button"
           tabIndex={0}
-          onClick={() => addToast('🔔', 'Notification', 'No new notifications right now!')}
+          onClick={() => {
+            if (!isVideoToggled) {
+              addToast('🔔', 'Notification', 'forest guardian battle haas started');
+            } else {
+              addToast('🔔', 'Notification', 'No new notifications right now!');
+            }
+            setIsVideoToggled(!isVideoToggled);
+          }}
           className="absolute left-4 top-2 md:left-8 md:top-2 pointer-events-auto cursor-pointer group"
         >
           {/* Counter badge */}
@@ -255,7 +297,18 @@ export default function Round1Page() {
         <div className="relative w-[98vw] md:w-[95vw] max-w-6xl aspect-[1306/876] max-h-[75vh] flex flex-col pointer-events-auto mt-12">
           
           {/* Timer positioned outside, top right */}
-      <div className="absolute -top-14 md:-top-[4.5rem] right-[1%] md:right-[0%] pointer-events-auto flex items-center justify-center">
+      <div 
+        className="absolute -top-14 md:-top-[4.5rem] right-[1%] md:right-[0%] pointer-events-auto flex items-center justify-center cursor-pointer"
+        onClick={() => {
+          const nextCount = (timerClickCount % 5) + 1;
+          setTimerClickCount(nextCount);
+          if (nextCount === 1) addToast('🪵', 'Resource Gained', 'you have gained + 10 Wood');
+          else if (nextCount === 2) addToast('🪨', 'Resource Gained', 'you have gained + 5 Stone');
+          else if (nextCount === 3) addToast('🌧️', 'World Event: Heavy Rain', 'Wood rewards doubled for 5 mins!');
+          else if (nextCount === 4) addToast('💎', 'Resource Gained', 'you have gained + 2 Diamond');
+          else if (nextCount === 5) addToast('⚔️', 'Forest Guardian', 'Guardian battle deployed!');
+        }}
+      >
        <img 
         src="/timer.png" 
         alt="Timer background" 
@@ -379,14 +432,24 @@ export default function Round1Page() {
 
       {/* Steve Video */}
       <div className="absolute bottom-0 right-0 z-20 pointer-events-none p-1.5 bg-[#c6c6c6] border-[4px] border-t-white border-l-white border-b-[#555] border-r-[#555]">
-        <video 
-          src="/stevevid.mp4" 
-          autoPlay
-          loop
-          muted
-          playsInline
-          className="w-[10rem] md:w-[14rem] lg:w-[16rem] object-cover drop-shadow-md" 
-        />
+        <div className="grid w-[10rem] md:w-[14rem] lg:w-[16rem]">
+          <video 
+            src="/stevevid.mp4" 
+            autoPlay
+            loop
+            muted
+            playsInline
+            className={`col-start-1 row-start-1 w-full h-full object-cover drop-shadow-md transition-opacity duration-700 ease-in-out ${isVideoToggled ? 'opacity-0' : 'opacity-100'}`} 
+          />
+          <video 
+            src="/forestguardian.mp4" 
+            autoPlay
+            loop
+            muted
+            playsInline
+            className={`col-start-1 row-start-1 w-full h-full object-cover drop-shadow-md transition-opacity duration-700 ease-in-out ${isVideoToggled ? 'opacity-100' : 'opacity-0'}`} 
+          />
+        </div>
       </div>
 
       {/* Minecraft HUD Hotbar */}
