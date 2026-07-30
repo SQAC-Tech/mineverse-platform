@@ -1421,7 +1421,7 @@ export function MinecraftLanding({ config }: { config: any }) {
   }, [showCavern]);
 
   return (
-    <div style={{ position: 'relative', background: '#000' }}>
+    <div style={{ position: 'relative', background: '#000', cursor: 'var(--mv-cursor-sword)' }}>
       {/* Section 1: 3D Cave entrance - 110vh so we have a tiny scroll area to trigger animation */}
       <div style={{ position: 'relative', height: showCavern ? '0px' : '110vh', backgroundColor: '#000', overflow: 'hidden' }}>
         <div id="bg-mountain" style={{ 
@@ -1445,6 +1445,7 @@ export function MinecraftLanding({ config }: { config: any }) {
               camera={{ position: [0, 2, 22], fov: 80 }}
               gl={{ antialias: false, powerPreference: 'high-performance' }}
               shadows="basic"
+              style={{ cursor: 'var(--mv-cursor-sword)' }}
             >
               <World />
             </Canvas>
