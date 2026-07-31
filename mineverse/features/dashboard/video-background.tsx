@@ -3,13 +3,15 @@
 import Image from 'next/image';
 import { useRef, useEffect, useState, useCallback } from 'react';
 
+import { useRouter } from 'next/navigation';
+
 // Longer crossfade for a more cinematic, seamless feel
 const CROSSFADE_MS = 1200;
 const TRIGGER_BEFORE_END_S = CROSSFADE_MS / 1000 + 0.3;
 
-const DASH_VIDEO = '/dashboard.mp4';
-const LEVEL1_VIDEO = '/final transition level1-1.mp4';
-const BIOME1_VIDEO = '/biome1-1.mp4';
+const DASH_VIDEO = '/dashvid.mp4';
+const LEVEL1_VIDEO = '/vid2.mp4';
+const VID3_VIDEO = '/vid3.mp4';
 
 // ── Team members ────────────────────────────────────────────────
 const TEAM_PLAYERS = [
@@ -20,6 +22,7 @@ const TEAM_PLAYERS = [
 ];
 
 export function VideoBackground() {
+  const router = useRouter();
   const videoA = useRef<HTMLVideoElement>(null);
   const videoB = useRef<HTMLVideoElement>(null);
 
@@ -40,6 +43,8 @@ export function VideoBackground() {
   // ── Transition triggered when slider hits the right end ────────
   const [sliderComplete, setSliderComplete] = useState(false);
   const transitionedRef = useRef(false);
+  const [isPlayingVid3, setIsPlayingVid3] = useState(false);
+  const [vid2Complete, setVid2Complete] = useState(false);
 
   // ── Toast notification ────────────────────────────────────────
   const [toast, setToast] = useState<{ icon: string; title: string; subtitle: string; key: number } | null>(null);
@@ -191,57 +196,45 @@ export function VideoBackground() {
       activeEl.pause();
       activeRef.current = standby;
 
-      // ── Pre-load biome1 into the hidden element while transition plays ──
-      const biomeTarget = standby === 'A' ? 'B' : 'A';
-      const biomeEl = biomeTarget === 'A' ? vA : vB;
-
-      biomeEl.loop = true;
-      biomeEl.src = BIOME1_VIDEO;
-      biomeEl.load();
-      // Start playing silently (it's transparent, so no visual pop)
-      biomeEl.play().catch(() => { });
-
-      // ── When the transition video nears its end → crossfade to biome1 ──
-      const transitionEl = standbyEl;
-
-      const onTimeUpdate = () => {
-        if (!transitionEl.duration) return;
-        const remaining = transitionEl.duration - transitionEl.currentTime;
-        // Begin crossfade CROSSFADE_MS before the transition video ends
-        if (remaining > 0 && remaining <= CROSSFADE_MS / 1000 + 0.1) {
-          transitionEl.removeEventListener('timeupdate', onTimeUpdate);
-          transitionEl.removeEventListener('ended', onEnded);
-
-          // Crossfade: bring biome1 forward
-          if (biomeTarget === 'A') { setOpacityA(1); setOpacityB(0); }
-          else { setOpacityA(0); setOpacityB(1); }
-
-          setTimeout(() => {
-            transitionEl.pause();
-            activeRef.current = biomeTarget;
-          }, CROSSFADE_MS);
-        }
+      const onEndedVid2 = () => {
+        standbyEl.removeEventListener('ended', onEndedVid2);
+        setVid2Complete(true);
       };
-
-      // Fallback: ended event in case timeupdate fires late
-      const onEnded = () => {
-        transitionEl.removeEventListener('timeupdate', onTimeUpdate);
-        transitionEl.removeEventListener('ended', onEnded);
-
-        if (biomeTarget === 'A') { setOpacityA(1); setOpacityB(0); }
-        else { setOpacityA(0); setOpacityB(1); }
-
-        setTimeout(() => {
-          transitionEl.pause();
-          activeRef.current = biomeTarget;
-        }, CROSSFADE_MS);
-      };
-
-      transitionEl.addEventListener('timeupdate', onTimeUpdate);
-      transitionEl.addEventListener('ended', onEnded);
+      standbyEl.addEventListener('ended', onEndedVid2);
     }, CROSSFADE_MS);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sliderComplete]);
+
+  // ── Play Vid 3 and redirect to round1 ──
+  const playVid3 = useCallback(() => {
+    setIsPlayingVid3(true);
+    const vA = videoA.current;
+    const vB = videoB.current;
+    if (!vA || !vB) return;
+
+    const standby = activeRef.current === 'A' ? 'B' : 'A';
+    const standbyEl = standby === 'A' ? vA : vB;
+    const activeEl = activeRef.current === 'A' ? vA : vB;
+
+    standbyEl.loop = false;
+    standbyEl.src = VID3_VIDEO;
+    standbyEl.load();
+    standbyEl.play().catch(() => {});
+
+    if (standby === 'A') { setOpacityA(1); setOpacityB(0); }
+    else { setOpacityA(0); setOpacityB(1); }
+
+    setTimeout(() => {
+      activeEl.pause();
+      activeRef.current = standby;
+
+      const onEnded = () => {
+        standbyEl.removeEventListener('ended', onEnded);
+        router.push('/round1');
+      };
+      standbyEl.addEventListener('ended', onEnded);
+    }, CROSSFADE_MS);
+  }, [router]);
 
   return (
     <div style={{ position: 'fixed', inset: 0, width: '100vw', height: '100vh', overflow: 'hidden', background: '#000' }}>
@@ -267,6 +260,32 @@ export function VideoBackground() {
         zIndex: 3,
         pointerEvents: 'none',
       }} />
+
+      {/* ── Middle-Left Button to Trigger vid3 ── */}
+      {vid2Complete && !isPlayingVid3 && (
+        <button
+          onClick={playVid3}
+          style={{
+            position: 'absolute',
+            top: '50%',
+            left: '10%',
+            zIndex: 9999,
+            pointerEvents: 'auto',
+            padding: '12px 24px',
+            background: 'linear-gradient(135deg, #1a1a2e, #16213e)',
+            border: '2px solid rgba(100,210,255,0.6)',
+            color: '#fff',
+            fontFamily: 'var(--font-minecraft), system-ui, sans-serif',
+            fontSize: '18px',
+            cursor: 'var(--mv-cursor-hand-closed)',
+            boxShadow: '0 0 12px rgba(100,210,255,0.5)',
+            animation: 'btn-float-up 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards',
+          }}
+          className="scene-btn"
+        >
+          Play Video 3
+        </button>
+      )}
 
       {/* ── SCENE IMAGES — fade out when slider completes ── */}
 
@@ -521,6 +540,11 @@ export function VideoBackground() {
         @keyframes slider-done-pulse {
           0%, 100% { box-shadow: 0 2px 20px rgba(80,220,120,0.6), 0 0 0 4px rgba(80,220,120,0.2); }
           50%      { box-shadow: 0 2px 28px rgba(80,220,120,1),   0 0 0 8px rgba(80,220,120,0.35); }
+        }
+
+        @keyframes btn-float-up {
+          0% { opacity: 0; transform: translateY(40px); }
+          100% { opacity: 1; transform: translateY(-50%); }
         }
 
         /* ── Scene character hover glow ── */
