@@ -56,19 +56,34 @@ export const HeroSection: React.FC = () => {
         {/* Event Info and Countdown */}
         <EventInfo />
 
-        {/* Register Button */}
-        <Link href="/register" className="block mt-2 sm:mt-4">
-          <div className="animate-pulse-glow inline-block">
-            <button 
-              className="btn-minecraft group relative px-8 sm:px-12 md:px-16 py-3 sm:py-4 md:py-5 bg-[#aa0000] text-white cursor-pointer"
-              style={{ fontFamily: 'var(--font-minecraft)' }}
-            >
-              <span className="relative z-10 text-lg sm:text-2xl md:text-3xl tracking-[0.2em] drop-shadow-[3px_3px_0_rgba(0,0,0,0.9)] block">
-                REGISTER
-              </span>
-            </button>
-          </div>
-        </Link>
+        {/* Register + Login Buttons */}
+        <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 mt-2 sm:mt-4">
+          <Link href="/register" className="block">
+            <div className="animate-pulse-glow inline-block">
+              <button 
+                className="btn-minecraft group relative px-8 sm:px-12 md:px-16 py-3 sm:py-4 md:py-5 bg-[#aa0000] text-white cursor-pointer"
+                style={{ fontFamily: 'var(--font-minecraft)' }}
+              >
+                <span className="relative z-10 text-lg sm:text-2xl md:text-3xl tracking-[0.2em] drop-shadow-[3px_3px_0_rgba(0,0,0,0.9)] block">
+                  REGISTER
+                </span>
+              </button>
+            </div>
+          </Link>
+
+          <Link href="/login" className="block">
+            <div className="animate-pulse-glow inline-block">
+              <button 
+                className="btn-minecraft group relative px-8 sm:px-12 md:px-16 py-3 sm:py-4 md:py-5 bg-[#006400] text-white cursor-pointer"
+                style={{ fontFamily: 'var(--font-minecraft)' }}
+              >
+                <span className="relative z-10 text-lg sm:text-2xl md:text-3xl tracking-[0.2em] drop-shadow-[3px_3px_0_rgba(0,0,0,0.9)] block">
+                  LOGIN
+                </span>
+              </button>
+            </div>
+          </Link>
+        </div>
         
       </div>
     </section>

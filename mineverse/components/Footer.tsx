@@ -12,14 +12,8 @@ export const Footer = () => {
           <h2 className="text-xl font-bold tracking-widest text-[#fca311] drop-shadow-md">SQAC</h2>
         </div>
 
-        <div className="flex flex-col items-center">
-          <p className="text-sm md:text-base text-gray-300 font-bold bg-[#1a110a] px-6 py-3 rounded-sm border-2 border-[#3c2512] shadow-md">
-            Secretary: Tusharika Suman - 9354643301
-          </p>
-        </div>
-
         <div className="text-xs text-gray-400 opacity-80">
-          © 2025 SQAC
+          © 2026 SQAC
         </div>
       </div>
 
