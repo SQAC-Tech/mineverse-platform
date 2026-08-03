@@ -46,7 +46,7 @@ export function RoundPortals({ rounds, devUnlock, visible }: RoundPortalsProps) 
     rounds.find((round) => round.round_id === index + 1) ?? null,
   );
 
-  const enter = (roundId: number) => router.push(`/round/${roundId}`);
+  const enter = (roundId: number) => router.push(`/round${roundId}`);
 
   return (
     <>
