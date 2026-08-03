@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { Hourglass, Zap, WifiOff } from 'lucide-react';
+import { Pill } from '@/components/admin/nether-ui';
 
 type Balance = Record<'wood' | 'stone' | 'iron' | 'gold' | 'diamond' | 'emerald' | 'obsidian', number>;
 
@@ -8,65 +10,85 @@ interface ResourceData {
   balance: Balance;
   version: number;
   server_time: string;
-  active_modifiers: Array<{ label?: string; expires_at?: string }>;
+  active_modifiers: Array<{ event_key?: string; label?: string; modifier?: Record<string, number>; expires_at?: string | null }>;
   pending_grading: boolean;
 }
 
-const labels: Array<keyof Balance> = ['wood', 'stone', 'iron', 'gold', 'diamond', 'emerald', 'obsidian'];
+const KEYS: Array<keyof Balance> = ['wood', 'stone', 'iron', 'gold', 'diamond', 'emerald', 'obsidian'];
 
 export function ResourcesBar({ refreshToken }: { refreshToken: number }) {
   const [data, setData] = useState<ResourceData | null>(null);
-  const [error, setError] = useState(false);
+  const [stale, setStale] = useState(false);
+  /** Keys whose value just changed, so the chip can pulse once. */
+  const [bumped, setBumped] = useState<Set<string>>(new Set());
+  const previous = useRef<Balance | null>(null);
 
-  const fetchResources = async () => {
+  const fetchResources = useCallback(async () => {
     try {
       const res = await fetch('/api/team/resources', { cache: 'no-store' });
       const json = await res.json();
-      if (json.success) {
-        setData(json.data);
-        setError(false);
-      } else {
-        setError(true);
+      if (!json.success) { setStale(true); return; }
+
+      const next: ResourceData = json.data;
+      if (previous.current) {
+        const changed = new Set<string>();
+        for (const key of KEYS) {
+          if (previous.current[key] !== next.balance[key]) changed.add(key);
+        }
+        if (changed.size > 0) {
+          setBumped(changed);
+          window.setTimeout(() => setBumped(new Set()), 900);
+        }
       }
+      previous.current = next.balance;
+      setData(next);
+      setStale(false);
     } catch {
-      setError(true);
+      // Keep the last known balance rather than blanking the bar mid-round.
+      setStale(true);
     }
-  };
+  }, []);
 
   useEffect(() => {
     void fetchResources();
     const poll = window.setInterval(fetchResources, 10000);
     return () => window.clearInterval(poll);
-  }, []);
+  }, [fetchResources]);
 
-  useEffect(() => {
-    void fetchResources();
-  }, [refreshToken]);
+  useEffect(() => { void fetchResources(); }, [refreshToken, fetchResources]);
 
-  if (error) return <section className="rounded border border-zinc-800 bg-zinc-900 p-3 text-sm text-zinc-300">Resources unavailable.</section>;
-  if (!data) return <section className="rounded border border-zinc-800 bg-zinc-900 p-3 text-sm text-zinc-300">Loading resources...</section>;
+  if (!data) {
+    return (
+      <div className="n-panel" style={{ padding: 12 }}>
+        <span className="n-panel-sub">Loading resources…</span>
+      </div>
+    );
+  }
 
   return (
-    <section className="rounded border border-zinc-800 bg-zinc-900 p-3">
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold text-zinc-200">Resources</h2>
-        <div className="text-xs text-zinc-500">Version {data.version}</div>
+    <div className="n-panel" style={{ padding: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 9, flexWrap: 'wrap' }}>
+        <span className="n-stat-label">Resources</span>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+          {stale && <Pill tone="danger"><WifiOff size={10} /> stale</Pill>}
+          {data.pending_grading && <Pill tone="warn"><Hourglass size={10} /> grading pending</Pill>}
+          {data.active_modifiers?.map((m, i) => (
+            <Pill key={m.event_key ?? i} tone="live">
+              <Zap size={10} /> {m.label ?? 'modifier'}
+              {m.modifier ? ` ×${Object.values(m.modifier)[0]}` : ''}
+            </Pill>
+          ))}
+        </div>
       </div>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
-        {labels.map((key) => (
-          <div key={key} className="rounded border border-zinc-800 bg-zinc-950 px-3 py-2">
-            <div className="text-xs uppercase text-zinc-500">{key}</div>
-            <div className="text-lg font-semibold text-white">{data.balance[key]}</div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(76px, 1fr))', gap: 7 }}>
+        {KEYS.map((key) => (
+          <div key={key} className={`n-res ${bumped.has(key) ? 'n-res-bumped' : ''}`} style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
+            <span className="n-res-label">{key}</span>
+            <span className="n-res-value">{data.balance[key] ?? 0}</span>
           </div>
         ))}
       </div>
-      <div className="mt-3 flex flex-wrap gap-2 text-xs">
-        {data.active_modifiers.length === 0 ? <span className="text-zinc-500">No active modifiers</span> : null}
-        {data.active_modifiers.map((modifier, index) => (
-          <span key={index} className="rounded border border-amber-700 px-2 py-1 text-amber-100">{modifier.label ?? 'Modifier active'}</span>
-        ))}
-        {data.pending_grading ? <span className="rounded border border-sky-700 px-2 py-1 text-sky-100">Pending grading may change balances</span> : null}
-      </div>
-    </section>
+    </div>
   );
 }

@@ -1,9 +1,13 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase/server';
+import { requirePanelScope } from '@/lib/panel/require-admin';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
+  const guard = await requirePanelScope('admin');
+  if (!guard.ok) return guard.response;
+
   const { data: teams, error } = await supabaseServer
     .from('teams')
     .select('*, members(*), attendance_records(checkpoint_id, members_present)')

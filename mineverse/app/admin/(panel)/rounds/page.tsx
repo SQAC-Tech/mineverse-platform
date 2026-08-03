@@ -1,119 +1,173 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { useEffect, useState, useCallback } from 'react';
 import { toast } from 'sonner';
-import { Play, Square, Clock } from 'lucide-react';
+import { Play, Square, Plus, RefreshCw, Lock } from 'lucide-react';
+import { Panel, Btn, Pill, statusTone, Loading, PageTitle, apiCall } from '@/components/admin/nether-ui';
+
+type RoundRow = {
+  id: number;
+  name: string;
+  day: number;
+  sequence: number;
+  description: string | null;
+  time_allotted: number;
+  status: 'locked' | 'active' | 'completed';
+  starts_at: string | null;
+  ends_at: string | null;
+};
+
+function remaining(endsAt: string | null, now: number) {
+  if (!endsAt) return null;
+  const ms = new Date(endsAt).getTime() - now;
+  if (ms <= 0) return 'time up';
+  const mins = Math.floor(ms / 60000);
+  const secs = Math.floor((ms % 60000) / 1000);
+  return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+}
 
 export default function AdminRoundsPage() {
-  const [rounds, setRounds] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [rounds, setRounds] = useState<RoundRow[] | null>(null);
+  const [busy, setBusy] = useState<number | null>(null);
+  const [now, setNow] = useState(Date.now());
 
-  const fetchRounds = async () => {
-    try {
-      const res = await fetch('/api/admin/rounds');
-      const json = await res.json();
-      if (json.success) setRounds(json.data || []);
-      else toast.error(json.error || 'Failed to load rounds');
-    } catch (e) {
-      toast.error('Network error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchRounds();
+  const load = useCallback(async () => {
+    const res = await apiCall<RoundRow[]>('/api/admin/rounds');
+    if (res.ok) setRounds(res.data ?? []);
+    else toast.error(res.message);
   }, []);
 
-  const handleToggle = async (id: number) => {
-    try {
-      const res = await fetch('/api/admin/rounds/action', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ round_id: id, action: 'toggle' })
-      });
-      const data = await res.json();
-      if (data.success) {
-        toast.success(`Round status changed to ${data.newStatus}`);
-        fetchRounds();
-      }
-    } catch (e) {
-      toast.error('Network error');
+  useEffect(() => { void load(); }, [load]);
+
+  useEffect(() => {
+    const tick = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(tick);
+  }, []);
+
+  const act = async (id: number, action: 'toggle' | 'extend', minutes?: number) => {
+    setBusy(id);
+    const res = await apiCall<{ newStatus?: string }>('/api/admin/rounds/action', {
+      method: 'POST',
+      body: JSON.stringify({ round_id: id, action, minutes }),
+    });
+    setBusy(null);
+
+    if (res.ok) {
+      toast.success(action === 'extend' ? `Extended by ${minutes} minutes` : `Round is now ${res.data?.newStatus ?? 'updated'}`);
+      void load();
+    } else {
+      toast.error(res.message);
     }
   };
 
-  const handleExtend = async (id: number) => {
-    try {
-      const res = await fetch('/api/admin/rounds/action', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ round_id: id, action: 'extend', minutes: 10 })
-      });
-      const data = await res.json();
-      if (data.success) {
-        toast.success('Round extended by 10 minutes');
-        fetchRounds();
-      }
-    } catch (e) {
-      toast.error('Network error');
-    }
-  };
-
-  if (loading) return <div>Loading rounds...</div>;
+  if (!rounds) {
+    return (<><PageTitle title="Round control" /><Panel><Loading label="Loading rounds" /></Panel></>);
+  }
 
   return (
-    <div className="space-y-6">
-      <h2 className="text-3xl font-bold text-white tracking-tight">Round Controls</h2>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {rounds.map(r => (
-          <Card key={r.id} className="bg-slate-900 border-slate-800">
-            <CardHeader className="flex flex-row justify-between items-center border-b border-slate-800 pb-4">
-              <div>
-                <CardTitle className="text-xl text-slate-200">{r.name}</CardTitle>
-                <p className="text-sm text-slate-400">Day {r.day} • Round {r.sequence}</p>
-              </div>
-              <Badge className={
-                r.status === 'locked' ? 'bg-slate-800 text-slate-400' : 
-                r.status === 'active' ? 'bg-emerald-500/20 text-emerald-400' : 
-                'bg-blue-500/20 text-blue-400'
-              }>
-                {r.status.toUpperCase()}
-              </Badge>
-            </CardHeader>
-            <CardContent className="space-y-4 pt-4">
-              <div className="flex justify-between items-center text-sm text-slate-300">
-                <span>Base Time: {r.time_allotted}m</span>
-                {r.starts_at && <span>Started: {new Date(r.starts_at).toLocaleTimeString()}</span>}
-              </div>
+    <>
+      <PageTitle
+        title="Round control"
+        subtitle="Starting a round unlocks it for every payment-verified team and broadcasts to their dashboards"
+        actions={<Btn onClick={load}><RefreshCw size={12} /> Refresh</Btn>}
+      />
 
-              <div className="flex gap-2 pt-4">
-                {r.status === 'locked' ? (
-                  <Button className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white" onClick={() => handleToggle(r.id)}>
-                    <Play className="w-4 h-4 mr-2" /> Start Round
-                  </Button>
-                ) : r.status === 'active' ? (
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(330px, 1fr))', gap: 12 }}>
+        {rounds.map((round) => {
+          const left = remaining(round.ends_at, now);
+          const isActive = round.status === 'active';
+
+          return (
+            <Panel
+              key={round.id}
+              title={round.name}
+              subtitle={`Day ${round.day} · Round ${round.sequence} · ${round.time_allotted} min`}
+              actions={<Pill tone={statusTone(round.status)}>{round.status}</Pill>}
+            >
+              {round.description && (
+                <p className="n-panel-sub" style={{ marginBottom: 12 }}>{round.description}</p>
+              )}
+
+              {isActive && (
+                <div
+                  style={{
+                    padding: 12,
+                    background: 'var(--bg-void)',
+                    border: '1px solid rgb(235 71 4 / 40%)',
+                    textAlign: 'center',
+                    marginBottom: 12,
+                  }}
+                >
+                  <div className="n-stat-label">Time remaining</div>
+                  <div
+                    className="n-mono"
+                    style={{
+                      fontSize: 26,
+                      color: left === 'time up' ? '#ff9db0' : 'var(--accent-primary)',
+                      textShadow: '0 0 10px rgb(235 71 4 / 45%)',
+                      marginTop: 4,
+                    }}
+                  >
+                    {left ?? '--:--'}
+                  </div>
+                  {round.starts_at && (
+                    <div className="n-panel-sub" style={{ marginTop: 4 }}>
+                      Started {new Date(round.starts_at).toLocaleTimeString()}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {round.status === 'locked' && (
+                  <Btn variant="primary" disabled={busy === round.id} onClick={() => act(round.id, 'toggle')} style={{ flex: 1 }}>
+                    <Play size={12} /> Start round
+                  </Btn>
+                )}
+
+                {isActive && (
                   <>
-                    <Button variant="outline" className="flex-1 border-slate-700 text-slate-300" onClick={() => handleExtend(r.id)}>
-                      <Clock className="w-4 h-4 mr-2" /> +10m
-                    </Button>
-                    <Button className="flex-1 bg-red-600 hover:bg-red-500 text-white" onClick={() => handleToggle(r.id)}>
-                      <Square className="w-4 h-4 mr-2" /> End Round
-                    </Button>
+                    <Btn disabled={busy === round.id} onClick={() => act(round.id, 'extend', 5)}>
+                      <Plus size={12} /> 5m
+                    </Btn>
+                    <Btn disabled={busy === round.id} onClick={() => act(round.id, 'extend', 10)}>
+                      <Plus size={12} /> 10m
+                    </Btn>
+                    <Btn variant="danger" disabled={busy === round.id} onClick={() => act(round.id, 'toggle')} style={{ flex: 1 }}>
+                      <Square size={12} /> End round
+                    </Btn>
                   </>
-                ) : (
-                  <Button variant="outline" className="w-full border-slate-700 text-slate-500" disabled>
-                    Round Completed
-                  </Button>
+                )}
+
+                {round.status === 'completed' && (
+                  <>
+                    <div
+                      style={{
+                        flex: 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 7,
+                        padding: '9px 12px',
+                        background: 'var(--bg-void)',
+                        border: '1px solid rgb(150 35 14 / 30%)',
+                        fontSize: 10,
+                        letterSpacing: 1,
+                        textTransform: 'uppercase',
+                        color: 'var(--text-portal)',
+                      }}
+                    >
+                      <Lock size={12} /> Locked — ready to grade
+                    </div>
+                    <Btn disabled={busy === round.id} onClick={() => act(round.id, 'toggle')}>
+                      Reopen
+                    </Btn>
+                  </>
                 )}
               </div>
-            </CardContent>
-          </Card>
-        ))}
+            </Panel>
+          );
+        })}
       </div>
-    </div>
+    </>
   );
 }

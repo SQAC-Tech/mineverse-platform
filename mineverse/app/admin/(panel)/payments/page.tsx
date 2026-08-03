@@ -1,100 +1,135 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { useEffect, useState, useCallback } from 'react';
 import { toast } from 'sonner';
+import { RefreshCw, Search } from 'lucide-react';
+import { Panel, Btn, Pill, Table, Empty, Loading, PageTitle, apiCall, Grid, StatTile } from '@/components/admin/nether-ui';
+
+type PaymentRow = {
+  id: string;
+  amount: number;
+  transaction_id: string | null;
+  sender_upi_id: string | null;
+  sender_name: string | null;
+  status: string;
+  created_at: string;
+  teams?: { team_code: string; team_name: string; is_payment_verified: boolean } | null;
+};
 
 export default function AdminPaymentsPage() {
-  const [payments, setPayments] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [payments, setPayments] = useState<PaymentRow[] | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
+  const [showPendingOnly, setShowPendingOnly] = useState(false);
 
-  const fetchPayments = async () => {
-    try {
-      const res = await fetch('/api/admin/payments');
-      const json = await res.json();
-      if (json.success) setPayments(json.data || []);
-      else toast.error(json.error || 'Failed to load payments');
-    } catch (e) {
-      toast.error('Network error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchPayments();
+  const load = useCallback(async () => {
+    const res = await apiCall<PaymentRow[]>('/api/admin/payments');
+    if (res.ok) setPayments(res.data ?? []);
+    else toast.error(res.message);
   }, []);
 
-  const handleVerify = async (id: string) => {
-    try {
-      const res = await fetch('/api/admin/payments', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ payment_id: id, action: 'verify' })
-      });
-      const data = await res.json();
-      if (data.success) {
-        toast.success('Payment verified! Emails sent.');
-        fetchPayments();
-      } else {
-        toast.error(data.error || 'Failed to verify');
-      }
-    } catch (e) {
-      toast.error('Network error');
+  useEffect(() => { void load(); }, [load]);
+
+  const verify = async (id: string) => {
+    setBusyId(id);
+    const res = await apiCall('/api/admin/payments', {
+      method: 'POST',
+      body: JSON.stringify({ payment_id: id, action: 'verify' }),
+    });
+    setBusyId(null);
+
+    if (res.ok) {
+      toast.success('Payment verified — QR emailed to every member');
+      void load();
+    } else {
+      toast.error(res.message);
     }
   };
 
-  if (loading) return <div>Loading payments...</div>;
+  if (!payments) {
+    return (<><PageTitle title="Payments" /><Panel><Loading label="Loading payments" /></Panel></>);
+  }
+
+  const pending = payments.filter((p) => p.status === 'pending');
+  const collected = payments.filter((p) => p.status === 'verified').reduce((sum, p) => sum + (p.amount ?? 0), 0);
+
+  const needle = query.trim().toLowerCase();
+  const visible = payments.filter((p) => {
+    if (showPendingOnly && p.status !== 'pending') return false;
+    if (!needle) return true;
+    return (
+      p.teams?.team_code?.toLowerCase().includes(needle) ||
+      p.teams?.team_name?.toLowerCase().includes(needle) ||
+      p.transaction_id?.toLowerCase().includes(needle) ||
+      p.sender_upi_id?.toLowerCase().includes(needle)
+    );
+  });
 
   return (
-    <div className="space-y-6">
-      <h2 className="text-3xl font-bold text-white tracking-tight">Payments Verification</h2>
-      
-      <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden">
-        <Table>
-          <TableHeader className="bg-slate-950">
-            <TableRow className="border-slate-800">
-              <TableHead className="text-slate-400">Team Code</TableHead>
-              <TableHead className="text-slate-400">Amount</TableHead>
-              <TableHead className="text-slate-400">Txn ID</TableHead>
-              <TableHead className="text-slate-400">UPI ID</TableHead>
-              <TableHead className="text-slate-400">Status</TableHead>
-              <TableHead className="text-slate-400 text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {payments.map(p => (
-              <TableRow key={p.id} className="border-slate-800 hover:bg-slate-800/50">
-                <TableCell className="font-medium text-slate-200">{p.teams?.team_code}</TableCell>
-                <TableCell className="text-slate-300">₹{p.amount}</TableCell>
-                <TableCell className="text-slate-300 font-mono text-xs">{p.transaction_id}</TableCell>
-                <TableCell className="text-slate-300 text-xs">{p.sender_upi_id}</TableCell>
-                <TableCell>
-                  {p.status === 'verified' ? (
-                    <Badge className="bg-emerald-500/20 text-emerald-400">Verified</Badge>
-                  ) : (
-                    <Badge className="bg-amber-500/20 text-amber-400">Pending</Badge>
-                  )}
-                </TableCell>
-                <TableCell className="text-right">
+    <>
+      <PageTitle
+        title="Payments"
+        subtitle="Verifying a payment issues the team's attendance QR and emails every member"
+        actions={<Btn onClick={load}><RefreshCw size={12} /> Refresh</Btn>}
+      />
+
+      <Grid min={190}>
+        <StatTile label="Total records" value={payments.length} />
+        <StatTile label="Awaiting verification" value={pending.length} hint={pending.length ? 'Action needed' : 'All clear'} />
+        <StatTile label="Collected" value={`₹${collected.toLocaleString('en-IN')}`} hint="Verified payments only" />
+      </Grid>
+
+      <div style={{ marginTop: 12 }}>
+        <Panel
+          title={`Records (${visible.length})`}
+          actions={
+            <>
+              <div style={{ position: 'relative' }}>
+                <Search size={12} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-portal)' }} />
+                <input
+                  className="n-input"
+                  style={{ paddingLeft: 24, width: 190 }}
+                  placeholder="Team, txn or UPI"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                />
+              </div>
+              <Btn
+                variant={showPendingOnly ? 'primary' : 'ghost'}
+                small
+                onClick={() => setShowPendingOnly((v) => !v)}
+              >
+                Pending only
+              </Btn>
+            </>
+          }
+        >
+          <Table head={['Team', 'Amount', 'Transaction', 'Sender UPI', 'Status', '']}>
+            {visible.map((p) => (
+              <tr key={p.id}>
+                <td>
+                  <div>{p.teams?.team_code ?? '—'}</div>
+                  <div className="n-panel-sub">{p.teams?.team_name ?? ''}</div>
+                </td>
+                <td>₹{p.amount}</td>
+                <td className="n-mono">{p.transaction_id || '—'}</td>
+                <td className="n-mono">{p.sender_upi_id || '—'}</td>
+                <td>
+                  <Pill tone={p.status === 'verified' ? 'ok' : 'warn'}>{p.status}</Pill>
+                </td>
+                <td style={{ textAlign: 'right' }}>
                   {p.status === 'pending' && (
-                    <Button size="sm" onClick={() => handleVerify(p.id)} className="bg-emerald-600 hover:bg-emerald-500 text-white">
-                      Verify & Send QR
-                    </Button>
+                    <Btn variant="primary" small disabled={busyId === p.id} onClick={() => verify(p.id)}>
+                      {busyId === p.id ? 'Verifying…' : 'Verify & send QR'}
+                    </Btn>
                   )}
-                </TableCell>
-              </TableRow>
+                </td>
+              </tr>
             ))}
-            {payments.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center text-slate-500 py-8">No payments found</TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+            {visible.length === 0 && <Empty colSpan={6}>No matching payments</Empty>}
+          </Table>
+        </Panel>
       </div>
-    </div>
+    </>
   );
 }

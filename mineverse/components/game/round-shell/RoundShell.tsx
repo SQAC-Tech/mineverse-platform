@@ -1,14 +1,21 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
+import Link from 'next/link';
+import { ArrowLeft, RefreshCw, Clock, WifiOff, Target } from 'lucide-react';
 import { ResourcesBar } from '@/components/game/resources/ResourcesBar';
 import { CraftingPanel } from '@/components/game/crafting/CraftingPanel';
 import { PvpPanel } from '@/components/game/pvp/PvpPanel';
 import { QuestionList } from '@/components/game/questions/QuestionList';
+import { GuardianBattle } from '@/components/game/guardian/GuardianBattle';
+import { StructureManager } from '@/components/game/structures/StructureManager';
+import { MarketplaceStore } from '@/components/game/marketplace/MarketplaceStore';
+import { ConsumableInventory } from '@/components/game/marketplace/ConsumableInventory';
+import { ChoicePanel } from '@/components/game/choices/ChoicePanel';
+import { getRoundConfig } from '@/lib/gameplay/round-config';
+import { Panel, Btn, Pill, Loading } from '@/components/admin/nether-ui';
 
-interface RoundShellProps {
-  roundId: number;
-}
+interface RoundShellProps { roundId: number }
 
 interface RoundQuestion {
   id: string;
@@ -31,41 +38,56 @@ interface RoundData {
 }
 
 function formatRemaining(ms: number) {
-  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
-  const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
-  const seconds = (totalSeconds % 60).toString().padStart(2, '0');
-  return `${minutes}:${seconds}`;
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const m = Math.floor(total / 60).toString().padStart(2, '0');
+  const s = (total % 60).toString().padStart(2, '0');
+  return `${m}:${s}`;
 }
 
 export function RoundShell({ roundId }: RoundShellProps) {
-  const [round, setRound] = useState<RoundData | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshToken, setRefreshToken] = useState(0);
-  const [now, setNow] = useState(Date.now());
+  const config = getRoundConfig(roundId);
 
-  const fetchRound = async () => {
+  const [round, setRound] = useState<RoundData | null>(null);
+  const [error, setError] = useState<{ code: string; message: string } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [offline, setOffline] = useState(false);
+  /**
+   * Bumped after any successful mutation anywhere in the round. Every child
+   * panel takes it as a prop and refetches, so a craft updates the resource bar
+   * and a guardian win updates crafting eligibility without a manual reload.
+   */
+  const [refreshToken, setRefreshToken] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
+
+  const refreshAll = useCallback(() => setRefreshToken((v) => v + 1), []);
+
+  const fetchRound = useCallback(async () => {
     try {
       const res = await fetch(`/api/rounds/${roundId}/questions`, { cache: 'no-store' });
       const json = await res.json();
+      setOffline(false);
+
       if (!json.success) {
-        setError(json.error?.message ?? json.error?.code ?? 'Round unavailable');
+        setError({ code: json.error?.code ?? 'UNAVAILABLE', message: json.error?.message ?? 'Round unavailable' });
         return;
       }
+
       setRound(json.data);
       setError(null);
-      setRefreshToken((value) => value + 1);
     } catch {
-      setError('Round data is unavailable.');
+      // A dropped connection must not wipe a round already on screen.
+      setOffline(true);
+      if (!round) setError({ code: 'NETWORK', message: 'Cannot reach the server.' });
     } finally {
       setLoading(false);
     }
-  };
+  }, [roundId, round]);
 
   useEffect(() => {
     void fetchRound();
     const poll = window.setInterval(fetchRound, 10000);
     return () => window.clearInterval(poll);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roundId]);
 
   useEffect(() => {
@@ -78,44 +100,229 @@ export function RoundShell({ roundId }: RoundShellProps) {
     return formatRemaining(new Date(round.ends_at).getTime() - now);
   }, [round?.ends_at, now]);
 
+  const timeUp = round?.ends_at ? new Date(round.ends_at).getTime() <= now : false;
+
+  if (!config) {
+    return (
+      <Shell biome="nether" roundId={roundId} title="Unknown round">
+        <Panel>
+          <div className="n-empty">Round {roundId} does not exist.</div>
+          <div style={{ textAlign: 'center' }}>
+            <Link href="/dashboard" className="n-btn n-btn-secondary">Back to dashboard</Link>
+          </div>
+        </Panel>
+      </Shell>
+    );
+  }
+
   return (
-    <main className="min-h-screen bg-zinc-950 text-zinc-100">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8">
-        <header className="flex flex-col gap-3 border-b border-zinc-800 pb-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-wide text-emerald-300">Mineverse Round {roundId}</p>
-            <h1 className="text-2xl font-semibold text-white">{round?.round_name ?? 'Gameplay Round'}</h1>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="min-w-24 rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-center">
-              <div className="text-xs text-zinc-400">Time Left</div>
-              <div className="font-mono text-xl text-amber-200">{remaining ?? '--:--'}</div>
-            </div>
-            <button
-              type="button"
-              onClick={fetchRound}
-              className="rounded border border-emerald-700 px-3 py-2 text-sm text-emerald-100 transition hover:bg-emerald-950"
+    <Shell
+      biome={config.biome}
+      roundId={roundId}
+      title={round?.round_name ?? config.name}
+      tagline={config.tagline}
+      header={
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          {offline && <Pill tone="danger"><WifiOff size={11} /> Offline — retrying</Pill>}
+          <div
+            style={{
+              padding: '7px 14px',
+              background: 'var(--bg-void)',
+              border: `1px solid ${timeUp ? '#a3324a' : 'rgb(from var(--accent-muted) r g b / 45%)'}`,
+              textAlign: 'center',
+              minWidth: 96,
+            }}
+          >
+            <div className="n-stat-label"><Clock size={9} style={{ verticalAlign: 'middle' }} /> Time left</div>
+            <div
+              className="n-mono"
+              style={{
+                fontSize: 19,
+                marginTop: 2,
+                color: timeUp ? '#ff9db0' : 'var(--accent-primary)',
+                textShadow: '0 0 8px rgb(from var(--accent-primary) r g b / 40%)',
+              }}
             >
-              Refresh
-            </button>
+              {remaining ?? '--:--'}
+            </div>
           </div>
-        </header>
+          <Btn onClick={() => { void fetchRound(); refreshAll(); }} aria-label="Refresh round">
+            <RefreshCw size={12} /> Refresh
+          </Btn>
+        </div>
+      }
+    >
+      {loading ? (
+        <Panel><Loading label="Entering the biome" /></Panel>
+      ) : error ? (
+        <Panel title="Round unavailable">
+          <p style={{ fontSize: 11.5, marginBottom: 6 }}>{lockCopy(error.code)}</p>
+          <p className="n-panel-sub" style={{ marginBottom: 14 }}>{error.message}</p>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <Btn variant="primary" onClick={fetchRound}><RefreshCw size={12} /> Try again</Btn>
+            <Link href="/dashboard" className="n-btn n-btn-secondary">Back to dashboard</Link>
+          </div>
+        </Panel>
+      ) : (
+        <>
+          <div style={{ marginBottom: 12 }}>
+            <ResourcesBar refreshToken={refreshToken} />
+          </div>
 
-        <ResourcesBar refreshToken={refreshToken} />
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 9,
+              padding: '10px 12px',
+              marginBottom: 12,
+              background: 'var(--bg-panel)',
+              border: '1px solid rgb(from var(--accent-primary) r g b / 35%)',
+              fontSize: 11,
+            }}
+          >
+            <Target size={13} style={{ color: 'var(--accent-primary)', flexShrink: 0, marginTop: 1 }} />
+            <span>{config.objective}</span>
+          </div>
 
-        {loading ? (
-          <section className="rounded border border-zinc-800 bg-zinc-900 p-4 text-zinc-300">Loading round...</section>
-        ) : error ? (
-          <section className="rounded border border-red-900 bg-red-950/40 p-4 text-red-100">{error}</section>
-        ) : round ? (
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
-            <QuestionList roundId={roundId} questions={round.questions} onSubmitted={fetchRound} />
-            <aside className="flex flex-col gap-4">
-              <CraftingPanel onCrafted={fetchRound} />
-              {roundId === 3 ? <PvpPanel /> : null}
+          {timeUp && (
+            <div style={{ marginBottom: 12 }}>
+              <Panel>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 11 }}>
+                  <Clock size={14} style={{ color: '#ff9db0' }} />
+                  The round timer has run out. Answers can no longer be revised — wait for the organizers to grade.
+                </div>
+              </Panel>
+            </div>
+          )}
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 340px)', gap: 12, alignItems: 'start' }} className="round-grid">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
+              <QuestionList
+                roundId={roundId}
+                questions={round?.questions ?? []}
+                onSubmitted={() => { void fetchRound(); refreshAll(); }}
+                locked={timeUp}
+              />
+
+              {config.guardian && (
+                <GuardianBattle
+                  guardianName={config.guardian.name}
+                  roundId={roundId}
+                  mandatory={config.guardian.mandatory}
+                  onResolved={refreshAll}
+                  refreshToken={refreshToken}
+                />
+              )}
+
+              {config.pvp && <PvpPanel />}
+            </div>
+
+            <aside style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
+              {config.craft && <CraftingPanel onCrafted={refreshAll} refreshToken={refreshToken} />}
+
+              {config.structures.length > 0 && (
+                <StructureManager
+                  roundId={roundId}
+                  availableStructures={config.structures}
+                  onChanged={refreshAll}
+                  refreshToken={refreshToken}
+                />
+              )}
+
+              {config.choice && (
+                <ChoicePanel choiceKey={config.choice} onDecided={refreshAll} refreshToken={refreshToken} />
+              )}
+
+              {config.marketplace && (
+                <>
+                  <MarketplaceStore onPurchased={refreshAll} refreshToken={refreshToken} />
+                  <ConsumableInventory refreshToken={refreshToken} onUsed={refreshAll} />
+                </>
+              )}
             </aside>
           </div>
-        ) : null}
+        </>
+      )}
+
+      <style>{`
+        @media (max-width: 1000px) {
+          .round-grid { grid-template-columns: minmax(0, 1fr) !important; }
+        }
+      `}</style>
+    </Shell>
+  );
+}
+
+/** Turns an API error code into something a competing team can act on. */
+function lockCopy(code: string) {
+  switch (code) {
+    case 'ROUND_NOT_ACTIVE':
+      return 'This round has not been started by the organizers yet.';
+    case 'ROUND_LOCKED':
+      return 'This round has closed and is no longer accepting answers.';
+    case 'TEAM_NOT_AUTHORIZED_FOR_ROUND':
+      return 'Your team has not unlocked this round yet — finish the previous round’s craft first.';
+    case 'ROUND_NOT_FOUND':
+      return 'That round does not exist.';
+    case 'UNAUTHORIZED':
+      return 'Your session expired. Sign in again to continue.';
+    case 'NETWORK':
+      return 'We cannot reach the server right now.';
+    default:
+      return 'This round is not available for your team.';
+  }
+}
+
+function Shell({
+  biome, roundId, title, tagline, header, children,
+}: {
+  biome: string;
+  roundId: number;
+  title: string;
+  tagline?: string;
+  header?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <main className={`biome biome-${biome}`} style={{ minHeight: '100vh' }}>
+      <div style={{ maxWidth: 1240, margin: '0 auto', padding: '20px 16px 40px' }}>
+        <header
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-end',
+            gap: 12,
+            flexWrap: 'wrap',
+            marginBottom: 10,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <Link href="/dashboard" className="n-btn n-btn-ghost" aria-label="Back to dashboard" style={{ padding: 9 }}>
+              <ArrowLeft size={14} />
+            </Link>
+            <div>
+              <div className="n-stat-label">Round {roundId}</div>
+              <h1
+                style={{
+                  fontSize: 20,
+                  letterSpacing: 1.5,
+                  textTransform: 'uppercase',
+                  color: 'var(--text-onDark)',
+                  textShadow: '0 0 12px rgb(from var(--accent-primary) r g b / 35%)',
+                }}
+              >
+                {title}
+              </h1>
+              {tagline && <div className="n-panel-sub" style={{ marginTop: 2 }}>{tagline}</div>}
+            </div>
+          </div>
+          {header}
+        </header>
+
+        <div style={{ marginBottom: 16 }}><hr className="n-lava-divider" /></div>
+
+        {children}
       </div>
     </main>
   );

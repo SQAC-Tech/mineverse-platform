@@ -1,86 +1,141 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import { toast } from 'sonner';
+import { Hammer, Check, AlertTriangle, Lock } from 'lucide-react';
+import { Panel, Btn, Pill, Loading } from '@/components/admin/nether-ui';
 
 interface Recipe {
   item: 'wooden_pickaxe' | 'stone_pickaxe' | 'iron_armor';
   label: string;
   actual_cost: Record<string, number>;
+  base_cost?: Record<string, number>;
   discount_percent: number;
   discount_source: string | null;
   crafted: boolean;
+  /** Present when the API reports the progression gate is unmet. */
+  locked?: boolean;
 }
 
-export function CraftingPanel({ onCrafted }: { onCrafted: () => void | Promise<void> }) {
-  const [recipes, setRecipes] = useState<Recipe[]>([]);
+interface CraftingPanelProps {
+  onCrafted: () => void | Promise<void>;
+  refreshToken?: number;
+}
+
+export function CraftingPanel({ onCrafted, refreshToken }: CraftingPanelProps) {
+  const [recipes, setRecipes] = useState<Recipe[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [crafting, setCrafting] = useState<string | null>(null);
 
-  const fetchRecipes = async () => {
+  const fetchRecipes = useCallback(async () => {
     try {
       const res = await fetch('/api/team/craft/recipes', { cache: 'no-store' });
       const json = await res.json();
-      if (json.success) setRecipes(json.data.recipes ?? []);
-      else setError(json.error?.message ?? 'Crafting unavailable');
+      if (json.success) { setRecipes(json.data.recipes ?? []); setError(null); }
+      else setError(json.error?.message ?? 'Crafting is unavailable.');
     } catch {
-      setError('Crafting unavailable');
+      setError('Could not reach the server.');
     }
-  };
-
-  useEffect(() => {
-    void fetchRecipes();
   }, []);
 
-  const craft = async (item: Recipe['item']) => {
-    setCrafting(item);
+  useEffect(() => { void fetchRecipes(); }, [fetchRecipes, refreshToken]);
+
+  const craft = async (recipe: Recipe) => {
+    setCrafting(recipe.item);
     setError(null);
     try {
       const res = await fetch('/api/team/craft', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Idempotency-Key': crypto.randomUUID() },
-        body: JSON.stringify({ item }),
+        body: JSON.stringify({ item: recipe.item }),
       });
       const json = await res.json();
+
       if (!json.success) {
-        setError(json.error?.message ?? json.error?.code ?? 'Craft failed');
+        setError(craftErrorCopy(json.error?.code, json.error?.message, recipe.label));
         return;
       }
+
+      toast.success(`${recipe.label} crafted`);
       await fetchRecipes();
       await onCrafted();
     } catch {
-      setError('Craft failed');
+      setError('Could not reach the server. Nothing was spent.');
     } finally {
       setCrafting(null);
     }
   };
 
   return (
-    <section className="rounded border border-zinc-800 bg-zinc-900 p-4">
-      <h2 className="text-lg font-semibold text-white">Crafting</h2>
-      <p className="mt-1 text-xs text-zinc-500">Forge discounts round each resource cost up.</p>
-      {error ? <div className="mt-3 rounded border border-red-900 bg-red-950/40 p-2 text-sm text-red-100">{error}</div> : null}
-      <div className="mt-3 flex flex-col gap-3">
-        {recipes.map((recipe) => (
-          <div key={recipe.item} className="rounded border border-zinc-800 bg-zinc-950 p-3">
-            <div className="flex items-center justify-between gap-2">
-              <h3 className="font-medium text-zinc-100">{recipe.label}</h3>
-              {recipe.crafted ? <span className="text-xs text-emerald-300">Crafted</span> : null}
-            </div>
-            <div className="mt-2 text-sm text-zinc-400">
-              {Object.entries(recipe.actual_cost).map(([key, value]) => `${value} ${key}`).join(' + ')}
-            </div>
-            {recipe.discount_percent > 0 ? <div className="mt-1 text-xs text-amber-200">{recipe.discount_percent}% {recipe.discount_source}</div> : null}
-            <button
-              type="button"
-              onClick={() => craft(recipe.item)}
-              disabled={recipe.crafted || crafting === recipe.item}
-              className="mt-3 w-full rounded bg-amber-700 px-3 py-2 text-sm text-white transition hover:bg-amber-600 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400"
+    <Panel
+      title={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}><Hammer size={13} /> Crafting</span>}
+      subtitle="Forge discounts round each resource cost up"
+    >
+      {error && (
+        <div
+          style={{
+            display: 'flex', gap: 8, padding: 9, marginBottom: 10, fontSize: 10.5,
+            background: 'rgb(from var(--accent-danger) r g b / 45%)',
+            border: '1px solid #a3324a', color: '#ff9db0',
+          }}
+        >
+          <AlertTriangle size={12} style={{ flexShrink: 0, marginTop: 1 }} /> {error}
+        </div>
+      )}
+
+      {!recipes ? (
+        <Loading label="Loading recipes" />
+      ) : recipes.length === 0 ? (
+        <div className="n-empty">No recipes available.</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {recipes.map((recipe) => (
+            <div
+              key={recipe.item}
+              style={{
+                padding: 10,
+                background: 'var(--bg-void)',
+                border: `1px solid ${recipe.crafted ? 'rgb(74 222 128 / 45%)' : 'rgb(from var(--accent-muted) r g b / 25%)'}`,
+              }}
             >
-              {crafting === recipe.item ? 'Crafting...' : recipe.crafted ? 'Done' : 'Craft'}
-            </button>
-          </div>
-        ))}
-      </div>
-    </section>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 5 }}>
+                <span style={{ fontSize: 11 }}>{recipe.label}</span>
+                {recipe.crafted && <Pill tone="ok"><Check size={10} /> crafted</Pill>}
+              </div>
+
+              <div className="n-panel-sub n-mono" style={{ marginBottom: recipe.discount_percent > 0 ? 3 : 9 }}>
+                {Object.entries(recipe.actual_cost).map(([k, v]) => `${v} ${k}`).join(' + ')}
+              </div>
+
+              {recipe.discount_percent > 0 && (
+                <div className="n-panel-sub" style={{ color: 'var(--accent-primary)', marginBottom: 9 }}>
+                  −{recipe.discount_percent}% from your {recipe.discount_source?.replace('_', ' ')}
+                </div>
+              )}
+
+              {!recipe.crafted && (
+                <Btn
+                  variant="primary"
+                  small
+                  style={{ width: '100%' }}
+                  disabled={crafting !== null}
+                  onClick={() => craft(recipe)}
+                >
+                  {crafting === recipe.item ? 'Crafting…' : <><Hammer size={11} /> Craft</>}
+                </Btn>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </Panel>
   );
+}
+
+function craftErrorCopy(code?: string, message?: string, label?: string) {
+  const text = (message ?? '').toLowerCase();
+  if (text.includes('progression')) return `Craft the previous item before ${label ?? 'this one'}.`;
+  if (text.includes('already crafted')) return 'You have already crafted this.';
+  if (text.includes('insufficient') || code === 'INSUFFICIENT_RESOURCES') return 'Not enough resources yet — keep answering questions.';
+  return message ?? code ?? 'Craft failed.';
 }

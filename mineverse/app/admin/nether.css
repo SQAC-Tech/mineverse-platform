@@ -1,0 +1,26 @@
+/*
+ * Nether Portal palette for the admin panel.
+ * Token values come from `docs/DESIGN and images/D.md`.
+ *
+ * The component classes themselves live in `app/theme-kit.css`, shared with the
+ * gameplay rounds — this file only supplies the colours.
+ */
+
+.nether {
+  --bg-void: #16000b;
+  --bg-panel: #26021c;
+  --bg-panel-raised: #32034d;
+  --accent-secondary: #4c0855;
+  --accent-danger: #550c1b;
+  --accent-primary: #eb4704;
+  --accent-primary-hover: #d43b05;
+  --accent-muted: #96230e;
+  --text-onDark: #fdf4e3;
+  --text-onLava: #120008;
+  --text-portal: #d9b3ff;
+
+  --ok: #4ade80;
+  --warn: #fbbf24;
+
+  --font-display: var(--font-minecraft), 'Press Start 2P', monospace;
+}

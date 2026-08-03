@@ -1,4 +1,5 @@
 import { supabaseServer } from '@/lib/supabase/server';
+import { DEV_UNLOCK_ALL_ROUNDS, noteDevUnlockBypass } from '@/lib/gameplay/dev-mode';
 
 export type Dev4RoundAccess =
   | { ok: true; round: { id: number; name: string; status: string; starts_at: string | null; ends_at: string | null; time_allotted: number } }
@@ -15,6 +16,13 @@ export async function verifyDev4RoundAccess(teamId: string, roundId: number): Pr
 
   if (roundError || !round) {
     return { ok: false, status: 404, code: 'ROUND_NOT_FOUND', message: 'Round not found.' };
+  }
+
+  // Dev unlock skips the lock checks only; the team session was already verified
+  // by the caller and every mutation path downstream is untouched.
+  if (DEV_UNLOCK_ALL_ROUNDS) {
+    noteDevUnlockBypass(`team ${teamId} round ${roundId}`);
+    return { ok: true, round };
   }
 
   if (round.status !== 'active') {

@@ -86,10 +86,13 @@ export async function getSafeQuestionsForRound(teamId: string, roundId: number) 
   const access = await verifyDev4RoundAccess(teamId, roundId);
   if (!access.ok) return access;
 
+  // Guardian pack questions belong to the round but are served only inside a
+  // guardian battle, so they never appear in the standard round list.
   const { data: questions, error: questionsError } = await db
     .from('questions')
     .select('id, round_id, type, prompt, content, order_index, language_options, time_limit_seconds')
     .eq('round_id', roundId)
+    .is('guardian_name', null)
     .order('order_index', { ascending: true });
 
   if (questionsError) throw questionsError;
@@ -123,11 +126,17 @@ export async function getSafeQuestionsForRound(teamId: string, roundId: number) 
 export async function upsertTeamSubmission(teamId: string, payload: z.infer<typeof submissionPayloadSchema>) {
   const { data: question, error: questionError } = await db
     .from('questions')
-    .select('id, round_id, type, prompt, content, order_index, language_options, time_limit_seconds')
+    .select('id, round_id, type, prompt, content, order_index, language_options, time_limit_seconds, guardian_name')
     .eq('id', payload.question_id)
     .single();
 
   if (questionError || !question) {
+    return { ok: false as const, status: 404, code: 'QUESTION_NOT_FOUND', message: 'Question not found.' };
+  }
+
+  // A guardian question is answered through the guardian battle, which enforces
+  // its own deadline and all-correct rule. Routing it here would bypass both.
+  if (question.guardian_name) {
     return { ok: false as const, status: 404, code: 'QUESTION_NOT_FOUND', message: 'Question not found.' };
   }
 

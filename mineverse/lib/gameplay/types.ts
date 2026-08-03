@@ -1,4 +1,5 @@
 export interface Dev3GuardianBattle {
+  id: string;
   team_id: string;
   round_id: number;
   guardian_name: string;
@@ -6,8 +7,11 @@ export interface Dev3GuardianBattle {
   status: 'started' | 'won' | 'lost';
   question_set_version: string;
   started_at: string;
+  deadline_at: string | null;
   completed_at: string | null;
   score: number | null;
+  correct_count: number | null;
+  total_questions: number | null;
   retry_after: string | null;
   reward_ledger_id: string | null;
   penalty_ledger_id: string | null;
@@ -15,10 +19,11 @@ export interface Dev3GuardianBattle {
 }
 
 export interface Dev3Structure {
+  id: string;
   team_id: string;
   round_id: number;
   type: string;
-  state: 'active' | 'damaged' | 'destroyed';
+  state: 'active' | 'damaged' | 'repaired' | 'upgraded' | 'consumed';
   built_at: string;
   updated_at: string;
   upgrade_lineage: string[] | null;

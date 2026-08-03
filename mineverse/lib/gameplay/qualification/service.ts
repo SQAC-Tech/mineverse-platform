@@ -268,10 +268,13 @@ export interface QualificationOverview {
 }
 
 export async function getQualificationOverview(): Promise<QualificationOverview> {
+  // A paid team sits at 'verified' — nothing in the platform promotes it to
+  // 'active', so omitting 'verified' here returned an empty roster for the whole
+  // event and left qualification (and PvP team selection) with nothing to show.
   const { data: teams, error: teamsError } = await supabaseServer
     .from('teams')
     .select('id, team_code, team_name, status')
-    .in('status', ['active', 'eliminated', 'champion']);
+    .in('status', ['verified', 'active', 'eliminated', 'champion']);
 
   if (teamsError) throw teamsError;
 

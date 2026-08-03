@@ -1,5 +1,5 @@
 import { supabaseServer } from '@/lib/supabase/server';
-import { mutateTeamResource, ResourceDelta } from '@/lib/gameplay/marketplace/resource-client';
+import { ResourceDelta } from '@/lib/gameplay/marketplace/resource-client';
 
 export type ChoiceKey = 'ancient_shrine' | 'piglin_merchant';
 export type ChoiceOption = 'option_a' | 'option_b' | 'ignore';
@@ -35,37 +35,34 @@ export async function makeChoiceDecision(teamId: string, choiceKey: ChoiceKey, o
   const delta = config.options[option];
   if (!delta) return { success: false, error: 'INVALID_OPTION', message: 'Invalid option selected.' };
 
-  // Note: For "ignore", if they don't have enough to pay the penalty, mutateTeamResource might fail with INSUFFICIENT_FUNDS
-  // depending on Dev 4's implementation. We'll assume the RPC handles it gracefully or throws 422.
-  const res = await mutateTeamResource({
-    teamId,
-    delta,
-    sourceType: 'choice_decision',
-    idempotencyKey,
-    reason: `Selected ${option} for ${choiceKey}`
+  // The RPC checks the one-decision-per-choice rule inside the same transaction as
+  // the ledger write, so a repeat attempt under a new idempotency key cannot charge
+  // the team a second time.
+  const { data, error } = await supabaseServer.rpc('dev3_make_choice_decision', {
+    p_team_id: teamId,
+    p_choice_key: choiceKey,
+    p_option_selected: option,
+    p_delta: delta as never,
+    p_idempotency_key: idempotencyKey,
+    p_reason: `Selected ${option} for ${choiceKey}`,
   });
 
-  if (!res.success) {
-    return res;
-  }
-
-  const { data, error } = await supabaseServer
-    .from('choice_decisions')
-    .insert({
-      team_id: teamId,
-      choice_key: choiceKey,
-      option_selected: option,
-      ledger_id: res.ledgerId
-    })
-    .select()
-    .single();
-
   if (error) {
-    if (error.code === '23505') { // Unique constraint violation
-      return { success: false, error: 'ALREADY_DECIDED', message: 'You have already made a decision for this event.' };
+    if (error.message?.includes('insufficient')) {
+      return { success: false, error: 'INSUFFICIENT_FUNDS', message: 'Not enough resources.' };
+    }
+    if (error.message?.includes('idempotency') || error.code === '23505') {
+      return { success: false, error: 'CONFLICT', message: 'Action already performed.' };
     }
     console.error('Failed to record choice decision:', error);
+    return { success: false, error: 'SERVER_ERROR', message: 'Failed to record decision.' };
   }
 
-  return { success: true, data };
+  const result = data as unknown as { idempotent?: boolean } | null;
+
+  if (result?.idempotent) {
+    return { success: false, error: 'ALREADY_DECIDED', message: 'You have already made a decision for this event.' };
+  }
+
+  return { success: true, data: result };
 }

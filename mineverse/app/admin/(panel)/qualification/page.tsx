@@ -12,12 +12,9 @@ export default async function AdminQualificationPage() {
     redirect('/admin/login');
   }
 
+  // The client component renders its own PageTitle so it matches the other
+  // panel screens; the layout already supplies padding and max width.
   const overview = await getQualificationOverview();
 
-  return (
-    <div className="p-8 max-w-6xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6">Day 1 Qualification Admin</h1>
-      <AdminQualificationClient initialData={overview} />
-    </div>
-  );
+  return <AdminQualificationClient initialData={overview} />;
 }

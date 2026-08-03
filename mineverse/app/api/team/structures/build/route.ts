@@ -31,7 +31,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: { code: access.error } }, { status: 403 });
     }
 
-    const res = await buildStructure(session.team_id, round_id, type as StructureType, idempotency_key);
+    // Building a base structure is free, so there is no resource mutation to
+    // key; the one-per-round unique index already makes a retry inert.
+    const res = await buildStructure(session.team_id, round_id, type as StructureType);
     
     if (!res.success) {
       return NextResponse.json({ success: false, error: { code: res.error, message: res.message } }, { status: 409 });

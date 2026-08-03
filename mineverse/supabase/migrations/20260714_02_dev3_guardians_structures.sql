@@ -1,4 +1,9 @@
 -- Migration 02: Dev 3 - Guardians, Structures, Marketplace, Choices, Qualification
+--
+-- The two RPCs at the bottom replaced earlier stubs that raised
+-- BLOCKED_BY_DEV4_RPC. They were applied to the event project separately as
+-- `20260714_05_dev3_atomic_purchase_and_choice_rpcs`; applying this file whole
+-- against a clean database produces the same result.
 
 create table if not exists structures (
     id uuid primary key default gen_random_uuid(),
@@ -100,32 +105,126 @@ alter table choice_decisions enable row level security;
 alter table team_game_state enable row level security;
 
 -- Atomic Mutation Wrapper RPCs
--- These are intentionally blocked until Dev 4 confirms the resource RPC signature.
+-- Both wrap Dev 4's mutate_team_resources so the ledger entry and the Dev 3
+-- record are written in one transaction. Doing the mutation from the route and
+-- the insert afterwards let a failed insert leave resources already spent.
 
 create or replace function dev3_buy_marketplace_item(
     p_team_id uuid,
     p_item_type text,
     p_cost_emerald integer,
     p_delta jsonb,
-    p_idempotency_key text,
+    p_idempotency_key uuid,
     p_reason text
-) returns uuid as $$
+) returns jsonb
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+    existing transactions%rowtype;
+    mutation jsonb;
+    tx_row transactions%rowtype;
 begin
-    -- REQUIRES DEV 4 RPC SIGNATURE
-    raise exception 'BLOCKED_BY_DEV4_RPC: Awaiting exact Dev 4 resource mutation RPC signature to guarantee atomicity.';
+    -- Replaying the same request returns the original purchase.
+    select t.* into existing
+    from transactions t
+    join resource_ledger l on l.id = t.ledger_id
+    where t.team_id = p_team_id and l.idempotency_key = p_idempotency_key;
+
+    if found then
+        return jsonb_build_object(
+            'transaction_id', existing.id,
+            'ledger_id', existing.ledger_id,
+            'item_type', existing.item_type,
+            'idempotent', true
+        );
+    end if;
+
+    mutation := mutate_team_resources(
+        p_team_id,
+        p_delta,
+        'marketplace_purchase',
+        p_item_type,
+        p_idempotency_key,
+        p_reason,
+        'team',
+        p_team_id::text
+    );
+
+    insert into transactions (team_id, item_type, cost_emerald, ledger_id)
+    values (p_team_id, p_item_type, p_cost_emerald, (mutation ->> 'ledger_id')::uuid)
+    returning * into tx_row;
+
+    return jsonb_build_object(
+        'transaction_id', tx_row.id,
+        'ledger_id', tx_row.ledger_id,
+        'item_type', tx_row.item_type,
+        'cost_emerald', tx_row.cost_emerald,
+        'balance', mutation -> 'balance',
+        'idempotent', false
+    );
 end;
-$$ language plpgsql security definer;
+$$;
 
 create or replace function dev3_make_choice_decision(
     p_team_id uuid,
     p_choice_key text,
     p_option_selected text,
     p_delta jsonb,
-    p_idempotency_key text,
+    p_idempotency_key uuid,
     p_reason text
-) returns uuid as $$
+) returns jsonb
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+    existing choice_decisions%rowtype;
+    mutation jsonb;
+    decision_row choice_decisions%rowtype;
 begin
-    -- REQUIRES DEV 4 RPC SIGNATURE
-    raise exception 'BLOCKED_BY_DEV4_RPC: Awaiting exact Dev 4 resource mutation RPC signature to guarantee atomicity.';
+    -- One decision per team/choice. Checked before the mutation so a repeat
+    -- attempt under a fresh idempotency key cannot charge the team twice.
+    select * into existing
+    from choice_decisions
+    where team_id = p_team_id and choice_key = p_choice_key;
+
+    if found then
+        return jsonb_build_object(
+            'decision_id', existing.id,
+            'ledger_id', existing.ledger_id,
+            'choice_key', existing.choice_key,
+            'option_selected', existing.option_selected,
+            'idempotent', true
+        );
+    end if;
+
+    mutation := mutate_team_resources(
+        p_team_id,
+        p_delta,
+        'choice_decision',
+        p_choice_key,
+        p_idempotency_key,
+        p_reason,
+        'team',
+        p_team_id::text
+    );
+
+    insert into choice_decisions (team_id, choice_key, option_selected, ledger_id)
+    values (p_team_id, p_choice_key, p_option_selected, (mutation ->> 'ledger_id')::uuid)
+    returning * into decision_row;
+
+    return jsonb_build_object(
+        'decision_id', decision_row.id,
+        'ledger_id', decision_row.ledger_id,
+        'choice_key', decision_row.choice_key,
+        'option_selected', decision_row.option_selected,
+        'balance', mutation -> 'balance',
+        'idempotent', false
+    );
 end;
-$$ language plpgsql security definer;
+$$;
+
+revoke execute on function dev3_buy_marketplace_item(uuid, text, integer, jsonb, uuid, text) from public, anon, authenticated;
+revoke execute on function dev3_make_choice_decision(uuid, text, text, jsonb, uuid, text) from public, anon, authenticated;

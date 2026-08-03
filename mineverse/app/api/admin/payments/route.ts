@@ -6,8 +6,12 @@ import { sendPaymentVerifiedEmail } from '@/lib/email';
 import { SignJWT } from 'jose';
 import { env } from '@/lib/env';
 import QRCode from 'qrcode';
+import { requirePanelScope } from '@/lib/panel/require-admin';
 
 export async function GET() {
+  const guard = await requirePanelScope('admin');
+  if (!guard.ok) return guard.response;
+
   const { data: payments, error } = await supabaseServer
     .from('payments')
     .select('*, teams(team_code, team_name, is_payment_verified)')
@@ -22,6 +26,9 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const guard = await requirePanelScope('admin');
+  if (!guard.ok) return guard.response;
+
   const { payment_id, action } = await req.json();
 
   if (action === 'verify') {
