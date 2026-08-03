@@ -24,9 +24,11 @@ export async function GET() {
 
     if (useError) throw useError;
 
+    // transaction_id is nullable on item_uses; a use with no purchase behind it
+    // cannot mark any inventory row as consumed.
     const usedByTransaction = new Map<string, string | null>();
     for (const use of uses ?? []) {
-      usedByTransaction.set(use.transaction_id, use.consumed_at);
+      if (use.transaction_id) usedByTransaction.set(use.transaction_id, use.consumed_at);
     }
 
     const items = (transactions ?? []).map((tx) => ({

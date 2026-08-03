@@ -1,90 +1,159 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
+import { useEffect, useState, useCallback, Fragment } from 'react';
+import { toast } from 'sonner';
+import { RefreshCw, Search, ChevronDown } from 'lucide-react';
+import { Panel, Btn, Pill, statusTone, Table, Empty, Loading, PageTitle, apiCall, Grid, StatTile } from '@/components/admin/nether-ui';
+
+type Member = { id: string; name: string; email: string; phone?: string };
+type TeamRow = {
+  id: string;
+  team_code: string;
+  team_name: string;
+  team_size: number;
+  status: string;
+  is_payment_verified: boolean;
+  total_score: number;
+  created_at: string;
+  members?: Member[];
+  attendance_records?: { checkpoint_id: number; members_present: number }[];
+};
 
 export default function AdminTeamsPage() {
-  const [teams, setTeams] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [teams, setTeams] = useState<TeamRow[] | null>(null);
+  const [query, setQuery] = useState('');
+  const [expanded, setExpanded] = useState<string | null>(null);
 
-  const fetchTeams = async () => {
-    const res = await fetch('/api/admin/teams');
-    const json = await res.json();
-    if (json.success) setTeams(json.data);
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    fetchTeams();
+  const load = useCallback(async () => {
+    const res = await apiCall<TeamRow[]>('/api/admin/teams');
+    if (res.ok) setTeams(res.data ?? []);
+    else toast.error(res.message);
   }, []);
 
-  if (loading) return <div>Loading teams...</div>;
+  useEffect(() => { void load(); }, [load]);
+
+  if (!teams) {
+    return (<><PageTitle title="Teams" /><Panel><Loading label="Loading roster" /></Panel></>);
+  }
+
+  const needle = query.trim().toLowerCase();
+  const visible = teams.filter((t) =>
+    !needle ||
+    t.team_code?.toLowerCase().includes(needle) ||
+    t.team_name?.toLowerCase().includes(needle) ||
+    t.members?.some((m) => m.name?.toLowerCase().includes(needle) || m.email?.toLowerCase().includes(needle)),
+  );
+
+  const verified = teams.filter((t) => t.is_payment_verified).length;
+  const participants = teams.reduce((sum, t) => sum + (t.team_size ?? 0), 0);
+  const checkedIn = teams.filter((t) => (t.attendance_records?.length ?? 0) > 0).length;
 
   return (
-    <div className="space-y-6">
-      <h2 className="text-3xl font-bold text-white tracking-tight">Teams Roster</h2>
-      
-      <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden p-4">
-        <Accordion className="w-full">
-          {teams.map(t => (
-            <AccordionItem key={t.id} value={t.id} className="border-slate-800">
-              <AccordionTrigger className="hover:no-underline hover:bg-slate-800/50 px-4 py-3 rounded-lg">
-                <div className="flex flex-1 items-center justify-between pr-4">
-                  <div className="flex items-center gap-4">
-                    <span className="font-bold text-slate-200">{t.team_code}</span>
-                    <span className="text-slate-400">{t.team_name}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {t.is_payment_verified ? (
-                      <Badge className="bg-emerald-500/20 text-emerald-400">Verified</Badge>
-                    ) : (
-                      <Badge className="bg-amber-500/20 text-amber-400">Pending</Badge>
-                    )}
-                    <Badge variant="outline" className="border-slate-700 text-slate-400">{t.team_size} members</Badge>
-                  </div>
-                </div>
-              </AccordionTrigger>
-              <AccordionContent className="px-4 py-4 text-slate-300 bg-slate-950/50 rounded-b-lg">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <h4 className="font-semibold text-slate-100 mb-2 border-b border-slate-800 pb-1">Members</h4>
-                    <ul className="space-y-2">
-                      {t.members?.map((m: any) => (
-                        <li key={m.id} className="text-sm flex justify-between items-center">
-                          <div>
-                            <span className="font-medium text-slate-300">{m.name}</span>
-                            {m.is_team_lead && <Badge className="ml-2 bg-blue-500/20 text-blue-400 text-[10px]">Lead</Badge>}
+    <>
+      <PageTitle
+        title="Teams"
+        subtitle="Full roster with members and attendance"
+        actions={<Btn onClick={load}><RefreshCw size={12} /> Refresh</Btn>}
+      />
+
+      <Grid min={190}>
+        <StatTile label="Teams" value={teams.length} />
+        <StatTile label="Participants" value={participants} />
+        <StatTile label="Payment verified" value={verified} />
+        <StatTile label="Checked in" value={checkedIn} hint="Has at least one attendance record" />
+      </Grid>
+
+      <div style={{ marginTop: 12 }}>
+        <Panel
+          title={`Roster (${visible.length})`}
+          actions={
+            <div style={{ position: 'relative' }}>
+              <Search size={12} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-portal)' }} />
+              <input
+                className="n-input"
+                style={{ paddingLeft: 24, width: 210 }}
+                placeholder="Team, code or member"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+            </div>
+          }
+        >
+          <Table head={['Code', 'Team', 'Size', 'Payment', 'Status', 'Score', '']}>
+            {visible.map((team) => (
+              <Fragment key={team.id}>
+                <tr>
+                  <td className="n-mono">{team.team_code}</td>
+                  <td>{team.team_name}</td>
+                  <td>{team.team_size}</td>
+                  <td>
+                    <Pill tone={team.is_payment_verified ? 'ok' : 'warn'}>
+                      {team.is_payment_verified ? 'verified' : 'pending'}
+                    </Pill>
+                  </td>
+                  <td><Pill tone={statusTone(team.status)}>{team.status}</Pill></td>
+                  <td>{team.total_score ?? 0}</td>
+                  <td style={{ textAlign: 'right' }}>
+                    <Btn
+                      variant="ghost"
+                      small
+                      onClick={() => setExpanded(expanded === team.id ? null : team.id)}
+                      aria-expanded={expanded === team.id}
+                    >
+                      <ChevronDown
+                        size={12}
+                        style={{
+                          transform: expanded === team.id ? 'rotate(180deg)' : 'none',
+                          transition: 'transform 0.15s ease',
+                        }}
+                      />
+                      {team.members?.length ?? 0} members
+                    </Btn>
+                  </td>
+                </tr>
+                {expanded === team.id && (
+                  <tr>
+                    <td colSpan={7} style={{ background: 'var(--bg-void)', padding: 0 }}>
+                      <div style={{ padding: '12px 14px' }}>
+                        <div className="n-label" style={{ marginBottom: 8 }}>Members</div>
+                        {(team.members ?? []).length === 0 ? (
+                          <div className="n-panel-sub">No members recorded</div>
+                        ) : (
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 8 }}>
+                            {(team.members ?? []).map((m) => (
+                              <div
+                                key={m.id}
+                                style={{ padding: '8px 10px', border: '1px solid rgb(150 35 14 / 22%)', background: 'var(--bg-panel)' }}
+                              >
+                                <div style={{ fontSize: 10.5 }}>{m.name}</div>
+                                <div className="n-panel-sub n-mono" style={{ marginTop: 3 }}>{m.email}</div>
+                                {m.phone && <div className="n-panel-sub n-mono">{m.phone}</div>}
+                              </div>
+                            ))}
                           </div>
-                          <span className="text-slate-500 text-xs">{m.college_email}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-slate-100 mb-2 border-b border-slate-800 pb-1">Attendance Records</h4>
-                    {t.attendance_records?.length > 0 ? (
-                      <div className="flex flex-wrap gap-2">
-                        {t.attendance_records.map((ar: any) => (
-                          <Badge key={ar.checkpoint_id} className="bg-cyan-500/20 text-cyan-400">
-                            Checkpoint {ar.checkpoint_id}: {ar.members_present}/{t.team_size} present
-                          </Badge>
-                        ))}
+                        )}
+                        {(team.attendance_records?.length ?? 0) > 0 && (
+                          <div style={{ marginTop: 12 }}>
+                            <div className="n-label" style={{ marginBottom: 6 }}>Attendance</div>
+                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                              {team.attendance_records!.map((a, i) => (
+                                <Pill key={i} tone="ok">
+                                  Checkpoint {a.checkpoint_id} · {a.members_present} present
+                                </Pill>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    ) : (
-                      <p className="text-sm text-slate-500">No attendance recorded yet.</p>
-                    )}
-                  </div>
-                </div>
-              </AccordionContent>
-            </AccordionItem>
-          ))}
-          {teams.length === 0 && (
-            <div className="text-center text-slate-500 py-8">No teams registered yet.</div>
-          )}
-        </Accordion>
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            ))}
+            {visible.length === 0 && <Empty colSpan={7}>No matching teams</Empty>}
+          </Table>
+        </Panel>
       </div>
-    </div>
+    </>
   );
 }

@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase/server';
 import { supabaseClient } from '@/lib/supabase/client'; // For broadcasting
+import { requirePanelScope } from '@/lib/panel/require-admin';
 
 export async function POST(req: Request) {
+  const guard = await requirePanelScope('admin');
+  if (!guard.ok) return guard.response;
+
   const { round_id, action, minutes } = await req.json();
 
   if (action === 'toggle') {

@@ -12,30 +12,42 @@ export interface StructureConfig {
   repairCost: { wood?: number; stone?: number; iron?: number; gold?: number };
 }
 
+/**
+ * Costs come from `docs/event details/Mineverse_Full_Event_Details.md`, which the
+ * Phase 2 master plan makes authoritative over older Phase 2 copy. Base structures
+ * are free to build; only upgrades and repairs cost resources.
+ */
 export const STRUCTURES: Record<StructureType, StructureConfig> = {
   bat_cave: {
     type: 'bat_cave',
     round_id: 2,
-    upgradeCost: { stone: 20, iron: 5 },
-    repairCost: { stone: 8 }, // e.g. Creeper explosion repair
+    // Bat Cave -> Echo Bat Cave
+    upgradeCost: { stone: 10, iron: 10 },
+    // Creeper Explosion repair
+    repairCost: { stone: 8 },
   },
   forge: {
     type: 'forge',
     round_id: 2,
-    upgradeCost: { iron: 15 },
-    repairCost: { stone: 10 },
+    // Forge -> Master Forge
+    upgradeCost: { iron: 15, stone: 10 },
+    repairCost: { stone: 8 },
   },
   bastion: {
     type: 'bastion',
     round_id: 3,
-    upgradeCost: { gold: 15, iron: 10 },
+    // Bastion -> Reinforced Bastion
+    upgradeCost: { iron: 20, gold: 10 },
+    // Ghast Bombardment repair
     repairCost: { iron: 10, gold: 5 },
   },
   tnt_storage: {
     type: 'tnt_storage',
     round_id: 3,
-    upgradeCost: { iron: 20, gold: 10 },
-    repairCost: { wood: 15, stone: 15 },
+    // TNT Storage -> Mega TNT Storage
+    upgradeCost: { iron: 15, gold: 15 },
+    // Ghast Bombardment repair
+    repairCost: { stone: 10, iron: 8 },
   }
 };
 
@@ -89,14 +101,13 @@ export async function buildStructure(teamId: string, roundId: number, type: Stru
   return { success: true, data };
 }
 
-export async function upgradeStructure(teamId: string, type: StructureType, idempotencyKey: string) {
+export async function upgradeStructure(teamId: string, roundId: number, type: StructureType, idempotencyKey: string) {
   const config = STRUCTURES[type];
   if (!config) return { success: false, error: 'INVALID_STRUCTURE', message: 'Invalid structure.' };
 
-  const structures = await getTeamStructures(teamId);
-  const structure = structures.find(s => s.type === type);
+  const structure = await getTeamStructure(teamId, roundId);
 
-  if (!structure) {
+  if (!structure || structure.type !== type) {
     return { success: false, error: 'NOT_FOUND', message: 'Structure not built.' };
   }
 
@@ -115,7 +126,7 @@ export async function upgradeStructure(teamId: string, type: StructureType, idem
   });
 
   if (!res.success) {
-    return res;
+    return { success: false, error: res.error, message: res.message };
   }
 
   const { data, error } = await supabaseServer
@@ -129,14 +140,13 @@ export async function upgradeStructure(teamId: string, type: StructureType, idem
   return { success: true, data };
 }
 
-export async function repairStructure(teamId: string, type: StructureType, idempotencyKey: string) {
+export async function repairStructure(teamId: string, roundId: number, type: StructureType, idempotencyKey: string) {
   const config = STRUCTURES[type];
   if (!config) return { success: false, error: 'INVALID_STRUCTURE', message: 'Invalid structure.' };
 
-  const structures = await getTeamStructures(teamId);
-  const structure = structures.find(s => s.type === type);
+  const structure = await getTeamStructure(teamId, roundId);
 
-  if (!structure) {
+  if (!structure || structure.type !== type) {
     return { success: false, error: 'NOT_FOUND', message: 'Structure not built.' };
   }
 
@@ -155,7 +165,7 @@ export async function repairStructure(teamId: string, type: StructureType, idemp
   });
 
   if (!res.success) {
-    return res;
+    return { success: false, error: res.error, message: res.message };
   }
 
   // Find if it was upgraded previously (ideally from upgrade_lineage or similar, but simplified here)

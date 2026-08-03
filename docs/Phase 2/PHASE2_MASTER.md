@@ -1,7 +1,7 @@
 # MINEVERSE — Phase 2 Master Plan
 ## Day 1 Gameplay Engine (Rounds 1–3)
 
-**Status:** Planning / documentation only  
+**Status:** Implemented; pending organizer question content  
 **Depends on:** Phase 1 foundation, auth, dashboard, round controls, and database schema  
 **Authoritative event source:** `../event details/Mineverse_Full_Event_Details.md`
 
@@ -45,36 +45,45 @@ The selected-team Round 3 design, state rules, and failure handling are specifie
 
 ## 4. Checklist
 
+Status audited against the code and the live Supabase project on 2026-08-03.
+
 ### 4.1 Data and safety
 
 | # | Work item | Owner | Status |
 |---|---|---|---|
-| 1 | Apply the three ordered, owner-specific Phase 2 migrations | Dev 3/4/5 | Not started |
-| 2 | Seed only organizer-approved questions; do not put answer keys in client responses | Dev 4 | Not started |
-| 3 | Create an append-only resource ledger and make every mutation idempotent | Dev 4/5 | Not started |
-| 4 | Persist guardian attempts, item usage, repairs, trades, and qualification decisions | Dev 3 | Not started |
-| 5 | Keep Phase 2 tables server-only under deny-all RLS | Dev 4 | Not started |
+| 1 | Apply the three ordered, owner-specific Phase 2 migrations | Dev 3/4/5 | ✅ Applied (01, 02, 03 + 04 grants, 05 Dev 3 RPCs, 06 guardian packs) |
+| 2 | Seed only organizer-approved questions; do not put answer keys in client responses | Dev 4 | ⚠️ Blocked on organizer content — `questions` is empty. Delivery/serialization is safe and tested. |
+| 3 | Create an append-only resource ledger and make every mutation idempotent | Dev 4/5 | ✅ Verified against the live database |
+| 4 | Persist guardian attempts, item usage, repairs, trades, and qualification decisions | Dev 3 | ✅ |
+| 5 | Keep Phase 2 tables server-only under deny-all RLS | Dev 4 | ✅ RLS on all 32 tables; RPC `EXECUTE` revoked from `anon`/`authenticated` |
 
 ### 4.2 Team gameplay
 
 | # | Work item | Owner | Status |
 |---|---|---|---|
-| 6 | Display only questions available to the authenticated team in an active, unlocked round | Dev 4 | Not started |
-| 7 | Save/revise submissions until the round locks; never double-award an edited answer | Dev 4 | Not started |
-| 8 | Show resources, ledger history, timer, question status, and active modifiers | Dev 4 | Not started |
-| 9 | Craft required progression items atomically, applying Forge discounts correctly | Dev 4 | Not started |
-| 10 | Implement guardian, structure, marketplace, choice-event, and qualification experiences | Dev 3 | Not started |
+| 6 | Display only questions available to the authenticated team in an active, unlocked round | Dev 4 | ✅ Guardian pack questions excluded from the round list |
+| 7 | Save/revise submissions until the round locks; never double-award an edited answer | Dev 4 | ✅ Unique `(submission_id, revision)` in `grading_items` |
+| 8 | Show resources, ledger history, timer, question status, and active modifiers | Dev 4 | ✅ Modifiers now sourced from `team_event_effects` |
+| 9 | Craft required progression items atomically, applying Forge discounts correctly | Dev 4 | ✅ Rehearsed: 45 stone → 41 at 10% Forge discount |
+| 10 | Implement guardian, structure, marketplace, choice-event, and qualification experiences | Dev 3 | ✅ Guardian grading wired; purchase/choice made atomic; costs reconciled to the event brief |
 
 ### 4.3 Organizer operations
 
 | # | Work item | Owner | Status |
 |---|---|---|---|
-| 11 | Grade deterministic submissions and queue rubric grading with validated structured output | Dev 5 | Not started |
-| 12 | Trigger/expire world events and broadcast state with polling fallback | Dev 5 | Not started |
-| 13 | Enter offline results, operate online PvP matches, and make manual resource adjustments with an audit reason | Dev 5 | Not started |
-| 13a | Select two eligible teams, choose a sealed PvP pack, and start/void/replay an online PvP match | Dev 5 | Not started |
-| 13b | Show only the selected team its active PvP match, safe questions, server timer, and final result | Dev 4 | Not started |
-| 14 | Determine and freeze the qualified Day 2 list after the organizer confirms the cutoff | Dev 3 | Not started |
+| 11 | Grade deterministic submissions and queue rubric grading with validated structured output | Dev 5 | ✅ Deterministic path complete; answers with no key park in `manual_review`. LLM/Groq path not wired — manual review is the fallback. |
+| 12 | Trigger/expire world events and broadcast state with polling fallback | Dev 5 | ✅ Trigger/list/expire; broadcast still polling-only |
+| 13 | Enter offline results, operate online PvP matches, and make manual resource adjustments with an audit reason | Dev 5 | ✅ |
+| 13a | Select two eligible teams, choose a sealed PvP pack, and start/void/replay an online PvP match | Dev 5 | ✅ Rehearsed end to end |
+| 13b | Show only the selected team its active PvP match, safe questions, server timer, and final result | Dev 4 | ✅ |
+| 14 | Determine and freeze the qualified Day 2 list after the organizer confirms the cutoff | Dev 3 | ✅ |
+
+### 4.4 Known remaining work
+
+- **Question content is unseeded.** Every round, guardian, and PvP pack needs organizer-approved questions with `expected_answer` keys before any flow produces a score. This is a content gate, not a code gate.
+- **No LLM grading provider.** `grading_items.path = 'rubric'` parks answers for manual review; the Groq call described in the PRD is not implemented.
+- **Realtime broadcasts are not emitted.** Clients rely on the documented ten-second poll.
+- **Panel tokens carry no admin identity.** Audit columns record the neutral actor `panel-admin`; widen the JWT payload for per-admin attribution.
 
 ## 5. Merge-conflict contract
 
@@ -91,4 +100,4 @@ Each owner creates files only in its named subtree. Shared behavior crosses boun
 - All Day 1 mechanics match the event-detail source, including free structures and the selected-team online PvP question duel.
 - Phase 3 receives a stable qualified-team flag, resources, structures, upgrades, artifacts (including the Nether Core count, which Phase 3's portal repair requires), and audit history.
 
-**Last updated:** 2026-07-14
+**Last updated:** 2026-08-03

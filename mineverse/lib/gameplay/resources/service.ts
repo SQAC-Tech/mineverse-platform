@@ -1,4 +1,5 @@
 import { supabaseServer } from '@/lib/supabase/server';
+import { getActiveModifiers } from '@/lib/gameplay/events/service';
 
 const db = supabaseServer as any;
 
@@ -46,12 +47,14 @@ export async function getTeamResources(teamId: string) {
 
   if (pendingError && pendingError.code !== '42P01') throw pendingError;
 
+  const activeModifiers = await getActiveModifiers(teamId);
+
   return {
     balance: toBalance(data),
     version: data.version,
     updated_at: data.updated_at,
     server_time: new Date().toISOString(),
-    active_modifiers: [],
+    active_modifiers: activeModifiers,
     pending_grading: (count ?? 0) > 0,
   };
 }

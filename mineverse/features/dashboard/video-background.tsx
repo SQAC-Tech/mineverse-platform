@@ -3,15 +3,18 @@
 import Image from 'next/image';
 import { useRef, useEffect, useState, useCallback } from 'react';
 
-import { useRouter } from 'next/navigation';
+import { RoundPortals, type DashboardRound } from '@/features/dashboard/round-portals';
+import { supabaseClient } from '@/lib/supabase/client';
 
 // Longer crossfade for a more cinematic, seamless feel
 const CROSSFADE_MS = 1200;
 const TRIGGER_BEFORE_END_S = CROSSFADE_MS / 1000 + 0.3;
 
 const DASH_VIDEO = '/dashvid.mp4';
-const LEVEL1_VIDEO = '/vid2.mp4';
-const VID3_VIDEO = '/vid3.mp4';
+// The slider goes straight to the four-season screen; the old vid2 hand-off has
+// been removed so there is one transition, not two. This clip ends on the four
+// panels the round portals sit over. (Filename typo is the asset's own.)
+const FOUR_SEASON_VIDEO = '/transitioin_from_dashboard_to_fourseason.mp4';
 
 // ── Team members ────────────────────────────────────────────────
 const TEAM_PLAYERS = [
@@ -22,7 +25,6 @@ const TEAM_PLAYERS = [
 ];
 
 export function VideoBackground() {
-  const router = useRouter();
   const videoA = useRef<HTMLVideoElement>(null);
   const videoB = useRef<HTMLVideoElement>(null);
 
@@ -43,8 +45,13 @@ export function VideoBackground() {
   // ── Transition triggered when slider hits the right end ────────
   const [sliderComplete, setSliderComplete] = useState(false);
   const transitionedRef = useRef(false);
-  const [isPlayingVid3, setIsPlayingVid3] = useState(false);
-  const [vid2Complete, setVid2Complete] = useState(false);
+  // The four-season clip has finished and is held on its last frame; the round portals
+  // are now revealed over its panels.
+  const [portalsReady, setPortalsReady] = useState(false);
+
+  // ── Round data driving the four portals ───────────────────────
+  const [rounds, setRounds] = useState<DashboardRound[]>([]);
+  const [devUnlock, setDevUnlock] = useState(false);
 
   // ── Toast notification ────────────────────────────────────────
   const [toast, setToast] = useState<{ icon: string; title: string; subtitle: string; key: number } | null>(null);
@@ -164,7 +171,40 @@ export function VideoBackground() {
     return () => { cancelAnimationFrame(rafRef.current); vA.pause(); vB.pause(); };
   }, [doSwap]);
 
-  // ── When slider completes: swap to level-1 transition video ───
+  // ── Fetch the team's round state so the portals know what is enterable ──
+  const fetchRounds = useCallback(async () => {
+    try {
+      const res = await fetch('/api/dashboard/data', { cache: 'no-store' });
+      const json = await res.json();
+      if (json.success) {
+        setRounds(json.rounds ?? []);
+        setDevUnlock(Boolean(json.dev_unlock));
+      }
+    } catch {
+      // The portals still render; they stay locked until a fetch succeeds.
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchRounds();
+    const poll = window.setInterval(fetchRounds, 10000);
+    return () => window.clearInterval(poll);
+  }, [fetchRounds]);
+
+  // Refetch when an admin unlocks a round mid-session.
+  useEffect(() => {
+    const channel = supabaseClient
+      .channel('round_status')
+      .on('broadcast', { event: 'unlock' }, () => void fetchRounds())
+      .subscribe();
+
+    return () => {
+      void supabaseClient.removeChannel(channel);
+    };
+  }, [fetchRounds]);
+
+  // ── When the slider completes: go straight to the four-season clip, hold its last
+  //    frame and reveal the four round portals. No intermediate transition. ──
   useEffect(() => {
     if (!sliderComplete) return;
 
@@ -182,59 +222,39 @@ export function VideoBackground() {
     // Stop dashboard looping on the active element
     activeEl.loop = false;
 
-    // Load transition video (plays once)
     standbyEl.loop = false;
-    standbyEl.src = LEVEL1_VIDEO;
+    standbyEl.src = FOUR_SEASON_VIDEO;
     standbyEl.load();
     standbyEl.play().catch(() => { });
 
-    // Crossfade: bring transition video forward
+    // Crossfade the four-season clip forward
     if (standby === 'A') { setOpacityA(1); setOpacityB(0); }
     else { setOpacityA(0); setOpacityB(1); }
 
-    setTimeout(() => {
+    const onEnded = () => {
+      // Freeze on the final frame so the panels stay behind the portals.
+      standbyEl.pause();
+      standbyEl.currentTime = Math.max(0, standbyEl.duration - 0.05);
+      setPortalsReady(true);
+    };
+    standbyEl.addEventListener('ended', onEnded);
+
+    const swapTimer = setTimeout(() => {
       activeEl.pause();
       activeRef.current = standby;
-
-      const onEndedVid2 = () => {
-        standbyEl.removeEventListener('ended', onEndedVid2);
-        setVid2Complete(true);
-      };
-      standbyEl.addEventListener('ended', onEndedVid2);
     }, CROSSFADE_MS);
+
+    // If the video cannot play (autoplay blocked, missing file), still reveal
+    // the portals rather than stranding the user on a dead screen.
+    const fallback = setTimeout(() => setPortalsReady(true), 15000);
+
+    return () => {
+      standbyEl.removeEventListener('ended', onEnded);
+      clearTimeout(swapTimer);
+      clearTimeout(fallback);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sliderComplete]);
-
-  // ── Play Vid 3 and redirect to round1 ──
-  const playVid3 = useCallback(() => {
-    setIsPlayingVid3(true);
-    const vA = videoA.current;
-    const vB = videoB.current;
-    if (!vA || !vB) return;
-
-    const standby = activeRef.current === 'A' ? 'B' : 'A';
-    const standbyEl = standby === 'A' ? vA : vB;
-    const activeEl = activeRef.current === 'A' ? vA : vB;
-
-    standbyEl.loop = false;
-    standbyEl.src = VID3_VIDEO;
-    standbyEl.load();
-    standbyEl.play().catch(() => {});
-
-    if (standby === 'A') { setOpacityA(1); setOpacityB(0); }
-    else { setOpacityA(0); setOpacityB(1); }
-
-    setTimeout(() => {
-      activeEl.pause();
-      activeRef.current = standby;
-
-      const onEnded = () => {
-        standbyEl.removeEventListener('ended', onEnded);
-        router.push('/round1');
-      };
-      standbyEl.addEventListener('ended', onEnded);
-    }, CROSSFADE_MS);
-  }, [router]);
 
   return (
     <div style={{ position: 'fixed', inset: 0, width: '100vw', height: '100vh', overflow: 'hidden', background: '#000' }}>
@@ -261,31 +281,8 @@ export function VideoBackground() {
         pointerEvents: 'none',
       }} />
 
-      {/* ── Middle-Left Button to Trigger vid3 ── */}
-      {vid2Complete && !isPlayingVid3 && (
-        <button
-          onClick={playVid3}
-          style={{
-            position: 'absolute',
-            top: '50%',
-            left: '10%',
-            zIndex: 9999,
-            pointerEvents: 'auto',
-            padding: '12px 24px',
-            background: 'linear-gradient(135deg, #1a1a2e, #16213e)',
-            border: '2px solid rgba(100,210,255,0.6)',
-            color: '#fff',
-            fontFamily: 'var(--font-minecraft), system-ui, sans-serif',
-            fontSize: '18px',
-            cursor: 'var(--mv-cursor-hand-closed)',
-            boxShadow: '0 0 12px rgba(100,210,255,0.5)',
-            animation: 'btn-float-up 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards',
-          }}
-          className="scene-btn"
-        >
-          Play Video 3
-        </button>
-      )}
+      {/* ── Four round portals, revealed once the clip settles on its panels ── */}
+      <RoundPortals rounds={rounds} devUnlock={devUnlock} visible={portalsReady} />
 
       {/* ── SCENE IMAGES — fade out when slider completes ── */}
 

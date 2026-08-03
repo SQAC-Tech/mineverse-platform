@@ -7,7 +7,16 @@ import { z } from 'zod';
 const submitSchema = z.object({
   guardian_name: z.enum(['forest_guardian', 'skeleton_archer', 'blaze_guardian']),
   round_id: z.number().int(),
-  idempotency_key: z.string().uuid()
+  idempotency_key: z.string().uuid(),
+  answers: z
+    .array(
+      z.object({
+        question_id: z.string().uuid(),
+        answer_text: z.string().trim().max(20000),
+      }),
+    )
+    .max(50)
+    .default([]),
 });
 
 export async function POST(req: NextRequest) {
@@ -24,14 +33,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: { code: 'INVALID_PAYLOAD' } }, { status: 400 });
     }
 
-    const { guardian_name, round_id, idempotency_key } = result.data;
+    const { guardian_name, round_id, idempotency_key, answers } = result.data;
 
     const access = await verifyTeamRoundAccess(session.team_id, round_id);
     if (!access.hasAccess) {
       return NextResponse.json({ success: false, error: { code: access.error } }, { status: 403 });
     }
 
-    const res = await resolveGuardianBattle(session.team_id, guardian_name as GuardianName, idempotency_key);
+    const res = await resolveGuardianBattle(session.team_id, guardian_name as GuardianName, idempotency_key, answers);
     
     if (!res.success) {
       return NextResponse.json({ success: false, error: { code: res.error, message: res.message } }, { status: 409 });

@@ -1,0 +1,253 @@
+/*
+ * Shared blocky component kit for the admin panel and the gameplay rounds.
+ *
+ * Every rule keys off CSS custom properties, so a surface only has to supply a
+ * palette: `.nether` for the admin panel (app/admin/nether.css) and
+ * `.biome-*` for each round (app/(game)/round/biome.css). The markup and class
+ * names are identical across both, which is what keeps the two consistent.
+ *
+ * Design rules come from `docs/DESIGN and images/D.md`:
+ *   - no rounded corners (max 2px), Minecraft is blocky
+ *   - hard 1-block shadow offset instead of a soft blur
+ *   - text on a lava/accent surface flips to near-black
+ */
+
+:is(.nether, .biome) {
+  background: var(--bg-void);
+  color: var(--text-onDark);
+  font-family: var(--font-display);
+}
+
+:is(.nether, .biome) .n-panel {
+  background: var(--bg-panel);
+  border: 2px solid rgb(from var(--accent-muted) r g b / 40%);
+  border-radius: 2px;
+  box-shadow: 4px 4px 0 #000;
+}
+
+:is(.nether, .biome) .n-panel-head {
+  padding: 14px 16px;
+  border-bottom: 2px solid rgb(from var(--accent-muted) r g b / 30%);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+:is(.nether, .biome) .n-panel-title {
+  font-size: 13px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-onDark);
+}
+
+:is(.nether, .biome) .n-panel-sub {
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  color: var(--text-portal);
+  opacity: 0.85;
+}
+
+:is(.nether, .biome) .n-panel-body { padding: 16px; }
+
+/* ── Buttons ─────────────────────────────────────────────── */
+:is(.nether, .biome) .n-btn {
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 9px 14px;
+  border-radius: 2px;
+  border: 0;
+  cursor: var(--mv-cursor-pickaxe, pointer);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  box-shadow: 3px 3px 0 #000;
+  transition: transform 0.1s ease, background 0.15s ease, filter 0.15s ease;
+  white-space: nowrap;
+}
+:is(.nether, .biome) .n-btn:active:not(:disabled) { transform: translate(2px, 2px); box-shadow: 1px 1px 0 #000; }
+:is(.nether, .biome) .n-btn:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: 2px 2px 0 #000; }
+
+:is(.nether, .biome) .n-btn-primary { background: var(--accent-primary); color: var(--text-onLava); }
+:is(.nether, .biome) .n-btn-primary:hover:not(:disabled) { background: var(--accent-primary-hover); }
+
+:is(.nether, .biome) .n-btn-secondary {
+  background: var(--bg-panel-raised);
+  color: var(--text-onDark);
+  border: 1px solid var(--accent-secondary);
+}
+:is(.nether, .biome) .n-btn-secondary:hover:not(:disabled) { filter: brightness(1.25); }
+
+:is(.nether, .biome) .n-btn-danger { background: var(--accent-danger); color: var(--text-onDark); }
+:is(.nether, .biome) .n-btn-danger:hover:not(:disabled) { filter: brightness(1.35); }
+
+:is(.nether, .biome) .n-btn-ghost {
+  background: transparent;
+  color: var(--text-portal);
+  border: 1px solid rgb(from var(--accent-muted) r g b / 45%);
+  box-shadow: none;
+}
+:is(.nether, .biome) .n-btn-ghost:hover:not(:disabled) {
+  background: rgb(from var(--bg-panel-raised) r g b / 55%);
+  color: var(--text-onDark);
+}
+
+:is(.nether, .biome) .n-btn-sm { padding: 6px 10px; font-size: 10px; }
+
+/* ── Stat tiles ──────────────────────────────────────────── */
+:is(.nether, .biome) .n-stat-value {
+  font-size: 30px;
+  line-height: 1.1;
+  color: var(--accent-primary);
+  text-shadow: 0 0 10px rgb(from var(--accent-primary) r g b / 45%);
+}
+:is(.nether, .biome) .n-stat-label {
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text-portal);
+}
+
+/* ── Tables ──────────────────────────────────────────────── */
+:is(.nether, .biome) .n-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+:is(.nether, .biome) .n-table th {
+  text-align: left;
+  padding: 10px 12px;
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text-portal);
+  background: var(--bg-void);
+  border-bottom: 2px solid rgb(from var(--accent-muted) r g b / 35%);
+  white-space: nowrap;
+}
+:is(.nether, .biome) .n-table td {
+  padding: 10px 12px;
+  color: var(--text-onDark);
+  border-bottom: 1px solid rgb(from var(--accent-muted) r g b / 18%);
+  vertical-align: middle;
+}
+:is(.nether, .biome) .n-table tbody tr:nth-child(even) { background: rgb(from var(--bg-void) r g b / 55%); }
+:is(.nether, .biome) .n-table tbody tr:hover { background: rgb(from var(--bg-panel-raised) r g b / 40%); }
+:is(.nether, .biome) .n-table-wrap { overflow-x: auto; }
+:is(.nether, .biome) .n-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; }
+
+/* ── Status pills ────────────────────────────────────────── */
+:is(.nether, .biome) .n-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 2px;
+  font-size: 9px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  border: 1px solid;
+  white-space: nowrap;
+}
+:is(.nether, .biome) .n-pill-live {
+  background: rgb(from var(--accent-primary) r g b / 18%);
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+:is(.nether, .biome) .n-pill-ok      { background: rgb(74 222 128 / 14%); border-color: rgb(74 222 128 / 60%); color: var(--ok); }
+:is(.nether, .biome) .n-pill-warn    { background: rgb(251 191 36 / 14%); border-color: rgb(251 191 36 / 55%); color: var(--warn); }
+:is(.nether, .biome) .n-pill-danger  { background: rgb(from var(--accent-danger) r g b / 55%); border-color: #a3324a; color: #ff9db0; }
+:is(.nether, .biome) .n-pill-idle {
+  background: rgb(from var(--bg-panel-raised) r g b / 45%);
+  border-color: var(--accent-secondary);
+  color: var(--text-portal);
+}
+
+/* ── Form fields ─────────────────────────────────────────── */
+:is(.nether, .biome) .n-label {
+  display: block;
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text-portal);
+  margin-bottom: 5px;
+}
+:is(.nether, .biome) :is(.n-input, .n-select, .n-textarea) {
+  width: 100%;
+  background: var(--bg-void);
+  border: 1px solid rgb(from var(--accent-muted) r g b / 50%);
+  border-radius: 2px;
+  color: var(--text-onDark);
+  font-family: inherit;
+  font-size: 11px;
+  padding: 9px 10px;
+  outline: none;
+}
+:is(.nether, .biome) :is(.n-input, .n-textarea)::placeholder { color: rgb(from var(--text-portal) r g b / 45%); }
+:is(.nether, .biome) :is(.n-input, .n-select, .n-textarea):focus { border-color: var(--accent-primary); }
+:is(.nether, .biome) .n-textarea { resize: vertical; min-height: 64px; }
+:is(.nether, .biome) .n-select option { background: var(--bg-panel); color: var(--text-onDark); }
+
+/* ── Nav ─────────────────────────────────────────────────── */
+:is(.nether, .biome) .n-nav-group {
+  font-size: 8px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: rgb(from var(--text-portal) r g b / 45%);
+  padding: 14px 12px 6px;
+}
+:is(.nether, .biome) .n-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-portal);
+  border-radius: 2px;
+  border-left: 3px solid transparent;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+:is(.nether, .biome) .n-nav-item:hover {
+  background: rgb(from var(--bg-panel-raised) r g b / 55%);
+  color: var(--text-onDark);
+}
+:is(.nether, .biome) .n-nav-item.active {
+  background: var(--accent-primary);
+  color: var(--text-onLava);
+  border-left-color: color-mix(in srgb, var(--accent-primary) 45%, #fff);
+  box-shadow: 3px 3px 0 #000;
+}
+
+/* ── Decorative ──────────────────────────────────────────── */
+:is(.nether, .biome) .n-lava-divider {
+  height: 2px;
+  border: 0;
+  background: linear-gradient(90deg, var(--accent-primary), transparent);
+  animation: n-lava-pulse 3.5s ease-in-out infinite;
+}
+@keyframes n-lava-pulse { 0%, 100% { opacity: 0.45; } 50% { opacity: 1; } }
+
+:is(.nether, .biome) .n-portal-spinner {
+  width: 22px;
+  height: 22px;
+  border: 3px solid var(--accent-secondary);
+  border-top-color: var(--accent-primary);
+  border-radius: 50%;
+  animation: n-spin 0.8s linear infinite;
+}
+@keyframes n-spin { to { transform: rotate(360deg); } }
+
+:is(.nether, .biome) .n-empty {
+  padding: 32px 16px;
+  text-align: center;
+  color: rgb(from var(--text-portal) r g b / 60%);
+  font-size: 11px;
+  letter-spacing: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.nether, .biome) .n-lava-divider { animation: none; opacity: 0.7; }
+  :is(.nether, .biome) .n-portal-spinner { animation-duration: 2s; }
+}

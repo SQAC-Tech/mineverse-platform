@@ -1,5 +1,5 @@
 import { supabaseServer } from '@/lib/supabase/server';
-import { mutateTeamResource, ResourceDelta } from '@/lib/gameplay/marketplace/resource-client';
+import { ResourceDelta } from '@/lib/gameplay/marketplace/resource-client';
 
 export type MarketplaceItem = 
   | 'hint' 
@@ -58,35 +58,26 @@ export async function purchaseMarketplaceItem(teamId: string, itemType: Marketpl
     if (config.resourceReward.diamond) delta.diamond = config.resourceReward.diamond;
   }
 
-  // Deduct emeralds and add rewards atomically via Dev 4 RPC wrapper
-  const res = await mutateTeamResource({
-    teamId,
-    delta,
-    sourceType: 'marketplace_purchase',
-    idempotencyKey,
-    reason: `Purchased ${itemType}`
+  // The ledger write and the transaction record share one database transaction, so a
+  // failed insert can never leave the team charged for an item it does not own.
+  const { data, error } = await supabaseServer.rpc('dev3_buy_marketplace_item', {
+    p_team_id: teamId,
+    p_item_type: itemType,
+    p_cost_emerald: config.costEmerald,
+    p_delta: delta as never,
+    p_idempotency_key: idempotencyKey,
+    p_reason: `Purchased ${itemType}`,
   });
 
-  if (!res.success) {
-    return res;
-  }
-
-  // Record transaction
-  const { data, error } = await supabaseServer
-    .from('transactions')
-    .insert({
-      team_id: teamId,
-      item_type: itemType,
-      cost_emerald: config.costEmerald,
-      ledger_id: res.ledgerId
-    })
-    .select()
-    .single();
-
   if (error) {
-    // If inserting transaction fails but ledger succeeded, it's an edge case. 
-    // Ideally they share the transaction, but we are separated by the RPC.
-    console.error('Failed to record transaction after resource mutation:', error);
+    if (error.message?.includes('insufficient')) {
+      return { success: false, error: 'INSUFFICIENT_FUNDS', message: 'Not enough resources.' };
+    }
+    if (error.message?.includes('idempotency') || error.code === '23505') {
+      return { success: false, error: 'CONFLICT', message: 'Action already performed.' };
+    }
+    console.error('Failed to purchase marketplace item:', error);
+    return { success: false, error: 'SERVER_ERROR', message: 'Failed to complete purchase.' };
   }
 
   return { success: true, data };

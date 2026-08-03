@@ -22,11 +22,18 @@ export interface MutateResourceParams {
 /**
  * Wrapper for Dev 4's RPC to mutate resources and write to the resource_ledger.
  */
+export interface MutateResourceResult {
+  ledger_id: string;
+  balance: Record<string, number>;
+  version: number;
+  created_at: string;
+  idempotent: boolean;
+}
+
 export async function mutateTeamResource(params: MutateResourceParams) {
-  // Call the theoretical Dev 4 RPC
   const { data, error } = await supabaseServer.rpc('mutate_team_resources', {
     p_team_id: params.teamId,
-    p_delta: params.delta,
+    p_delta: params.delta as never,
     p_source_type: params.sourceType,
     p_source_id: params.sourceId,
     p_idempotency_key: params.idempotencyKey,
@@ -48,5 +55,6 @@ export async function mutateTeamResource(params: MutateResourceParams) {
     return { success: false, error: 'SERVER_ERROR', message: 'Failed to mutate resources.' };
   }
 
-  return { success: true, ledgerId: data?.ledger_id, balance: data?.balance };
+  const result = data as unknown as MutateResourceResult | null;
+  return { success: true, ledgerId: result?.ledger_id, balance: result?.balance };
 }
