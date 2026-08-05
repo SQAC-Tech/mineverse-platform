@@ -63,6 +63,17 @@ export function RegistrationForm() {
 
   const { fields, append, remove } = useFieldArray({ control, name: 'members' });
 
+  /**
+   * Keep the Turnstile token in both places it is read from: local state (drives the
+   * submit button) and the form value (validated by registrationSchema). Setting only
+   * the state leaves `turnstile_token: ''` in the form, which fails zod before onSubmit
+   * ever runs — the captcha looks solved but submit reports it isn't.
+   */
+  const applyTurnstileToken = (token: string | null) => {
+    setTurnstileToken(token);
+    setValue('turnstile_token', token ?? '');
+  };
+
   // Payment step (pay first, then submit): QR for the current team size
   const [paymentQr, setPaymentQr] = useState<{ qr_image: string; amount: number; upi_id: string } | null>(null);
 
@@ -119,6 +130,12 @@ export function RegistrationForm() {
       toast.error('Network error');
     } finally {
       setIsSendingOtp(false);
+      // /api/otp/send calls siteverify, which burns the token — Turnstile tokens are
+      // single-use, so reusing this one at /api/register returns timeout-or-duplicate.
+      // Reset regardless of outcome: from here we can't tell if the server got far
+      // enough to consume it.
+      turnstileRef.current?.reset();
+      applyTurnstileToken(null);
     }
   };
 
@@ -192,12 +209,12 @@ export function RegistrationForm() {
         toast.error(result.error || 'Registration failed');
         // Reset Turnstile — token is single-use, must get a fresh one for retry
         turnstileRef.current?.reset();
-        setTurnstileToken(null);
+        applyTurnstileToken(null);
       }
     } catch (e) {
       toast.error('An error occurred during registration');
       turnstileRef.current?.reset();
-      setTurnstileToken(null);
+      applyTurnstileToken(null);
     }
   };
 
@@ -434,10 +451,12 @@ export function RegistrationForm() {
                 <Turnstile
                   ref={turnstileRef}
                   siteKey="0x4AAAAAAEB7O-NKSvtQ5iNu"
-                  options={{ action: 'turnstile-spin-v2' }}
-                  onSuccess={(token) => setTurnstileToken(token)}
-                  onError={() => setTurnstileToken(null)}
-                  onExpire={() => setTurnstileToken(null)}
+                  // Tokens live 300s; OTP + UPI payment takes longer than that, so let
+                  // the widget re-challenge itself instead of stranding a dead token.
+                  options={{ action: 'turnstile-spin-v2', refreshExpired: 'auto' }}
+                  onSuccess={(token) => applyTurnstileToken(token)}
+                  onError={() => applyTurnstileToken(null)}
+                  onExpire={() => applyTurnstileToken(null)}
                 />
               </div>
 
