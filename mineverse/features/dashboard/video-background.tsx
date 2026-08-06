@@ -225,7 +225,10 @@ export function VideoBackground() {
     standbyEl.loop = false;
     standbyEl.src = FOUR_SEASON_VIDEO;
     standbyEl.load();
-    standbyEl.play().catch(() => { });
+    standbyEl.playbackRate = 2.0;
+    standbyEl.play().then(() => {
+      if (standbyEl) standbyEl.playbackRate = 2.0;
+    }).catch(() => { });
 
     // Crossfade the four-season clip forward
     if (standby === 'A') { setOpacityA(1); setOpacityB(0); }
@@ -246,7 +249,7 @@ export function VideoBackground() {
 
     // If the video cannot play (autoplay blocked, missing file), still reveal
     // the portals rather than stranding the user on a dead screen.
-    const fallback = setTimeout(() => setPortalsReady(true), 15000);
+    const fallback = setTimeout(() => setPortalsReady(true), 7500);
 
     return () => {
       standbyEl.removeEventListener('ended', onEnded);
@@ -273,24 +276,41 @@ export function VideoBackground() {
         transition: `opacity ${CROSSFADE_MS}ms ease-in-out`, zIndex: 2,
       }} />
 
-      {/* ── DIM OVERLAY — darkens all videos uniformly ── */}
-      <div style={{
-        position: 'absolute', inset: 0,
-        background: 'rgba(0,0,0,0.35)',
-        zIndex: 3,
-        pointerEvents: 'none',
-      }} />
+
 
       {/* ── Four round portals, revealed once the clip settles on its panels ── */}
       <RoundPortals rounds={rounds} devUnlock={devUnlock} visible={portalsReady} />
 
-      {/* ── SCENE IMAGES — fade out when slider completes ── */}
-
-
-      {/* TEXT 1 — 3D block "Dashboard" title, centered upper area */}
+      {/* SQAC Logo — top left */}
       <div style={{
         position: 'absolute',
-        top: '8%',
+        top: '16px',
+        left: '20px',
+        zIndex: 15,
+        pointerEvents: 'none',
+        opacity: sliderComplete ? 0 : 1,
+        transition: 'opacity 0.7s ease-out',
+        width: 'clamp(40px, 4.5vw, 65px)',
+      }}>
+        <Image
+          src="/sqac-logo.png"
+          alt="SQAC Logo"
+          width={65}
+          height={65}
+          style={{
+            width: '100%',
+            height: 'auto',
+            display: 'block',
+            filter: 'drop-shadow(0 4px 14px rgba(0,0,0,0.65))',
+          }}
+          priority
+        />
+      </div>
+
+      {/* Dashboard Title Image */}
+      <div style={{
+        position: 'absolute',
+        top: '6%',
         left: '50%',
         transform: 'translateX(-50%)',
         zIndex: 8,
@@ -300,42 +320,15 @@ export function VideoBackground() {
         width: 'clamp(320px, 68vw, 900px)',
       }}>
         <Image
-          src="/text1.png"
+          src="/dashboard.png"
           alt="Dashboard"
-          width={700}
-          height={300}
+          width={900}
+          height={400}
           style={{
             width: '100%',
             height: 'auto',
             display: 'block',
             filter: 'drop-shadow(0 12px 40px rgba(0,0,0,0.7))',
-          }}
-          priority
-        />
-      </div>
-
-      {/* TEXT 2 — Wooden sign "Welcome to Mineverse 2.0", centered below text1 */}
-      <div style={{
-        position: 'absolute',
-        top: '34%',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        zIndex: 8,
-        pointerEvents: 'none',
-        opacity: sliderComplete ? 0 : 1,
-        transition: 'opacity 0.7s ease-out',
-        width: 'clamp(200px, 44vw, 620px)',
-      }}>
-        <Image
-          src="/text2.png"
-          alt="Welcome to Mineverse 2.0"
-          width={620}
-          height={80}
-          style={{
-            width: '100%',
-            height: 'auto',
-            display: 'block',
-            filter: 'drop-shadow(0 6px 20px rgba(0,0,0,0.75))',
           }}
           priority
         />
