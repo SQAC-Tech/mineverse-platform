@@ -318,18 +318,12 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
         </div>
       </div>
 
-      {/* Background Video Loop */}
-      <video
-        autoPlay
-        loop
-        muted
-        playsInline
+      {/* Background Image */}
+      <img
+        src="/round1bg.png"
+        alt="Round 1 Background"
         className="absolute top-0 left-0 w-full h-full object-cover z-0"
-        style={{ filter: 'brightness(0.6)' }}
-      >
-        <source src="/biome1-1.mp4" type="video/mp4" />
-        Your browser does not support the video tag.
-      </video>
+      />
 
      
       {/* Logo Container */}
