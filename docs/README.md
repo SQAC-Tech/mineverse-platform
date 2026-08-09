@@ -2,7 +2,7 @@
 
 This folder exists for one reason: **most of you have never touched Next.js or TypeScript before, and you need to be productive in this repo fast.** These docs assume nothing. If a word looks like jargon, it gets explained the first time it shows up.
 
-Read in this order:
+Read in this order:-
 
 1. **[01-nextjs-and-typescript-for-beginners.md](./01-nextjs-and-typescript-for-beginners.md)** — What Next.js and TypeScript actually are, in plain words. Read this even if you "kind of know React." 20 minutes.
 2. **[02-repo-tour.md](./02-repo-tour.md)** — A guided walk through every folder in `mineverse/`, what lives where, and how to find "the file I need to edit" without asking in the group chat.
