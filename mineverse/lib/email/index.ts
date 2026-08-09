@@ -19,87 +19,198 @@ async function logEmail(type: string, provider: 'resend'|'smtp', to: string, sub
   });
 }
 
-/** OTP mail — Resend. purpose: 'registration' | 'login' */
+// ─── MINECRAFT THEME HELPERS (DARK MODE SAFE) ─────────────────────────────────
+// By using pure black (#000000) and white (#ffffff), Gmail's dark mode
+// will NOT invert the colors, guaranteeing perfect readability.
+
+function mcLayout(inner: string) {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MINEVERSE</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+  .pixel { font-family: 'VT323', 'Courier New', Courier, monospace !important; }
+  .sans { font-family: system-ui, -apple-system, sans-serif !important; }
+</style>
+</head>
+<body style="margin: 0; padding: 0; background-color: #000000;">
+  <table width="100%" border="0" cellpadding="0" cellspacing="0" bgcolor="#000000" style="background-color: #000000;">
+    <tr>
+      <td align="center" style="padding: 40px 10px;">
+        
+        <!-- MAIN CONTAINER -->
+        <table border="0" cellpadding="0" cellspacing="0" bgcolor="#111111" style="max-width: 600px; width: 100%; background-color: #111111; border: 2px solid #333333;">
+          
+          <!-- HEADER -->
+          <tr>
+            <td align="center" bgcolor="#0a0a0a" style="padding: 40px 20px; background-color: #0a0a0a; border-bottom: 2px solid #333333;">
+              <h1 class="pixel" style="margin: 0; color: #ffffff; font-size: 48px; font-weight: normal; letter-spacing: 6px;">MINEVERSE</h1>
+              <p class="pixel" style="margin: 10px 0 0 0; color: #fca311; font-size: 20px; letter-spacing: 4px;">A CODING ADVENTURE</p>
+            </td>
+          </tr>
+          
+          <!-- CONTENT -->
+          <tr>
+            <td class="sans" style="padding: 40px 30px; color: #ffffff; font-size: 16px; line-height: 1.6;">
+              ${inner}
+            </td>
+          </tr>
+          
+          <!-- FOOTER -->
+          <tr>
+            <td align="center" bgcolor="#0a0a0a" class="pixel" style="padding: 30px; background-color: #0a0a0a; border-top: 2px solid #333333; color: #888888; font-size: 18px; letter-spacing: 2px;">
+              GEAR UP. CODE ON. CONQUER.<br>
+              <a href="mailto:${process.env.NEXT_PUBLIC_CONTACT_EMAIL || ''}" style="color: #4ade80; text-decoration: none; margin-top: 10px; display: inline-block;">CONTACT SUPPORT</a>
+            </td>
+          </tr>
+          
+        </table>
+
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+function mcTitle(text: string) {
+  return `<h2 class="pixel" style="color: #4ade80; font-size: 32px; margin: 0 0 20px 0; font-weight: normal; letter-spacing: 2px;">> ${text}</h2>`;
+}
+
+function mcCodeBox(code: string) {
+  return `
+<table width="100%" border="0" cellpadding="0" cellspacing="0" style="margin: 30px 0;">
+  <tr>
+    <td align="center" bgcolor="#000000" style="background-color: #000000; border: 2px solid #333333; padding: 24px;">
+      <div class="pixel" style="color: #fde047; font-size: 48px; letter-spacing: 12px; font-weight: bold;">
+        ${code}
+      </div>
+    </td>
+  </tr>
+</table>
+`;
+}
+
+function mcButton(text: string, url: string, color = '#3e8e2b') {
+  return `
+<table width="100%" border="0" cellpadding="0" cellspacing="0" style="margin: 30px 0;">
+  <tr>
+    <td align="center">
+      <a href="${url}" class="pixel" style="background-color: ${color}; color: #ffffff; padding: 16px 32px; text-decoration: none; font-size: 24px; display: inline-block; border: 2px solid #ffffff;">
+        ${text}
+      </a>
+    </td>
+  </tr>
+</table>
+`;
+}
+
+function mcRow(label: string, value: string) {
+  return `
+<tr>
+  <td class="pixel" style="padding: 12px 0; color: #a3a3a3; font-size: 20px; border-bottom: 1px dashed #333333;">${label}</td>
+  <td class="sans" style="padding: 12px 0; color: #ffffff; font-size: 16px; font-weight: bold; text-align: right; border-bottom: 1px dashed #333333;">${value}</td>
+</tr>
+`;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  EMAIL FUNCTIONS
+// ══════════════════════════════════════════════════════════════════════════════
+
 export async function sendOtpEmail({
   to, otp, purpose, team_id
 }: {
   to: string; otp: string; purpose: 'registration' | 'login';
   team_id?: string;
 }): Promise<EmailResult> {
-  const subject = purpose === 'registration' 
-    ? `Your MINEVERSE Registration OTP: ${otp}`
-    : `Your MINEVERSE Login OTP: ${otp}`;
+  const isReg = purpose === 'registration';
+  const subject = isReg 
+    ? `[MINEVERSE] Registration OTP: ${otp}`
+    : `[MINEVERSE] Login OTP: ${otp}`;
     
-  const html = `
-    <div style="font-family: sans-serif; max-w: 600px; margin: 0 auto; background: #0f172a; color: #f8fafc; padding: 32px; border-radius: 8px;">
-      <h1 style="color: #34d399; margin-bottom: 24px;">MINEVERSE Authentication</h1>
-      <p style="font-size: 16px; margin-bottom: 24px;">Your One-Time Password for ${purpose} is:</p>
-      <div style="background: #1e293b; padding: 16px; font-size: 32px; font-weight: bold; text-align: center; letter-spacing: 4px; border-radius: 4px; margin-bottom: 24px;">
-        ${otp}
-      </div>
-      <p style="font-size: 14px; color: #94a3b8;">This code expires in ${env.OTP_EXPIRY_MINUTES} minutes. If you did not request this, please ignore this email.</p>
-    </div>
-  `;
+  const html = mcLayout(`
+    ${mcTitle(isReg ? 'EMAIL VERIFICATION' : 'LOGIN VERIFICATION')}
+    <p>You're one step away from ${isReg ? 'registering for' : 'logging into'} MINEVERSE! Use the code below to verify your college email address.</p>
+    
+    ${mcCodeBox(otp)}
+    
+    <p style="color: #a3a3a3; font-size: 14px;">This code expires in <strong style="color: #fca311;">${env.OTP_EXPIRY_MINUTES} minutes</strong>. Do not share it with anyone.</p>
+  `);
 
-  const res = await sendResendEmail({ to, subject, html });
-  await logEmail(`otp_${purpose}`, 'resend', to, subject, res.success, res.error, team_id);
+  const res = await sendSmtpEmail({ to, subject, html });
+  await logEmail(`otp_${purpose}`, 'smtp', to, subject, res.success, res.error, team_id);
   return res;
 }
 
-/** SMTP — registration received (payment made, verification pending). */
 export async function sendRegistrationReceivedEmail({
   to, team_name, team_code, amount, team_id, transaction_id
 }: {
   to: string; team_name: string; team_code: string; amount: number; team_id: string;
   transaction_id: string;
 }): Promise<EmailResult> {
-  const subject = `Registration Received - MINEVERSE (Team ${team_code})`;
-  const html = `
-    <div style="font-family: sans-serif; max-w: 600px; margin: 0 auto; padding: 20px;">
-      <h2>Welcome to MINEVERSE, ${team_name}!</h2>
-      <p>We have received your registration and payment details. Your team code is <strong>${team_code}</strong>.</p>
-      <p>Payment of <strong>₹${amount}</strong> (transaction ID <strong>${transaction_id}</strong>) is now <strong>under verification</strong> by the organizers. You'll receive a confirmation email with your attendance QR once it's verified.</p>
-      <p>You can check your verification status here:</p>
-      <a href="${process.env.NEXT_PUBLIC_APP_URL}/payment?team=${team_code}" style="display:inline-block;background:#10b981;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;">Check Status</a>
-    </div>
-  `;
+  const subject = `[MINEVERSE] Registration Received — Team ${team_code}`;
+  const statusUrl = `${process.env.NEXT_PUBLIC_APP_URL}/payment?team=${team_code}`;
+  
+  const html = mcLayout(`
+    ${mcTitle('QUEST ACCEPTED')}
+    <p>Welcome to MINEVERSE, team <strong style="color: #fca311;">${team_name}</strong>!</p>
+    <p>Your registration has been received. Your payment is currently being verified by the organizers.</p>
+    
+    <table width="100%" border="0" cellpadding="0" cellspacing="0" style="margin: 30px 0;">
+      ${mcRow('Team Code', `<span class="pixel" style="color:#fde047; font-size:24px;">${team_code}</span>`)}
+      ${mcRow('Amount Paid', `₹${amount}`)}
+      ${mcRow('Transaction ID', transaction_id)}
+      ${mcRow('Status', '<span style="color:#f97316;">Pending Verification ⏳</span>')}
+    </table>
+    
+    <p style="margin-top: 30px;">You can check your team's verification status below:</p>
+    
+    ${mcButton('CHECK STATUS', statusUrl)}
+  `);
 
   const res = await sendSmtpEmail({ to, subject, html });
   await logEmail('reg_pending', 'smtp', to, subject, res.success, res.error, team_id);
   return res;
 }
 
-/** SMTP — payment verified, sent to every member. Includes QR + WhatsApp + venue. */
 export async function sendPaymentVerifiedEmail({
   to, member_id, team_id, team_name, team_code, qr_image_data_url
 }: {
   to: string; member_id: string; team_id: string; team_name: string; team_code: string;
   qr_image_data_url: string;
 }): Promise<EmailResult> {
-  const subject = `Payment Verified - MINEVERSE 2026`;
+  const subject = `[MINEVERSE] ✅ Payment Verified — Team ${team_code}`;
   
-  // Convert Data URL to Buffer
   const base64Data = qr_image_data_url.replace(/^data:image\/png;base64,/, "");
   const qrBuffer = Buffer.from(base64Data, 'base64');
 
-  const html = `
-    <div style="font-family: sans-serif; max-w: 600px; margin: 0 auto; padding: 20px;">
-      <h2>Payment Verified! 🎉</h2>
-      <p>Hello! The payment for team <strong>${team_name} (${team_code})</strong> has been successfully verified.</p>
-      <p>Please join our official WhatsApp group for all announcements:</p>
-      <a href="${env.WHATSAPP_GROUP_LINK}" style="display:inline-block;background:#25D366;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;">Join WhatsApp Group</a>
-      
-      <h3 style="margin-top:30px;">Your Attendance QR Code</h3>
-      <p>This QR code is required for attendance on the day of the event. Keep it safe!</p>
-      <img src="cid:attendance-qr" alt="Attendance QR" style="max-width:250px;border:1px solid #ccc;border-radius:10px;padding:10px;" />
-      
-      <div style="margin-top:30px;padding:15px;background:#f8fafc;border-left:4px solid #3b82f6;">
-        <p><strong>Date:</strong> ${process.env.NEXT_PUBLIC_EVENT_DATE_DISPLAY}</p>
-        <p><strong>Time:</strong> ${process.env.NEXT_PUBLIC_EVENT_TIME}</p>
-        <p><strong>Venue:</strong> ${process.env.NEXT_PUBLIC_EVENT_VENUE}</p>
-      </div>
-    </div>
-  `;
+  const html = mcLayout(`
+    ${mcTitle('PAYMENT VERIFIED')}
+    <p>The payment for team <strong style="color: #fca311;">${team_name} (${team_code})</strong> has been verified. You are now officially registered!</p>
+    
+    <table width="100%" border="0" cellpadding="0" cellspacing="0" style="margin: 30px 0;">
+      ${mcRow('Date', process.env.NEXT_PUBLIC_EVENT_DATE_DISPLAY || '')}
+      ${mcRow('Time', process.env.NEXT_PUBLIC_EVENT_TIME || '')}
+      ${mcRow('Venue', process.env.NEXT_PUBLIC_EVENT_VENUE || '')}
+    </table>
+    
+    <h3 class="pixel" style="color: #fca311; font-size: 24px; font-weight: normal; margin-top: 40px; border-bottom: 2px solid #333333; padding-bottom: 10px;">> YOUR ATTENDANCE QR</h3>
+    <p>Present this QR code at the event entrance. Keep it safe!</p>
+    
+    <table width="100%" border="0" cellpadding="0" cellspacing="0" style="margin: 30px 0;">
+      <tr>
+        <td align="center">
+          <img src="cid:attendance-qr" alt="Attendance QR" style="max-width:250px; border:2px solid #ffffff; padding:10px; background-color:#ffffff;" />
+        </td>
+      </tr>
+    </table>
+    
+    ${mcButton('JOIN WHATSAPP GROUP', env.WHATSAPP_GROUP_LINK, '#25D366')}
+  `);
 
   const attachments = [{
     filename: `attendance-${team_code}.png`,
@@ -112,21 +223,29 @@ export async function sendPaymentVerifiedEmail({
   return res;
 }
 
-/** SMTP — payment problem / unverified notice. */
 export async function sendPaymentIssueEmail({
   to, team_id, team_code, reason
 }: {
   to: string; team_id: string; team_code: string; reason?: string;
 }): Promise<EmailResult> {
-  const subject = `Payment Issue - MINEVERSE (Team ${team_code})`;
-  const html = `
-    <div style="font-family: sans-serif; max-w: 600px; margin: 0 auto; padding: 20px;">
-      <h2>Payment Issue</h2>
-      <p>We noticed an issue verifying the payment for team <strong>${team_code}</strong>.</p>
-      ${reason ? `<p><strong>Note from admin:</strong> ${reason}</p>` : ''}
-      <p>Please contact us at ${process.env.NEXT_PUBLIC_CONTACT_EMAIL} for assistance or try paying again.</p>
-    </div>
-  `;
+  const subject = `[MINEVERSE] ⚠️ Payment Issue — Team ${team_code}`;
+  const html = mcLayout(`
+    ${mcTitle('PAYMENT ISSUE')}
+    <p>We noticed an issue verifying the payment for team <strong style="color: #fca311;">${team_code}</strong>.</p>
+    
+    ${reason ? `
+      <table width="100%" border="0" cellpadding="0" cellspacing="0" style="margin: 30px 0;">
+        <tr>
+          <td bgcolor="#220000" style="background-color: #220000; border: 2px solid #ff4444; padding: 24px;">
+            <strong class="pixel" style="color: #ff4444; font-size: 20px;">NOTE FROM ADMIN:</strong><br><br>
+            <span style="color: #ffffff;">${reason}</span>
+          </td>
+        </tr>
+      </table>
+    ` : ''}
+    
+    <p>Please contact us at <strong style="color: #4ade80;">${process.env.NEXT_PUBLIC_CONTACT_EMAIL}</strong> for assistance or try paying again.</p>
+  `);
 
   const res = await sendSmtpEmail({ to, subject, html });
   await logEmail('payment_issue', 'smtp', to, subject, res.success, res.error, team_id);

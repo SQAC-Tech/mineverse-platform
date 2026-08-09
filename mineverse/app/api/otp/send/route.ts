@@ -77,7 +77,6 @@ export async function POST(req: Request) {
   return NextResponse.json({
     success: true,
     challenge_id: challenge.id,
-    expires_in: env.OTP_EXPIRY_MINUTES * 60,
-    devOtp: process.env.NODE_ENV !== 'production' ? otp : undefined
+    expires_in: env.OTP_EXPIRY_MINUTES * 60
   });
 }

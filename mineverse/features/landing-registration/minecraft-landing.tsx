@@ -681,6 +681,7 @@ function TimelineEntry({ item, index, side }: { item: typeof DAY1_TIMELINE[0]; i
         opacity: visible ? 1 : 0,
         transform: visible ? 'translateX(0)' : `translateX(${side === 'left' ? '-40px' : '40px'})`,
         transition: `opacity 0.6s ease ${index * 0.05}s, transform 0.6s ease ${index * 0.05}s`,
+        minWidth: 0,
       }}
     >
       <div
@@ -693,6 +694,10 @@ function TimelineEntry({ item, index, side }: { item: typeof DAY1_TIMELINE[0]; i
           width: '100%',
           position: 'relative',
           imageRendering: 'pixelated' as any,
+          boxSizing: 'border-box',
+          minWidth: 0,
+          overflowWrap: 'break-word',
+          wordBreak: 'break-word',
         }}
       >
         {/* Torch connector dot */}
@@ -708,14 +713,15 @@ function TimelineEntry({ item, index, side }: { item: typeof DAY1_TIMELINE[0]; i
           imageRendering: 'pixelated' as any,
         }} />
         
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
-          <span style={{ fontSize: '1.3rem' }}>{item.icon}</span>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '6px', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '1.3rem', flexShrink: 0 }}>{item.icon}</span>
           <span style={{
             ...mc,
-            fontSize: '0.6rem',
+            fontSize: 'clamp(0.5rem, 1.5vw, 0.6rem)',
             color: colors.accent,
             textShadow: `1px 1px 0 #000`,
             letterSpacing: '0.05em',
+            wordBreak: 'break-word',
           }}>
             {item.activity.toUpperCase()}
           </span>
@@ -723,22 +729,25 @@ function TimelineEntry({ item, index, side }: { item: typeof DAY1_TIMELINE[0]; i
         
         <div style={{
           ...mc,
-          fontSize: '1rem',
+          fontSize: 'clamp(0.7rem, 2vw, 1rem)',
           color: '#fde047',
           textShadow: '1px 1px 0 #000',
           marginBottom: '6px',
           letterSpacing: '0.08em',
+          wordBreak: 'break-word',
         }}>
           {item.time}
         </div>
         
         <p style={{
           ...mc,
-          fontSize: '0.4rem',
+          fontSize: 'clamp(0.5rem, 1.2vw, 0.55rem)',
           color: '#cccccc',
           textShadow: '1px 1px 0 #000',
           lineHeight: '1.6',
           margin: 0,
+          wordBreak: 'break-word',
+          overflowWrap: 'break-word',
         }}>
           {item.desc}
         </p>
@@ -1054,16 +1063,17 @@ function StoryboardUI({ config }: { config: any }) {
   return (
     <>
       {/* SCROLL TO ENTER TITLE */}
-      <div className="fixed top-0 left-0 w-full z-10 flex flex-col items-center pointer-events-none transition-opacity duration-300" style={{ paddingTop: '6vh', opacity: titleOpacity }}>
+      <div className="fixed top-0 left-0 w-full z-10 flex flex-col items-center pointer-events-none transition-opacity duration-300" style={{ paddingTop: '6vh', paddingLeft: '16px', paddingRight: '16px', opacity: titleOpacity, boxSizing: 'border-box' }}>
         <h1 style={{
-          ...mc, fontWeight: 900, fontSize: 'clamp(2.5rem, 7vw, 5.5rem)', color: '#d4d4d4',
+          ...mc, fontWeight: 900, fontSize: 'clamp(2rem, 10vw, 5.5rem)', color: '#d4d4d4',
           WebkitTextStroke: '2px #000', textShadow: '0 2px 0 #000, 0 4px 0 #555, 0 6px 0 #555, 0 8px 0 #000, 4px 12px 10px rgba(0,0,0,.8)',
+          textAlign: 'center', wordBreak: 'break-word',
         }}>MINEVERSE</h1>
-        <p style={{ ...mc, color: '#fde047', fontSize: 'clamp(.7rem, 1.8vw, 1.1rem)', textShadow: '2px 2px 0 #000', marginTop: '.6rem' }}>
+        <p style={{ ...mc, color: '#fde047', fontSize: 'clamp(.6rem, 2.5vw, 1.1rem)', textShadow: '2px 2px 0 #000', marginTop: '.6rem', textAlign: 'center', letterSpacing: '0.15em' }}>
           A CODING ADVENTURE
         </p>
-        <div style={{ marginTop: '2.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <span style={{ ...mc, color: '#fff', textShadow: '1px 1px 0 #000', fontSize: '.58rem', letterSpacing: '.18em', marginBottom: '.5rem' }}>
+        <div style={{ marginTop: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <span style={{ ...mc, color: '#fff', textShadow: '1px 1px 0 #000', fontSize: 'clamp(0.5rem, 1.5vw, 0.58rem)', letterSpacing: '.18em', marginBottom: '.5rem', textAlign: 'center' }}>
             SCROLL TO ENTER
           </span>
           <div className="animate-bounce" style={{ width: 18, height: 18, borderBottom: '3px solid white', borderRight: '3px solid white', transform: 'rotate(45deg)' }} />
@@ -1147,14 +1157,16 @@ function CavernContent({ config }: { config: any }) {
           maxWidth: '900px',
           margin: '0 auto',
           padding: '0 16px',
+          boxSizing: 'border-box',
+          width: '100%',
         }}>
-          <McPanel style={{ flex: '1 1 200px', maxWidth: '260px', padding: '20px 16px', textAlign: 'center' }}>
+          <McPanel style={{ flex: '1 1 180px', minWidth: 0, maxWidth: '260px', padding: '20px 16px', textAlign: 'center', boxSizing: 'border-box', overflowWrap: 'break-word' }}>
             <div style={{ fontSize: '1.5rem', marginBottom: '8px' }}>📅</div>
-            <h3 style={{ fontFamily: 'system-ui, sans-serif', fontSize: '0.55rem', color: '#fca311', textShadow: '1px 1px 0 #000', marginBottom: '6px' }}>DATE</h3>
-            <p style={{ fontFamily: 'system-ui, sans-serif', fontSize: '1rem', color: '#e5e5e5', textShadow: '1px 1px 0 #000', lineHeight: '1.6' }}>25TH – 27TH<br/>JULY, 2025</p>
+            <h3 style={{ fontFamily: 'system-ui, sans-serif', fontSize: 'clamp(0.5rem, 1.5vw, 0.6rem)', color: '#fca311', textShadow: '1px 1px 0 #000', marginBottom: '6px' }}>DATE</h3>
+            <p style={{ fontFamily: 'system-ui, sans-serif', fontSize: 'clamp(0.8rem, 2.5vw, 1rem)', color: '#e5e5e5', textShadow: '1px 1px 0 #000', lineHeight: '1.6', wordBreak: 'break-word' }}>{process.env.NEXT_PUBLIC_EVENT_DATE_DISPLAY || '25TH – 27TH AUG'}</p>
           </McPanel>
           
-          <McPanel style={{ flex: '1 1 200px', maxWidth: '260px', padding: '20px 16px', textAlign: 'center' }}>
+          <McPanel style={{ flex: '1 1 180px', minWidth: 0, maxWidth: '260px', padding: '20px 16px', textAlign: 'center', boxSizing: 'border-box', overflowWrap: 'break-word' }}>
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '8px' }}>
               <svg 
                 xmlns="http://www.w3.org/2000/svg" 
@@ -1170,14 +1182,14 @@ function CavernContent({ config }: { config: any }) {
                 <rect x="6" y="11" width="3" height="1" fill="#aa0000" />
               </svg>
             </div>
-            <h3 style={{ fontFamily: 'system-ui, sans-serif', fontSize: '0.55rem', color: '#fca311', textShadow: '1px 1px 0 #000', marginBottom: '6px' }}>VENUE</h3>
-            <p style={{ fontFamily: 'system-ui, sans-serif', fontSize: '1rem', color: '#e5e5e5', textShadow: '1px 1px 0 #000', lineHeight: '1.6' }}>ONLINE + SELECT<br/>VENUES</p>
+            <h3 style={{ fontFamily: 'system-ui, sans-serif', fontSize: 'clamp(0.5rem, 1.5vw, 0.6rem)', color: '#fca311', textShadow: '1px 1px 0 #000', marginBottom: '6px' }}>VENUE</h3>
+            <p style={{ fontFamily: 'system-ui, sans-serif', fontSize: 'clamp(0.8rem, 2.5vw, 1rem)', color: '#e5e5e5', textShadow: '1px 1px 0 #000', lineHeight: '1.6', wordBreak: 'break-word' }}>{process.env.NEXT_PUBLIC_EVENT_VENUE || 'TP710'}</p>
           </McPanel>
           
-          <McPanel style={{ flex: '1 1 200px', maxWidth: '260px', padding: '20px 16px', textAlign: 'center' }}>
+          <McPanel style={{ flex: '1 1 180px', minWidth: 0, maxWidth: '260px', padding: '20px 16px', textAlign: 'center', boxSizing: 'border-box', overflowWrap: 'break-word' }}>
             <div style={{ fontSize: '1.5rem', marginBottom: '8px' }}>🎮</div>
-            <h3 style={{ fontFamily: 'system-ui, sans-serif', fontSize: '0.55rem', color: '#fca311', textShadow: '1px 1px 0 #000', marginBottom: '6px' }}>WHO CAN JOIN</h3>
-            <p style={{ fontFamily: 'system-ui, sans-serif', fontSize: '1rem', color: '#e5e5e5', textShadow: '1px 1px 0 #000', lineHeight: '1.6' }}>OPEN FOR ALL<br/>CODERS!</p>
+            <h3 style={{ fontFamily: 'system-ui, sans-serif', fontSize: 'clamp(0.5rem, 1.5vw, 0.6rem)', color: '#fca311', textShadow: '1px 1px 0 #000', marginBottom: '6px' }}>WHO CAN JOIN</h3>
+            <p style={{ fontFamily: 'system-ui, sans-serif', fontSize: 'clamp(0.8rem, 2.5vw, 1rem)', color: '#e5e5e5', textShadow: '1px 1px 0 #000', lineHeight: '1.6', wordBreak: 'break-word' }}>OPEN FOR ALL<br/>CODERS!</p>
           </McPanel>
         </div>
       </div>
@@ -1303,8 +1315,8 @@ function CavernContent({ config }: { config: any }) {
           READY TO ENTER?
         </h2>
         
-        <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', justifyContent: 'center' }}>
-          <a href="/register" style={{ textDecoration: 'none' }}>
+        <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', justifyContent: 'center', width: '100%', maxWidth: '500px', padding: '0 16px', boxSizing: 'border-box' }}>
+          <a href="/register" style={{ textDecoration: 'none', flex: '1 1 160px' }}>
             <button style={{
               background: '#3e8e2b',
               borderTop: '4px solid #5aba3c',
@@ -1312,18 +1324,20 @@ function CavernContent({ config }: { config: any }) {
               borderBottom: '4px solid #1f4a15',
               borderRight: '4px solid #1f4a15',
               color: '#fff',
-              padding: '16px 32px',
-              fontSize: '1.2rem',
+              padding: '14px 20px',
+              fontSize: 'clamp(0.8rem, 2.5vw, 1.1rem)',
               cursor: 'var(--mv-cursor-pickaxe)',
               textShadow: '2px 2px 0 #111',
               boxShadow: '0 8px 15px rgba(0,0,0,0.5)',
+              width: '100%',
+              whiteSpace: 'nowrap',
               ...mc
             }} className="hover:brightness-110 active:scale-95 transition-all">
               REGISTER TEAM
             </button>
           </a>
           
-          <a href="/login" style={{ textDecoration: 'none' }}>
+          <a href="/login" style={{ textDecoration: 'none', flex: '1 1 140px' }}>
             <button style={{
               background: '#4a3320',
               borderTop: '4px solid #6c4b31',
@@ -1331,11 +1345,13 @@ function CavernContent({ config }: { config: any }) {
               borderBottom: '4px solid #1f140c',
               borderRight: '4px solid #1f140c',
               color: '#fca311',
-              padding: '16px 32px',
-              fontSize: '1.2rem',
+              padding: '14px 20px',
+              fontSize: 'clamp(0.8rem, 2.5vw, 1.1rem)',
               cursor: 'var(--mv-cursor-pickaxe)',
               textShadow: '2px 2px 0 #111',
               boxShadow: '0 8px 15px rgba(0,0,0,0.5)',
+              width: '100%',
+              whiteSpace: 'nowrap',
               ...mc
             }} className="hover:brightness-110 active:scale-95 transition-all">
               TEAM LOGIN
@@ -1421,7 +1437,7 @@ export function MinecraftLanding({ config }: { config: any }) {
   }, [showCavern]);
 
   return (
-    <div style={{ position: 'relative', background: '#000', cursor: 'var(--mv-cursor-sword)' }}>
+    <div style={{ position: 'relative', background: '#000', cursor: 'var(--mv-cursor-sword)', overflowX: 'hidden' }}>
       {/* Section 1: 3D Cave entrance - 110vh so we have a tiny scroll area to trigger animation */}
       <div style={{ position: 'relative', height: showCavern ? '0px' : '110vh', backgroundColor: '#000', overflow: 'hidden' }}>
         <div id="bg-mountain" style={{ 

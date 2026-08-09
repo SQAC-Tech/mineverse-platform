@@ -122,9 +122,8 @@ export async function POST(req: Request) {
   // Delete consumed OTP challenge
   await supabaseServer.from('otp_challenges').delete().eq('id', challenge_id);
 
-  // Send Email
   await sendRegistrationReceivedEmail({
-    to: lead.email, // or lead.college_email? PRD says lead, usually they have a preferred email and college email. We will use email.
+    to: lead.college_email, // All communication goes to the college email
     team_name,
     team_code: teamCode,
     amount,

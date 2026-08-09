@@ -32,7 +32,7 @@ export async function sendSmtpEmail({
   }
   try {
     const info = await transporter.sendMail({
-      from: env.SMTP_FROM,
+      from: env.SMTP_FROM || env.SMTP_USER,
       to,
       subject,
       html,
