@@ -16,7 +16,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           position: 'fixed',
           inset: 0,
           zIndex: 0,
-          backgroundImage: 'url(/cavern-bg.png)',
+          backgroundImage: 'url(/cavern-bg.webp)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           opacity: 0.1,

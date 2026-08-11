@@ -11,7 +11,7 @@ export default function MainPage() {
       <div 
         className="relative w-full"
         style={{ 
-          backgroundImage: "url('/cave-bg.png')",
+          backgroundImage: "url('/cave-bg.webp')",
           backgroundSize: 'cover',
           backgroundBlendMode: 'overlay',
           backgroundColor: '#5D4037',

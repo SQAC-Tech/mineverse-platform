@@ -52,7 +52,7 @@
   --rd-accent: #7ad64e;
   --rd-accent-deep: #24571a;
   --rd-accent-ink: #0d1a08;
-  --rd-scene: url('/round1/round 1 bg image.png');
+  --rd-scene: url('/round1/round 1 bg image.webp');
   --rd-scene-shade: linear-gradient(180deg, rgba(6, 14, 5, 0.42), rgba(6, 14, 5, 0.2) 38%, rgba(4, 10, 4, 0.78));
   --rd-frame: url('/round1/wooden-board-texture.svg');
   --rd-frame-edge: #6b3d17;
@@ -75,7 +75,7 @@
   --rd-accent: #5ec8ee;
   --rd-accent-deep: #14425a;
   --rd-accent-ink: #04141c;
-  --rd-scene: url('/round2/round 2 bg image.png');
+  --rd-scene: url('/round2/round 2 bg image.webp');
   --rd-scene-shade: linear-gradient(180deg, rgba(3, 8, 11, 0.38), rgba(3, 8, 11, 0.18) 38%, rgba(2, 6, 8, 0.8));
   --rd-frame: url('/round2/stone-board-texture.svg');
   --rd-frame-edge: #454d4a;

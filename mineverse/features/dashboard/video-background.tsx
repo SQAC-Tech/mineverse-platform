@@ -88,9 +88,9 @@ export function VideoBackground() {
   return (
     <div style={{ position: 'fixed', inset: 0, width: '100vw', height: '100vh', overflow: 'hidden', background: '#000' }}>
 
-      {/* Static Background Image: background1.png */}
+      {/* Static Background Image: background1.webp */}
       <Image
-        src="/background1.png"
+        src="/background1.webp"
         alt="Dashboard Background"
         fill
         priority
@@ -110,7 +110,7 @@ export function VideoBackground() {
         pointerEvents: 'none',
       }}>
         <Image
-          src="/logo1.png"
+          src="/logo1.svg"
           alt="Mineverse Logo"
           width={180}
           height={60}
@@ -124,7 +124,7 @@ export function VideoBackground() {
         />
       </div>
 
-      {/* DASHBOARD TITLE — dashboard.png */}
+      {/* DASHBOARD TITLE — dashboard.webp */}
       <div style={{
         position: 'absolute',
         top: '10%',
@@ -135,7 +135,7 @@ export function VideoBackground() {
         width: 'clamp(320px, 64vw, 880px)',
       }}>
         <Image
-          src="/dashboard.png"
+          src="/dashboard.webp"
           alt="Dashboard"
           width={880}
           height={350}
@@ -163,7 +163,7 @@ export function VideoBackground() {
         }}
         className="scene-btn steve-btn"
       >
-        <Image src="/steve.png" alt="Steve" width={680} height={560}
+        <Image src="/steve.svg" alt="Steve" width={680} height={560}
           style={{ width: '100%', height: 'auto', display: 'block', filter: 'drop-shadow(0 12px 32px rgba(0,0,0,0.65))' }}
           priority />
       </div>
@@ -198,7 +198,7 @@ export function VideoBackground() {
             }}
           >
             <img
-              src="/map.jpeg"
+              src="/map.webp"
               alt="World Map"
               style={{
                 width: '100vw',

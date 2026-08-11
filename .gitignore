@@ -1,8 +1,12 @@
 # Agent/AI tool configs
 .agents/
 .claude/
+.codex/
 .mcp.json
 skills-lock.json
 .env
 .claude
 .env.example
+
+# dependencies (any nested node_modules across the repo)
+node_modules/

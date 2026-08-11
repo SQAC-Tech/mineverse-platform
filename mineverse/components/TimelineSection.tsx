@@ -40,12 +40,12 @@ export const TimelineSection = () => {
     <section className="py-20 px-4 md:px-8 text-white relative overflow-hidden" ref={containerRef}>
       {/* Flanking Mobs */}
       <img 
-        src="/zombie.png" 
+        src="/zombie.svg" 
         alt="Zombie" 
         className="hidden xl:block absolute left-4 top-1/3 w-48 object-contain drop-shadow-[0_10px_15px_rgba(0,0,0,0.8)] animate-float z-0" 
       />
       <img 
-        src="/pigman.png" 
+        src="/pigman.svg" 
         alt="Pigman" 
         className="hidden xl:block absolute right-4 top-2/3 w-48 object-contain transform scale-x-[-1] drop-shadow-[0_10px_15px_rgba(0,0,0,0.8)] animate-float z-0" 
         style={{ animationDelay: '1.5s' }}

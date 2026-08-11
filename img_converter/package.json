@@ -1,0 +1,19 @@
+{
+  "name": "img_converter",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "canvas": "^3.2.3",
+    "glob": "^13.0.6",
+    "imagetracerjs": "^1.2.6",
+    "sharp": "^0.35.3"
+  }
+}
