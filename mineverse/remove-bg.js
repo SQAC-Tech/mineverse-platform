@@ -5,11 +5,11 @@ const fs = require('fs');
 const publicDir = path.join(__dirname, 'public');
 
 const imagesToProcess = [
-  'code-craft-conquer.png',
-  'sqac-presents.png',
-  'srmist.png',
-  'pigman.png',
-  'zombie.png'
+  'code-craft-conquer.svg',
+  'sqac-presents.svg',
+  'srmist.svg',
+  'pigman.svg',
+  'zombie.svg'
 ];
 
 async function removeWhiteBg(filename) {

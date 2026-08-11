@@ -60,13 +60,13 @@ interface TeamInfo {
 }
 
 const resourceMeta: Array<{ key: ResourceKey; label: string; icon: string }> = [
-  { key: 'wood', label: 'Wood', icon: '/wood.png' },
-  { key: 'stone', label: 'Stone', icon: '/stone.png' },
-  { key: 'iron', label: 'Iron', icon: '/iron.png' },
-  { key: 'gold', label: 'Gold', icon: '/gold.png' },
-  { key: 'diamond', label: 'Diamond', icon: '/diamond.png' },
-  { key: 'emerald', label: 'Emerald', icon: '/emerald.png' },
-  { key: 'obsidian', label: 'Obsidian', icon: '/obsidian.png' },
+  { key: 'wood', label: 'Wood', icon: '/wood.svg' },
+  { key: 'stone', label: 'Stone', icon: '/stone.svg' },
+  { key: 'iron', label: 'Iron', icon: '/iron.svg' },
+  { key: 'gold', label: 'Gold', icon: '/gold.svg' },
+  { key: 'diamond', label: 'Diamond', icon: '/diamond.svg' },
+  { key: 'emerald', label: 'Emerald', icon: '/emerald.svg' },
+  { key: 'obsidian', label: 'Obsidian', icon: '/obsidian.svg' },
 ];
 
 const tabMeta: Array<{ id: TabType; label: string; Icon: typeof BookOpen }> = [
@@ -335,7 +335,7 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
       <div className="round-ui__page">
         <header className="round-ui__header">
           <div className="round-ui__panel round-ui__panel--glass round-ui__brand">
-            <img src="/logo.png" alt="" />
+            <img src="/logo.svg" alt="" />
             <div>
               <p className="round-ui__brand-name">MINEVERSE</p>
               <p className="round-ui__brand-tag">CODE. CRAFT. CONQUER.</p>
@@ -564,14 +564,14 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
               <WorldEvent
                 event={activeEvent}
                 remaining={eventRemaining}
-                art="/round1/event-heavy-rain.png"
+                art="/round1/event-heavy-rain.webp"
                 idleText="The forest is calm. Organizers announce world events."
               />
 
               <section className="round-ui__panel round-ui__card">
                 <p className="round-ui__panel-title">Forest guardian</p>
                 <div className="round-ui__art">
-                  <img src="/round1/guardian-forest.png" alt="Forest Guardian" />
+                  <img src="/round1/guardian-forest.webp" alt="Forest Guardian" />
                 </div>
                 <p className="round-ui__card-text">Win for +25 Wood, +10 Stone and +3 Emerald.</p>
                 <button type="button" className="round-ui__cta" onClick={() => setGuardianOpen(true)}>
@@ -668,7 +668,7 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
             <GuardianArena
               guardianName="forest_guardian"
               roundId={roundId}
-              art="/round1/guardian-forest.png"
+              art="/round1/guardian-forest.webp"
               reward="+25 Wood, +10 Stone, +3 Emerald"
               penalty="−8 Wood, −3 Stone"
               onResolved={() => { void refresh(); }}

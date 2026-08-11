@@ -1110,7 +1110,7 @@ function CavernContent({ config }: { config: any }) {
         position: 'fixed',
         inset: 0,
         zIndex: -1,
-        backgroundImage: 'url(/cavern-bg.png)',
+        backgroundImage: 'url(/cavern-bg.webp)',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',
@@ -1444,7 +1444,7 @@ export function MinecraftLanding({ config }: { config: any }) {
           position: 'fixed', 
           inset: 0, 
           zIndex: 0,
-          backgroundImage: 'url(/image.png)',
+          backgroundImage: 'url(/image.webp)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
         }} />

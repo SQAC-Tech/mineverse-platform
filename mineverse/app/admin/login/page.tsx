@@ -55,7 +55,7 @@ export default function AdminLoginPage() {
         style={{
           position: 'absolute',
           inset: 0,
-          backgroundImage: 'url(/cavern-bg.png)',
+          backgroundImage: 'url(/cavern-bg.webp)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           opacity: 0.14,

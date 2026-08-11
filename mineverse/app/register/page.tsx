@@ -16,7 +16,7 @@ export default function RegisterPage() {
         position: 'absolute',
         inset: 0,
         zIndex: 0,
-        backgroundImage: 'url(/cavern-bg.png)',
+        backgroundImage: 'url(/cavern-bg.webp)',
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',

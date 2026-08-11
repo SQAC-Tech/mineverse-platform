@@ -8,7 +8,7 @@ export const Footer = () => {
       {/* Top Header Row */}
       <div className="w-full max-w-7xl flex flex-col md:flex-row justify-between items-center z-10 gap-6">
         <div className="flex items-center gap-2">
-          <img src="/sqac-logo.png" alt="SQAC" className="h-8 object-contain bg-[#1a110a] p-1 rounded-sm hidden md:block" onError={(e) => e.currentTarget.style.display = 'none'} />
+          <img src="/sqac-logo.svg" alt="SQAC" className="h-8 object-contain bg-[#1a110a] p-1 rounded-sm hidden md:block" onError={(e) => e.currentTarget.style.display = 'none'} />
           <h2 className="text-xl font-bold tracking-widest text-[#fca311] drop-shadow-md">SQAC</h2>
         </div>
 

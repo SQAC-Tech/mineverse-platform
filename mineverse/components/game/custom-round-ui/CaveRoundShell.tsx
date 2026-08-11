@@ -64,13 +64,13 @@ interface TeamInfo {
 }
 
 const resources: Array<{ key: ResourceKey; label: string; icon: string }> = [
-  { key: 'wood', label: 'Wood', icon: '/wood.png' },
-  { key: 'stone', label: 'Stone', icon: '/stone.png' },
-  { key: 'iron', label: 'Iron', icon: '/iron.png' },
-  { key: 'gold', label: 'Gold', icon: '/gold.png' },
-  { key: 'diamond', label: 'Diamond', icon: '/diamond.png' },
-  { key: 'emerald', label: 'Emerald', icon: '/emerald.png' },
-  { key: 'obsidian', label: 'Obsidian', icon: '/obsidian.png' },
+  { key: 'wood', label: 'Wood', icon: '/wood.svg' },
+  { key: 'stone', label: 'Stone', icon: '/stone.svg' },
+  { key: 'iron', label: 'Iron', icon: '/iron.svg' },
+  { key: 'gold', label: 'Gold', icon: '/gold.svg' },
+  { key: 'diamond', label: 'Diamond', icon: '/diamond.svg' },
+  { key: 'emerald', label: 'Emerald', icon: '/emerald.svg' },
+  { key: 'obsidian', label: 'Obsidian', icon: '/obsidian.svg' },
 ];
 
 const tabs: Array<{ id: CaveTab; label: string; Icon: typeof Brain }> = [
@@ -81,8 +81,8 @@ const tabs: Array<{ id: CaveTab; label: string; Icon: typeof Brain }> = [
 ];
 
 const structureMeta = [
-  { key: 'bat_cave', label: 'Bat Cave', art: '/round2/structure-bat-cave.png' },
-  { key: 'forge', label: 'Forge', art: '/round2/structure-forge.png' },
+  { key: 'bat_cave', label: 'Bat Cave', art: '/round2/structure-bat-cave.webp' },
+  { key: 'forge', label: 'Forge', art: '/round2/structure-forge.webp' },
 ];
 
 /** Statuses the server will no longer accept a revision for. */
@@ -296,7 +296,7 @@ export function CaveRoundShell() {
       <div className="round-ui__page">
         <header className="round-ui__header">
           <div className="round-ui__panel round-ui__panel--glass round-ui__brand">
-            <img src="/logo.png" alt="" />
+            <img src="/logo.svg" alt="" />
             <div>
               <p className="round-ui__brand-name">MINEVERSE</p>
               <p className="round-ui__brand-tag">CODE. CRAFT. CONQUER.</p>
@@ -518,14 +518,14 @@ export function CaveRoundShell() {
               <WorldEvent
                 event={activeEvent}
                 remaining={eventRemaining}
-                art="/round2/event-fertile-marsh.png"
+                art="/round2/event-fertile-marsh.webp"
                 idleText="The cave is quiet. Organizers announce world events."
               />
 
               <section className="round-ui__panel round-ui__card">
                 <p className="round-ui__panel-title">Skeleton archer</p>
                 <div className="round-ui__art">
-                  <img src="/round2/guardian-skeleton-archer.png" alt="Skeleton Archer" />
+                  <img src="/round2/guardian-skeleton-archer.webp" alt="Skeleton Archer" />
                 </div>
                 <p className="round-ui__card-text">Five questions in five minutes. Win all five for +20 Iron, +15 Stone, +3 Emerald.</p>
                 <button type="button" className="round-ui__cta" onClick={() => setModal('guardian')}>
@@ -642,7 +642,7 @@ export function CaveRoundShell() {
               <GuardianArena
                 guardianName="skeleton_archer"
                 roundId={2}
-                art="/round2/guardian-skeleton-archer.png"
+                art="/round2/guardian-skeleton-archer.webp"
                 reward="+20 Iron, +15 Stone, +3 Emerald"
                 penalty="−10 Iron, −10 Stone"
                 onResolved={() => { void refresh(); }}

@@ -12,7 +12,7 @@ export const HeroSection: React.FC = () => {
       <div 
         className="absolute inset-0 z-0 animate-bg-zoom"
         style={{
-          backgroundImage: "url('/landingbg.png')",
+          backgroundImage: "url('/landingbg.webp')",
           backgroundSize: 'cover',
           backgroundPosition: 'center',
         }}
@@ -28,25 +28,25 @@ export const HeroSection: React.FC = () => {
         {/* Title Logos */}
         <div className="text-center flex flex-col items-center animate-float space-y-4">
           <img 
-            src="/sqac-presents.png" 
+            src="/sqac-presents.svg" 
             alt="SQAC Presents" 
             className="h-4 sm:h-6 md:h-8 lg:h-10 object-contain drop-shadow-[0_4px_6px_rgba(0,0,0,0.8)] mx-auto"
           />
           <div className="relative w-full max-w-[280px] sm:max-w-md md:max-w-2xl lg:max-w-3xl">
             <img 
-              src="/font.png" 
+              src="/font.svg" 
               alt="Mineverse" 
               className="w-full drop-shadow-[0_8px_12px_rgba(0,0,0,0.8)] hover:scale-[1.03] transition-transform duration-500"
             />
           </div>
           <img 
-            src="/srmist.png" 
+            src="/srmist.svg" 
             alt="SRMIST" 
             className="h-5 sm:h-6 md:h-8 lg:h-10 object-contain drop-shadow-[0_4px_6px_rgba(0,0,0,0.8)] mx-auto"
           />
           <div className="mt-2 sm:mt-4 w-full flex justify-center">
               <img 
-                src="/code-craft-conquer.png" 
+                src="/code-craft-conquer.svg" 
                 alt="CODE. CRAFT. CONQUER." 
                 className="h-5 sm:h-8 md:h-10 lg:h-14 object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.8)]"
               />
