@@ -2,34 +2,39 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  BookOpen,
   Brain,
   ChevronLeft,
   ChevronRight,
   PanelRightClose,
   PanelRightOpen,
   Clock3,
-  Code2,
   CloudRain,
+  Hammer,
+  Home,
   LockKeyhole,
+  Pickaxe,
   Save,
+  ScrollText,
+  Shield,
+  ShoppingBag,
+  Sparkles,
   Swords,
-  TreePine,
-  Trophy,
   X,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { StructureManager } from '@/components/game/structures/StructureManager';
+import { CraftingPanel } from '@/components/game/crafting/CraftingPanel';
+import { MarketplaceStore } from '@/components/game/marketplace/MarketplaceStore';
+import { ConsumableInventory } from '@/components/game/marketplace/ConsumableInventory';
+import { ChoicePanel } from '@/components/game/choices/ChoicePanel';
 import { GuardianArena } from './GuardianArena';
 import { NotificationTray, type LedgerEntry } from './NotificationTray';
 import { WorldEvent } from './WorldEvent';
 import './round-ui.css';
 
-type TabType = 'crosswords' | 'aptitudes' | 'output';
+type CaveTab = 'aptitudes' | 'debugging' | 'completion' | 'output';
 type ResourceKey = 'wood' | 'stone' | 'iron' | 'gold' | 'diamond' | 'emerald' | 'obsidian';
-
-interface CustomRoundShellProps {
-  roundId: number;
-}
+type ModalName = 'guardian' | 'structures' | 'crafting' | 'marketplace' | 'shrine' | null;
 
 interface Question {
   id: string;
@@ -38,7 +43,6 @@ interface Question {
   content: unknown;
   order_index: number;
   submission_status: string | null;
-  submission_revision: number | null;
   language_options?: string[];
 }
 
@@ -59,7 +63,7 @@ interface TeamInfo {
   team_size: number | null;
 }
 
-const resourceMeta: Array<{ key: ResourceKey; label: string; icon: string }> = [
+const resources: Array<{ key: ResourceKey; label: string; icon: string }> = [
   { key: 'wood', label: 'Wood', icon: '/wood.png' },
   { key: 'stone', label: 'Stone', icon: '/stone.png' },
   { key: 'iron', label: 'Iron', icon: '/iron.png' },
@@ -69,38 +73,43 @@ const resourceMeta: Array<{ key: ResourceKey; label: string; icon: string }> = [
   { key: 'obsidian', label: 'Obsidian', icon: '/obsidian.png' },
 ];
 
-const tabMeta: Array<{ id: TabType; label: string; Icon: typeof BookOpen }> = [
-  { id: 'crosswords', label: 'Crosswords', Icon: BookOpen },
+const tabs: Array<{ id: CaveTab; label: string; Icon: typeof Brain }> = [
   { id: 'aptitudes', label: 'Aptitudes', Icon: Brain },
-  { id: 'output', label: 'Output prediction', Icon: Code2 },
+  { id: 'debugging', label: 'Debugging', Icon: Shield },
+  { id: 'completion', label: 'Code completion', Icon: ScrollText },
+  { id: 'output', label: 'Output prediction', Icon: Pickaxe },
+];
+
+const structureMeta = [
+  { key: 'bat_cave', label: 'Bat Cave', art: '/round2/structure-bat-cave.png' },
+  { key: 'forge', label: 'Forge', art: '/round2/structure-forge.png' },
 ];
 
 /** Statuses the server will no longer accept a revision for. */
 const FINAL_STATUSES = ['locked', 'graded', 'manual_review'];
 
-function draftKey(roundId: number, questionId: string) {
-  return `mineverse:round:${roundId}:question:${questionId}:draft`;
-}
+function draftKey(questionId: string) { return `mineverse:round:2:question:${questionId}:draft`; }
 
-function formatDuration(seconds: number) {
-  const safeSeconds = Math.max(0, seconds);
+function timeParts(seconds: number) {
+  const value = Math.max(0, seconds);
   return {
-    hours: String(Math.floor(safeSeconds / 3600)).padStart(2, '0'),
-    minutes: String(Math.floor((safeSeconds % 3600) / 60)).padStart(2, '0'),
-    seconds: String(safeSeconds % 60).padStart(2, '0'),
+    hours: String(Math.floor(value / 3600)).padStart(2, '0'),
+    minutes: String(Math.floor((value % 3600) / 60)).padStart(2, '0'),
+    seconds: String(value % 60).padStart(2, '0'),
   };
 }
 
-function questionTab(question: Question): TabType {
-  if (question.type === 'crossword') return 'crosswords';
-  if (question.type === 'coding' || question.type === 'code_completion' || question.type === 'output_prediction' || question.type === 'output') return 'output';
+function tabFor(question: Question): CaveTab {
+  if (question.type === 'debugging') return 'debugging';
+  if (question.type === 'code_completion') return 'completion';
+  if (question.type === 'output_prediction' || question.type === 'output' || question.type === 'coding') return 'output';
   return 'aptitudes';
 }
 
-function rewardFor(question: Question): Array<{ resource: ResourceKey; amount: number }> {
-  if (questionTab(question) === 'crosswords') return [{ resource: 'wood', amount: 10 }];
-  if (questionTab(question) === 'output') return [{ resource: 'wood', amount: 6 }, { resource: 'emerald', amount: 1 }];
-  return [{ resource: 'wood', amount: 8 }, { resource: 'stone', amount: 5 }];
+function rewardFor(tab: CaveTab) {
+  return tab === 'aptitudes'
+    ? [{ key: 'stone' as const, value: 8 }, { key: 'iron' as const, value: 2 }]
+    : [{ key: 'stone' as const, value: 6 }, { key: 'iron' as const, value: 5 }];
 }
 
 function statusLabel(status: string | null) {
@@ -120,53 +129,42 @@ function initials(name: string | null | undefined) {
   return words.map((word) => word[0]?.toUpperCase() ?? '').join('') || 'MV';
 }
 
-export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
+export function CaveRoundShell() {
   const [questions, setQuestions] = useState<Question[]>([]);
-  const [resources, setResources] = useState<ResourcesData | null>(null);
+  const [resourceData, setResourceData] = useState<ResourcesData | null>(null);
   const [team, setTeam] = useState<TeamInfo | null>(null);
   const [history, setHistory] = useState<LedgerEntry[]>([]);
   const [endsAt, setEndsAt] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<TabType>('crosswords');
-  const [questionIndex, setQuestionIndex] = useState<Record<TabType, number>>({ crosswords: 0, aptitudes: 0, output: 0 });
+  const [activeTab, setActiveTab] = useState<CaveTab>('aptitudes');
+  const [activeIndexes, setActiveIndexes] = useState<Record<CaveTab, number>>({ aptitudes: 0, debugging: 0, completion: 0, output: 0 });
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [lockingSection, setLockingSection] = useState(false);
-  const [confirmSection, setConfirmSection] = useState<TabType | null>(null);
-  const [crafting, setCrafting] = useState(false);
-  const [guardianOpen, setGuardianOpen] = useState(false);
+  const [confirmSection, setConfirmSection] = useState<CaveTab | null>(null);
+  const [modal, setModal] = useState<ModalName>(null);
   const [railOpen, setRailOpen] = useState(true);
-  const [activeSlot, setActiveSlot] = useState(1);
+  const [slot, setSlot] = useState(1);
   const [now, setNow] = useState(() => Date.now());
-  const [stale, setStale] = useState(false);
+  const [offline, setOffline] = useState(false);
 
   const refresh = useCallback(async () => {
-    const [roundResult, resourcesResult, teamResult, historyResult] = await Promise.allSettled([
-      fetch(`/api/rounds/${roundId}/questions`, { cache: 'no-store' }).then((res) => res.json()),
+    const [round, resourceResult, teamResult, historyResult] = await Promise.allSettled([
+      fetch('/api/rounds/2/questions', { cache: 'no-store' }).then((res) => res.json()),
       fetch('/api/team/resources', { cache: 'no-store' }).then((res) => res.json()),
       fetch('/api/dashboard/data', { cache: 'no-store' }).then((res) => res.json()),
       fetch('/api/team/resources/history?limit=12', { cache: 'no-store' }).then((res) => res.json()),
     ]);
-
-    let failed = false;
-    if (roundResult.status === 'fulfilled' && roundResult.value.success) {
-      setQuestions(roundResult.value.data.questions ?? []);
-      setEndsAt(roundResult.value.data.ends_at ?? null);
-    } else {
-      failed = true;
-    }
-    if (resourcesResult.status === 'fulfilled' && resourcesResult.value.success) {
-      setResources(resourcesResult.value.data);
-    } else {
-      failed = true;
-    }
-    if (teamResult.status === 'fulfilled' && teamResult.value.success) {
-      setTeam(teamResult.value.team ?? null);
-    }
-    if (historyResult.status === 'fulfilled' && historyResult.value.success) {
-      setHistory(historyResult.value.data.entries ?? []);
-    }
-    setStale(failed);
-  }, [roundId]);
+    let requestFailed = false;
+    if (round.status === 'fulfilled' && round.value.success) {
+      setQuestions(round.value.data.questions ?? []);
+      setEndsAt(round.value.data.ends_at ?? null);
+    } else requestFailed = true;
+    if (resourceResult.status === 'fulfilled' && resourceResult.value.success) setResourceData(resourceResult.value.data);
+    else requestFailed = true;
+    if (teamResult.status === 'fulfilled' && teamResult.value.success) setTeam(teamResult.value.team ?? null);
+    if (historyResult.status === 'fulfilled' && historyResult.value.success) setHistory(historyResult.value.data.entries ?? []);
+    setOffline(requestFailed);
+  }, []);
 
   useEffect(() => {
     void refresh();
@@ -180,81 +178,72 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
   }, []);
 
   useEffect(() => {
-    const selectHotbarSlot = (event: KeyboardEvent) => {
+    const selectSlot = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
-      const slot = Number(event.key);
-      if (slot >= 1 && slot <= 9) setActiveSlot(slot);
+      const number = Number(event.key);
+      if (number >= 1 && number <= 9) setSlot(number);
     };
-    window.addEventListener('keydown', selectHotbarSlot);
-    return () => window.removeEventListener('keydown', selectHotbarSlot);
+    window.addEventListener('keydown', selectSlot);
+    return () => window.removeEventListener('keydown', selectSlot);
   }, []);
 
   useEffect(() => {
-    const loaded: Record<string, string> = {};
-    for (const question of questions) {
-      loaded[question.id] = window.localStorage.getItem(draftKey(roundId, question.id)) ?? '';
-    }
-    setDrafts(loaded);
-  }, [questions, roundId]);
-
-  const groupedQuestions = useMemo(() => {
-    const groups: Record<TabType, Question[]> = { crosswords: [], aptitudes: [], output: [] };
-    for (const question of questions) groups[questionTab(question)].push(question);
-    for (const group of Object.values(groups)) group.sort((a, b) => a.order_index - b.order_index);
-    return groups;
+    const localDrafts: Record<string, string> = {};
+    for (const question of questions) localDrafts[question.id] = window.localStorage.getItem(draftKey(question.id)) ?? '';
+    setDrafts(localDrafts);
   }, [questions]);
 
-  const activeQuestions = groupedQuestions[activeTab];
-  const currentIndex = Math.min(questionIndex[activeTab], Math.max(0, activeQuestions.length - 1));
-  const currentQuestion = activeQuestions[currentIndex];
-  const remainingSeconds = endsAt ? Math.max(0, Math.floor((new Date(endsAt).getTime() - now) / 1000)) : 0;
-  const timer = formatDuration(remainingSeconds);
-  const activeEvent = resources?.active_modifiers?.[0];
+  const grouped = useMemo(() => {
+    const result: Record<CaveTab, Question[]> = { aptitudes: [], debugging: [], completion: [], output: [] };
+    for (const question of questions) result[tabFor(question)].push(question);
+    for (const list of Object.values(result)) list.sort((a, b) => a.order_index - b.order_index);
+    return result;
+  }, [questions]);
+
+  const activeQuestions = grouped[activeTab];
+  const currentIndex = Math.min(activeIndexes[activeTab], Math.max(0, activeQuestions.length - 1));
+  const question = activeQuestions[currentIndex];
+  const timeLeft = endsAt ? Math.max(0, Math.floor((new Date(endsAt).getTime() - now) / 1000)) : 0;
+  const timer = timeParts(timeLeft);
+  const roundLocked = Boolean(endsAt) && timeLeft === 0;
+  const activeEvent = resourceData?.active_modifiers?.[0];
   const eventRemaining = activeEvent?.expires_at
     ? Math.max(0, Math.floor((new Date(activeEvent.expires_at).getTime() - now) / 1000))
     : null;
   const eventLive = Boolean(activeEvent) && (eventRemaining === null || eventRemaining > 0);
-  const isRoundLocked = remainingSeconds === 0 && Boolean(endsAt);
-  const woodenRecipe = { item: 'wooden_pickaxe', label: 'Wooden Pickaxe', wood: 60 };
-  const woodBalance = resources?.balance?.wood ?? 0;
-  const enoughWood = woodBalance >= woodenRecipe.wood;
 
-  // A section is sealed once every question in it is past revising.
   const sectionLocked = activeQuestions.length > 0
-    && activeQuestions.every((question) => FINAL_STATUSES.includes(question.submission_status ?? ''));
-  const answeredInSection = activeQuestions.filter((question) => Boolean(question.submission_status)).length;
+    && activeQuestions.every((item) => FINAL_STATUSES.includes(item.submission_status ?? ''));
+  const answeredInSection = activeQuestions.filter((item) => Boolean(item.submission_status)).length;
   const sectionReady = activeQuestions.length > 0 && answeredInSection === activeQuestions.length;
-  const currentIsFinal = FINAL_STATUSES.includes(currentQuestion?.submission_status ?? '');
-  const readOnly = isRoundLocked || currentIsFinal;
+  const currentIsFinal = FINAL_STATUSES.includes(question?.submission_status ?? '');
+  const readOnly = roundLocked || currentIsFinal;
 
-  const changeDraft = (questionId: string, value: string) => {
+  const updateDraft = (questionId: string, value: string) => {
     setDrafts((current) => ({ ...current, [questionId]: value }));
-    window.localStorage.setItem(draftKey(roundId, questionId), value);
+    window.localStorage.setItem(draftKey(questionId), value);
   };
 
-  const saveAnswer = async (question: Question) => {
-    const answer = drafts[question.id]?.trim() ?? '';
+  const saveAnswer = async (target: Question) => {
+    const answer = drafts[target.id]?.trim() ?? '';
     if (!answer) {
       toast.error('Type an answer before saving.');
       return false;
     }
-
     setSaving(true);
     try {
-      const isCode = question.type === 'coding' || question.type === 'code_completion';
+      const codeQuestion = target.type === 'coding' || target.type === 'code_completion';
       const response = await fetch('/api/submissions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(
-          isCode
-            ? { question_id: question.id, code: answer, language: question.language_options?.[0] ?? null }
-            : { question_id: question.id, answer_text: answer },
-        ),
+        body: JSON.stringify(codeQuestion
+          ? { question_id: target.id, code: answer, language: target.language_options?.[0] ?? null }
+          : { question_id: target.id, answer_text: answer }),
       });
-      const json = await response.json();
-      if (!json.success) {
-        toast.error(json.error?.message ?? 'Could not save. Your draft is still on this device.');
+      const data = await response.json();
+      if (!data.success) {
+        toast.error(data.error?.message ?? 'Could not save your answer.');
         return false;
       }
       toast.success('Answer saved. You can still revise it until you submit the section.');
@@ -269,28 +258,27 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
   };
 
   const saveAndNext = async () => {
-    if (!currentQuestion) return;
-    const saved = await saveAnswer(currentQuestion);
+    if (!question) return;
+    const saved = await saveAnswer(question);
     if (saved && currentIndex < activeQuestions.length - 1) {
-      setQuestionIndex((value) => ({ ...value, [activeTab]: currentIndex + 1 }));
+      setActiveIndexes((state) => ({ ...state, [activeTab]: currentIndex + 1 }));
     }
   };
 
-  const submitSection = async (tab: TabType) => {
-    const sectionQuestions = groupedQuestions[tab];
+  const submitSection = async (tab: CaveTab) => {
     setLockingSection(true);
     try {
       const response = await fetch('/api/submissions/section', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ round_id: roundId, question_ids: sectionQuestions.map((question) => question.id) }),
+        body: JSON.stringify({ round_id: 2, question_ids: grouped[tab].map((item) => item.id) }),
       });
-      const json = await response.json();
-      if (!json.success) {
-        toast.error(json.error?.message ?? 'Could not submit this section.');
+      const data = await response.json();
+      if (!data.success) {
+        toast.error(data.error?.message ?? 'Could not submit this section.');
         return;
       }
-      toast.success(`${tabMeta.find((meta) => meta.id === tab)?.label} submitted — these answers are final.`);
+      toast.success(`${tabs.find((meta) => meta.id === tab)?.label} submitted — these answers are final.`);
       setConfirmSection(null);
       await refresh();
     } catch {
@@ -300,35 +288,8 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
     }
   };
 
-  const craftWoodenPickaxe = async () => {
-    setCrafting(true);
-    try {
-      const response = await fetch('/api/team/craft', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Idempotency-Key': crypto.randomUUID() },
-        body: JSON.stringify({ item: woodenRecipe.item }),
-      });
-      const json = await response.json();
-      if (!json.success) {
-        toast.error(json.error?.message ?? 'Unable to craft the Wooden Pickaxe.');
-        return;
-      }
-      toast.success('Wooden Pickaxe crafted — Round 2 is unlocked.');
-      await refresh();
-    } catch {
-      toast.error('Could not reach the server. Please try crafting again.');
-    } finally {
-      setCrafting(false);
-    }
-  };
-
-  const setTab = (tab: TabType) => {
-    setActiveTab(tab);
-    setQuestionIndex((current) => ({ ...current, [tab]: 0 }));
-  };
-
   return (
-    <main className="round-ui round-ui--forest">
+    <main className="round-ui round-ui--cave">
       <div className="round-ui__backdrop" aria-hidden="true" />
       <div className="round-ui__shade" aria-hidden="true" />
 
@@ -343,10 +304,10 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
           </div>
 
           <div className="round-ui__panel round-ui__panel--glass round-ui__biome">
-            <TreePine size={26} aria-hidden="true" />
+            <Pickaxe size={26} aria-hidden="true" />
             <div className="round-ui__biome-text">
-              <p className="round-ui__eyebrow">ROUND {roundId}</p>
-              <p className="round-ui__biome-name">Forest &amp; Grasslands</p>
+              <p className="round-ui__eyebrow">ROUND 2</p>
+              <p className="round-ui__biome-name">Cave Biome</p>
               <p className="round-ui__biome-meta">Day 1 <i>•</i> Online</p>
             </div>
           </div>
@@ -376,8 +337,8 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
           <div className="round-ui__tools">
             <NotificationTray
               entries={history}
-              pendingGrading={Boolean(resources?.pending_grading)}
-              storageKey={`mineverse:round:${roundId}:notifications:seen`}
+              pendingGrading={Boolean(resourceData?.pending_grading)}
+              storageKey="mineverse:round:2:notifications:seen"
             />
             <button
               className="round-ui__panel round-ui__panel--glass round-ui__icon-btn"
@@ -391,33 +352,31 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
           </div>
         </header>
 
-        <div className="round-ui__tabs" role="tablist" aria-label="Question categories">
-          {tabMeta.map(({ id, label, Icon }) => {
-            const locked = groupedQuestions[id].length > 0
-              && groupedQuestions[id].every((question) => FINAL_STATUSES.includes(question.submission_status ?? ''));
+        <nav className="round-ui__tabs" aria-label="Round 2 question categories">
+          {tabs.map(({ id, label, Icon }) => {
+            const locked = grouped[id].length > 0
+              && grouped[id].every((item) => FINAL_STATUSES.includes(item.submission_status ?? ''));
             return (
               <button
                 key={id}
                 type="button"
-                role="tab"
-                aria-selected={activeTab === id}
                 className={activeTab === id ? 'round-ui__tab round-ui__tab--active' : 'round-ui__tab'}
-                onClick={() => setTab(id)}
+                onClick={() => { setActiveTab(id); setActiveIndexes((current) => ({ ...current, [id]: 0 })); }}
               >
                 {locked ? <LockKeyhole size={15} aria-hidden="true" /> : <Icon size={16} aria-hidden="true" />}
                 {label}
-                <span className="round-ui__tab-count">{groupedQuestions[id].length}</span>
+                <span className="round-ui__tab-count">{grouped[id].length}</span>
               </button>
             );
           })}
-        </div>
+        </nav>
 
         <div className={railOpen ? 'round-ui__main' : 'round-ui__main round-ui__main--railclosed'}>
           <section className="round-ui__board">
             <div className="round-ui__board-head">
               <div>
-                <h1>{tabMeta.find((tab) => tab.id === activeTab)?.label}</h1>
-                <p>Solve the puzzle and earn resources.</p>
+                <h1>{tabs.find((tab) => tab.id === activeTab)?.label}</h1>
+                <p>Mine deep, solve smart, and collect cave resources.</p>
               </div>
               <div className="round-ui__pager">
                 <span>{activeQuestions.length ? currentIndex + 1 : 0} / {activeQuestions.length}</span>
@@ -425,7 +384,7 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
                   type="button"
                   aria-label="Previous question"
                   disabled={currentIndex === 0}
-                  onClick={() => setQuestionIndex((value) => ({ ...value, [activeTab]: Math.max(0, currentIndex - 1) }))}
+                  onClick={() => setActiveIndexes((state) => ({ ...state, [activeTab]: Math.max(0, currentIndex - 1) }))}
                 >
                   <ChevronLeft size={20} />
                 </button>
@@ -433,7 +392,7 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
                   type="button"
                   aria-label="Next question"
                   disabled={currentIndex >= activeQuestions.length - 1}
-                  onClick={() => setQuestionIndex((value) => ({ ...value, [activeTab]: Math.min(activeQuestions.length - 1, currentIndex + 1) }))}
+                  onClick={() => setActiveIndexes((state) => ({ ...state, [activeTab]: Math.min(activeQuestions.length - 1, currentIndex + 1) }))}
                 >
                   <ChevronRight size={20} />
                 </button>
@@ -443,50 +402,47 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
             <div className="round-ui__board-grid">
               <aside className="round-ui__tile round-ui__qlist" aria-label="Questions in this category">
                 <p className="round-ui__tile-title">Questions</p>
-                {activeQuestions.length === 0 ? (
-                  <p className="round-ui__empty">Questions appear here when they are released.</p>
-                ) : activeQuestions.map((question, index) => {
-                  const selected = index === currentIndex;
-                  const locked = FINAL_STATUSES.includes(question.submission_status ?? '');
-                  const stateClass = locked
+                {activeQuestions.length ? activeQuestions.map((item, index) => {
+                  const itemLocked = FINAL_STATUSES.includes(item.submission_status ?? '');
+                  const stateClass = itemLocked
                     ? 'round-ui__qitem-state round-ui__qitem-state--done'
-                    : question.submission_status
+                    : item.submission_status
                       ? 'round-ui__qitem-state round-ui__qitem-state--sent'
                       : 'round-ui__qitem-state';
                   return (
                     <button
-                      key={question.id}
                       type="button"
-                      onClick={() => setQuestionIndex((value) => ({ ...value, [activeTab]: index }))}
-                      className={selected ? 'round-ui__qitem round-ui__qitem--active' : 'round-ui__qitem'}
+                      key={item.id}
+                      className={currentIndex === index ? 'round-ui__qitem round-ui__qitem--active' : 'round-ui__qitem'}
+                      onClick={() => setActiveIndexes((state) => ({ ...state, [activeTab]: index }))}
                     >
                       <b className="round-ui__qitem-no">{index + 1}</b>
                       <span className="round-ui__qitem-text">
-                        <strong>{question.prompt || `Question ${index + 1}`}</strong>
-                        <small>{statusLabel(question.submission_status)}</small>
+                        <strong>{item.prompt || `Question ${index + 1}`}</strong>
+                        <small>{statusLabel(item.submission_status)}</small>
                       </span>
-                      {locked
+                      {itemLocked
                         ? <LockKeyhole className="round-ui__qitem-lock" size={14} aria-label="Final answer" />
                         : <i className={stateClass} aria-hidden="true" />}
                     </button>
                   );
-                })}
+                }) : <p className="round-ui__empty">Questions appear here when organizers release them.</p>}
               </aside>
 
-              <div className="round-ui__tile round-ui__answer">
-                {currentQuestion ? (
+              <section className="round-ui__tile round-ui__answer">
+                {question ? (
                   <>
                     <p className="round-ui__tile-title">Question {currentIndex + 1}</p>
-                    <p className="round-ui__prompt">{questionBody(currentQuestion)}</p>
-                    <label className="round-ui__field-label" htmlFor={`answer-${currentQuestion.id}`}>Your answer</label>
+                    <p className="round-ui__prompt">{questionBody(question)}</p>
+                    <label className="round-ui__field-label" htmlFor={`cave-answer-${question.id}`}>Your answer</label>
                     <textarea
-                      id={`answer-${currentQuestion.id}`}
+                      id={`cave-answer-${question.id}`}
                       className="round-ui__field"
-                      rows={currentQuestion.type === 'coding' || currentQuestion.type === 'code_completion' ? 7 : 4}
-                      value={drafts[currentQuestion.id] ?? ''}
+                      value={drafts[question.id] ?? ''}
+                      onChange={(event) => updateDraft(question.id, event.target.value)}
                       disabled={readOnly}
-                      onChange={(event) => changeDraft(currentQuestion.id, event.target.value)}
-                      placeholder={isRoundLocked ? 'The round has ended.' : currentIsFinal ? 'This answer is final.' : 'Type your answer here…'}
+                      rows={question.type === 'code_completion' ? 6 : 4}
+                      placeholder={roundLocked ? 'The round has ended.' : currentIsFinal ? 'This answer is final.' : 'Type your answer here…'}
                     />
                     {currentIsFinal ? (
                       <p className="round-ui__locked-note">
@@ -497,7 +453,7 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
                         <button
                           type="button"
                           className="round-ui__btn round-ui__btn--ghost"
-                          onClick={() => void saveAnswer(currentQuestion)}
+                          onClick={() => void saveAnswer(question)}
                           disabled={saving || readOnly}
                         >
                           <Save size={14} /> {saving ? 'Saving…' : 'Save'}
@@ -513,22 +469,20 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
                       </div>
                     )}
                   </>
-                ) : (
-                  <p className="round-ui__empty">No questions are currently available in this category.</p>
-                )}
-              </div>
+                ) : <p className="round-ui__empty">No questions are currently available in this category.</p>}
+              </section>
 
               <aside className="round-ui__tile round-ui__rewards-tile">
                 <p className="round-ui__tile-title">Rewards</p>
-                {currentQuestion ? (
+                {question ? (
                   <div className="round-ui__rewards">
-                    {rewardFor(currentQuestion).map(({ resource, amount }) => {
-                      const meta = resourceMeta.find((item) => item.key === resource)!;
+                    {rewardFor(activeTab).map(({ key, value }) => {
+                      const item = resources.find((resource) => resource.key === key)!;
                       return (
-                        <div key={resource} className="round-ui__reward">
-                          <img src={meta.icon} alt="" />
-                          <b>+{amount}</b>
-                          <span>{meta.label}</span>
+                        <div key={key} className="round-ui__reward">
+                          <img src={item.icon} alt="" />
+                          <b>+{value}</b>
+                          <span>{item.label}</span>
                         </div>
                       );
                     })}
@@ -540,12 +494,12 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
 
             <div className="round-ui__section-bar">
               <span className="round-ui__section-state">
-                {stale ? 'Connection interrupted — showing last known progress.'
+                {offline ? 'Connection interrupted — showing last known progress.'
                   : sectionLocked ? <><LockKeyhole size={13} /> This section is submitted and final.</>
-                  : isRoundLocked ? 'Round closed — answers are read-only.'
+                  : roundLocked ? 'Round closed — answers are read-only.'
                   : <><b>{answeredInSection}</b> of <b>{activeQuestions.length}</b> saved in this section</>}
               </span>
-              {!sectionLocked && !isRoundLocked && (
+              {!sectionLocked && !roundLocked && (
                 <button
                   type="button"
                   className="round-ui__btn round-ui__btn--lock"
@@ -564,19 +518,32 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
               <WorldEvent
                 event={activeEvent}
                 remaining={eventRemaining}
-                art="/round1/event-heavy-rain.png"
-                idleText="The forest is calm. Organizers announce world events."
+                art="/round2/event-fertile-marsh.png"
+                idleText="The cave is quiet. Organizers announce world events."
               />
 
               <section className="round-ui__panel round-ui__card">
-                <p className="round-ui__panel-title">Forest guardian</p>
+                <p className="round-ui__panel-title">Skeleton archer</p>
                 <div className="round-ui__art">
-                  <img src="/round1/guardian-forest.png" alt="Forest Guardian" />
+                  <img src="/round2/guardian-skeleton-archer.png" alt="Skeleton Archer" />
                 </div>
-                <p className="round-ui__card-text">Win for +25 Wood, +10 Stone and +3 Emerald.</p>
-                <button type="button" className="round-ui__cta" onClick={() => setGuardianOpen(true)}>
+                <p className="round-ui__card-text">Five questions in five minutes. Win all five for +20 Iron, +15 Stone, +3 Emerald.</p>
+                <button type="button" className="round-ui__cta" onClick={() => setModal('guardian')}>
                   <Swords size={16} /> Challenge
                 </button>
+              </section>
+
+              <section className="round-ui__panel round-ui__card">
+                <p className="round-ui__panel-title">Structures</p>
+                <p className="round-ui__card-text">Pick one — the choice is permanent.</p>
+                <div className="round-ui__choices">
+                  {structureMeta.map(({ key, label, art }) => (
+                    <button key={key} type="button" className="round-ui__choice" onClick={() => setModal('structures')}>
+                      <span className="round-ui__art"><img src={art} alt="" /></span>
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </section>
             </aside>
           ) : (
@@ -594,6 +561,7 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
                   <CloudRain size={17} />
                 </span>
                 <span className="round-ui__handle-icon"><Swords size={17} /></span>
+                <span className="round-ui__handle-icon"><Home size={17} /></span>
               </span>
             </button>
           )}
@@ -604,31 +572,36 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
             <div className="round-ui__inventory-main">
               <div className="round-ui__inventory-head">
                 <b>YOUR INVENTORY</b>
-                <span>{resources?.pending_grading ? 'Rewards pending grading' : 'Live resource balance'}</span>
+                <span>{resourceData?.pending_grading ? 'Rewards pending grading' : 'Live resource balance'}</span>
               </div>
               <div className="round-ui__hotbar" aria-label="Inventory hotbar">
                 {Array.from({ length: 9 }).map((_, index) => {
-                  const slot = index + 1;
-                  const item = resourceMeta[index];
+                  const item = resources[index];
+                  const number = index + 1;
                   return (
                     <button
-                      key={item?.key ?? `empty-${slot}`}
                       type="button"
+                      key={item?.key ?? `empty-${number}`}
+                      className={number === slot ? 'round-ui__slot round-ui__slot--active' : 'round-ui__slot'}
+                      onClick={() => setSlot(number)}
                       title={item?.label ?? 'Empty slot'}
-                      aria-label={item ? `${item.label}: ${resources?.balance?.[item.key] ?? 0}` : 'Empty inventory slot'}
-                      className={activeSlot === slot ? 'round-ui__slot round-ui__slot--active' : 'round-ui__slot'}
-                      onClick={() => setActiveSlot(slot)}
+                      aria-label={item ? `${item.label}: ${resourceData?.balance?.[item.key] ?? 0}` : 'Empty inventory slot'}
                     >
-                      {item && <><img src={item.icon} alt="" /><b>{resources?.balance?.[item.key] ?? 0}</b></>}
+                      {item && <><img src={item.icon} alt="" /><b>{resourceData?.balance?.[item.key] ?? 0}</b></>}
                     </button>
                   );
                 })}
               </div>
             </div>
             <div className="round-ui__inventory-actions">
-              <button type="button" className="round-ui__craft" disabled={!enoughWood || crafting} onClick={() => void craftWoodenPickaxe()}>
-                <Trophy size={15} />
-                {crafting ? 'Crafting…' : enoughWood ? 'Craft wooden pickaxe' : `Need ${woodenRecipe.wood - woodBalance} more wood`}
+              <button type="button" className="round-ui__craft" onClick={() => setModal('crafting')}>
+                <Hammer size={15} /> Craft stone pickaxe
+              </button>
+              <button type="button" className="round-ui__craft round-ui__craft--alt" onClick={() => setModal('marketplace')}>
+                <ShoppingBag size={15} /> Marketplace
+              </button>
+              <button type="button" className="round-ui__craft round-ui__craft--alt" onClick={() => setModal('shrine')}>
+                <Sparkles size={15} /> Ancient shrine
               </button>
             </div>
           </section>
@@ -642,10 +615,10 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
       {confirmSection && (
         <div className="round-ui__modal" role="dialog" aria-modal="true" aria-label="Confirm section submit">
           <div className="round-ui__panel round-ui__confirm">
-            <h2>Submit {tabMeta.find((meta) => meta.id === confirmSection)?.label}?</h2>
+            <h2>Submit {tabs.find((meta) => meta.id === confirmSection)?.label}?</h2>
             <p>
-              All {groupedQuestions[confirmSection].length} answers in this section are sent for grading and can no
-              longer be changed. Other sections stay open.
+              All {grouped[confirmSection].length} answers in this section are sent for grading and can no longer be
+              changed. Other sections stay open.
             </p>
             <div className="round-ui__confirm-actions">
               <button type="button" className="round-ui__btn round-ui__btn--ghost" onClick={() => setConfirmSection(null)} disabled={lockingSection}>
@@ -659,20 +632,31 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
         </div>
       )}
 
-      {guardianOpen && (
-        <div className="round-ui__modal" role="dialog" aria-modal="true" aria-label="Forest Guardian challenge">
-          <div className="round-ui__modal-card">
-            <button type="button" className="round-ui__modal-close" aria-label="Close guardian challenge" onClick={() => setGuardianOpen(false)}>
+      {modal && (
+        <div className="round-ui__modal" role="dialog" aria-modal="true">
+          <div className="round-ui__modal-card biome">
+            <button type="button" className="round-ui__modal-close" aria-label="Close" onClick={() => setModal(null)}>
               <X size={18} />
             </button>
-            <GuardianArena
-              guardianName="forest_guardian"
-              roundId={roundId}
-              art="/round1/guardian-forest.png"
-              reward="+25 Wood, +10 Stone, +3 Emerald"
-              penalty="−8 Wood, −3 Stone"
-              onResolved={() => { void refresh(); }}
-            />
+            {modal === 'guardian' && (
+              <GuardianArena
+                guardianName="skeleton_archer"
+                roundId={2}
+                art="/round2/guardian-skeleton-archer.png"
+                reward="+20 Iron, +15 Stone, +3 Emerald"
+                penalty="−10 Iron, −10 Stone"
+                onResolved={() => { void refresh(); }}
+              />
+            )}
+            {modal === 'structures' && <StructureManager roundId={2} availableStructures={['bat_cave', 'forge']} refreshToken={0} onChanged={() => { void refresh(); }} />}
+            {modal === 'crafting' && <CraftingPanel refreshToken={0} onCrafted={() => { void refresh(); }} />}
+            {modal === 'marketplace' && (
+              <>
+                <MarketplaceStore refreshToken={0} onPurchased={() => { void refresh(); }} />
+                <ConsumableInventory refreshToken={0} onUsed={() => { void refresh(); }} />
+              </>
+            )}
+            {modal === 'shrine' && <ChoicePanel choiceKey="ancient_shrine" refreshToken={0} onDecided={() => { void refresh(); }} />}
           </div>
         </div>
       )}

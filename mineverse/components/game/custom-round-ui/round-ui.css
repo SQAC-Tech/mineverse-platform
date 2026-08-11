@@ -1,0 +1,2156 @@
+/*
+ * Shared blocky UI for the gameplay rounds (Round 1 forest, Round 2 cave).
+ *
+ * Same idea as app/theme-kit.css: the structure lives here once and every round
+ * only supplies a palette through custom properties, so two rounds can look
+ * like different biomes without drifting into two different layouts.
+ *
+ * Palette rules, from docs/DESIGN and images/D.md:
+ *   - three hues per round, each with one job: neutral panel, biome accent,
+ *     gold for anything resource-shaped. Green is reserved for "confirm".
+ *   - no rounded corners (2px max), Minecraft is blocky
+ *   - depth comes from a hard offset shadow, never a soft blur
+ *
+ * Press Start 2P (--font-minecraft) turns to mush under ~14px, so it is used
+ * for display text only. Dense UI text falls back to the system sans.
+ */
+
+.round-ui {
+  --rd-ink: #f2f0e6;
+  --rd-ink-dim: #a9b1a6;
+  --rd-gold: #f2c14e;
+  --rd-good: #6cc244;
+  --rd-good-deep: #2f6c22;
+  --rd-bad: #e05b4b;
+
+  --rd-font-display: var(--font-minecraft), 'Press Start 2P', ui-monospace, monospace;
+  --rd-font-body: ui-sans-serif, system-ui, 'Segoe UI', Roboto, sans-serif;
+  --rd-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --rd-gap: 10px;
+  --rd-slot: 3px;
+
+  /* The round is a single screen: the page itself never scrolls. Anything that
+     cannot fit scrolls inside its own column instead (see __board/__rail). */
+  position: relative;
+  height: 100dvh;
+  padding: 10px clamp(8px, 1.4vw, 18px);
+  overflow: hidden;
+  background: var(--rd-void);
+  color: var(--rd-ink);
+  font-family: var(--rd-font-body);
+  isolation: isolate;
+}
+
+/* ── Round palettes ──────────────────────────────────────────── */
+
+.round-ui--forest {
+  --rd-void: #0b1509;
+  --rd-panel: linear-gradient(155deg, #17231a 0%, #0b120c 100%);
+  --rd-edge: #37472f;
+  --rd-edge-lit: #5f7a4b;
+  --rd-accent: #7ad64e;
+  --rd-accent-deep: #24571a;
+  --rd-accent-ink: #0d1a08;
+  --rd-scene: url('/round1/round 1 bg image.png');
+  --rd-scene-shade: linear-gradient(180deg, rgba(6, 14, 5, 0.42), rgba(6, 14, 5, 0.2) 38%, rgba(4, 10, 4, 0.78));
+  --rd-frame: url('/round1/wooden-board-texture.svg');
+  --rd-frame-edge: #6b3d17;
+  --rd-board: linear-gradient(180deg, #f0ddb1 0%, #e4c996 55%, #d7b87e 100%);
+  --rd-board-ink: #2c1e0a;
+  --rd-board-dim: #5e4820;
+  --rd-board-line: #b78c46;
+  --rd-board-tile: rgba(255, 246, 219, 0.46);
+  --rd-board-tile-edge: #bd914b;
+  --rd-board-sunk: rgba(93, 63, 20, 0.16);
+  --rd-glass: rgba(9, 18, 9, 0.42);
+  --rd-glass-edge: rgba(146, 189, 118, 0.34);
+}
+
+.round-ui--cave {
+  --rd-void: #080d10;
+  --rd-panel: linear-gradient(155deg, #142026 0%, #080f13 100%);
+  --rd-edge: #2c3d47;
+  --rd-edge-lit: #4a6b7d;
+  --rd-accent: #5ec8ee;
+  --rd-accent-deep: #14425a;
+  --rd-accent-ink: #04141c;
+  --rd-scene: url('/round2/round 2 bg image.png');
+  --rd-scene-shade: linear-gradient(180deg, rgba(3, 8, 11, 0.38), rgba(3, 8, 11, 0.18) 38%, rgba(2, 6, 8, 0.8));
+  --rd-frame: url('/round2/stone-board-texture.svg');
+  --rd-frame-edge: #454d4a;
+  --rd-board: linear-gradient(180deg, #d3d6c7 0%, #bfc3b3 55%, #adb1a0 100%);
+  --rd-board-ink: #22251e;
+  --rd-board-dim: #4b5045;
+  --rd-board-line: #878c7b;
+  --rd-board-tile: rgba(250, 251, 243, 0.56);
+  --rd-board-tile-edge: #7f8574;
+  --rd-board-sunk: rgba(38, 43, 36, 0.14);
+  --rd-glass: rgba(6, 14, 18, 0.44);
+  --rd-glass-edge: rgba(110, 168, 194, 0.32);
+}
+
+/* ── Scene ───────────────────────────────────────────────────── */
+
+.round-ui__backdrop,
+.round-ui__shade {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+.round-ui__backdrop {
+  z-index: -2;
+  background: var(--rd-scene) center / cover no-repeat;
+}
+
+.round-ui__shade {
+  z-index: -1;
+  background: var(--rd-scene-shade);
+}
+
+.round-ui__page {
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  max-width: 1440px;
+  flex-direction: column;
+  gap: var(--rd-gap);
+  margin-inline: auto;
+}
+
+.round-ui button {
+  font: inherit;
+  color: inherit;
+}
+
+/* ── Panels ──────────────────────────────────────────────────── */
+
+.round-ui__panel {
+  min-width: 0;
+  background: var(--rd-panel);
+  border: 2px solid var(--rd-edge);
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.55), 0 4px 0 rgba(0, 0, 0, 0.5);
+}
+
+/* Glass panels let the biome scene through. Used across the header so the top
+   of the screen reads as part of the world rather than a bar bolted over it.
+   The tint is still dark enough to hold light text over a bright background. */
+.round-ui__panel--glass {
+  background: var(--rd-glass);
+  border-color: var(--rd-glass-edge);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 3px 0 rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(7px);
+}
+
+.round-ui__panel-title {
+  color: var(--rd-accent);
+  font-family: var(--rd-font-display);
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+/* ── Header ──────────────────────────────────────────────────── */
+
+/* brand | biome | team | clock | tools */
+.round-ui__header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.8fr) auto auto;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.round-ui__brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+  padding: 8px 14px;
+}
+
+.round-ui__brand img {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  object-fit: contain;
+}
+
+.round-ui__brand-name {
+  color: #fff;
+  font-family: var(--rd-font-display);
+  font-size: clamp(15px, 1.4vw, 21px);
+  line-height: 1;
+  white-space: nowrap;
+  text-shadow: 3px 3px 0 rgba(0, 0, 0, 0.85);
+}
+
+.round-ui__brand-tag {
+  margin-top: 6px;
+  color: var(--rd-gold);
+  font-size: 10px;
+  letter-spacing: 1.4px;
+  white-space: nowrap;
+}
+
+.round-ui__biome {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+  padding: 8px 14px;
+}
+
+.round-ui__biome svg {
+  flex: 0 0 auto;
+  color: var(--rd-accent);
+}
+
+.round-ui__biome-text {
+  min-width: 0;
+}
+
+.round-ui__eyebrow {
+  color: var(--rd-ink-dim);
+  font-size: 10px;
+  letter-spacing: 1.6px;
+}
+
+.round-ui__biome-name {
+  margin-top: 4px;
+  overflow: hidden;
+  color: var(--rd-accent);
+  font-family: var(--rd-font-display);
+  font-size: clamp(11px, 1vw, 14px);
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.round-ui__biome-meta {
+  margin-top: 4px;
+  color: var(--rd-ink-dim);
+  font-size: 11px;
+}
+
+.round-ui__biome-meta i {
+  margin: 0 6px;
+  color: var(--rd-accent);
+  font-style: normal;
+}
+
+/* The timer stacks each unit over its own label, so digits and labels line up
+   however wide the clock renders. */
+.round-ui__timer {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 8px 14px;
+}
+
+.round-ui__timer > svg {
+  flex: 0 0 auto;
+  color: var(--rd-gold);
+}
+
+.round-ui__timer-label {
+  color: var(--rd-gold);
+  font-size: 10px;
+  letter-spacing: 1.4px;
+}
+
+.round-ui__clock {
+  display: flex;
+  align-items: flex-start;
+  gap: 2px;
+  margin-top: 4px;
+}
+
+.round-ui__clock-unit {
+  display: flex;
+  min-width: 34px;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.round-ui__clock-unit b {
+  color: #fff;
+  font-family: var(--rd-font-display);
+  font-size: clamp(15px, 1.3vw, 19px);
+  line-height: 1;
+  font-weight: 400;
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.8);
+}
+
+.round-ui__clock-unit small {
+  color: var(--rd-ink-dim);
+  font-size: 9px;
+  letter-spacing: 1px;
+}
+
+.round-ui__clock-sep {
+  padding-top: 2px;
+  color: var(--rd-gold);
+  font-family: var(--rd-font-display);
+  font-size: clamp(14px, 1.3vw, 19px);
+  line-height: 1;
+}
+
+.round-ui__tools {
+  display: flex;
+  gap: 8px;
+}
+
+.round-ui__icon-btn {
+  position: relative;
+  display: grid;
+  width: 46px;
+  place-items: center;
+  cursor: pointer;
+}
+
+.round-ui__icon-btn svg {
+  color: var(--rd-ink-dim);
+}
+
+.round-ui__icon-btn:hover svg {
+  color: var(--rd-ink);
+}
+
+.round-ui__icon-btn:focus-visible {
+  outline: 2px solid var(--rd-accent);
+  outline-offset: 2px;
+}
+
+.round-ui__dot {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--rd-bad);
+  color: #fff;
+  font-size: 10px;
+  font-style: normal;
+}
+
+/* ── Tabs ────────────────────────────────────────────────────── */
+
+.round-ui__tabs {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  gap: 4px;
+  margin-bottom: calc(var(--rd-gap) * -1 - 6px);
+  padding: 0 6px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.round-ui__tab {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px 11px;
+  border: 2px solid var(--rd-edge);
+  border-bottom: 0;
+  border-radius: 2px 2px 0 0;
+  background: linear-gradient(180deg, #2b332d 0%, #141a15 100%);
+  color: var(--rd-ink-dim);
+  cursor: pointer;
+  font-family: var(--rd-font-display);
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.round-ui--cave .round-ui__tab {
+  background: linear-gradient(180deg, #232f36 0%, #111a1f 100%);
+}
+
+.round-ui__tab:hover {
+  color: var(--rd-ink);
+}
+
+.round-ui__tab--active {
+  border-color: var(--rd-accent);
+  background: linear-gradient(180deg, var(--rd-accent-deep) 0%, rgba(0, 0, 0, 0.55) 100%);
+  color: #fff;
+}
+
+.round-ui__tab-count {
+  padding: 2px 5px;
+  background: rgba(0, 0, 0, 0.4);
+  color: var(--rd-ink-dim);
+  font-family: var(--rd-font-body);
+  font-size: 10px;
+}
+
+.round-ui__tab--active .round-ui__tab-count {
+  background: rgba(0, 0, 0, 0.45);
+  color: var(--rd-accent);
+}
+
+/* ── Main split ──────────────────────────────────────────────── */
+
+/* The only row that flexes: it takes whatever height the header, tabs and
+   inventory leave behind, and its two columns fill that height exactly. */
+.round-ui__main {
+  display: grid;
+  flex: 1;
+  min-height: 0;
+  grid-template-columns: minmax(0, 1fr) 288px;
+  gap: var(--rd-gap);
+  align-items: stretch;
+}
+
+.round-ui__board,
+.round-ui__rail {
+  min-height: 0;
+  max-height: 100%;
+}
+
+/* The board never scrolls as a whole — its heading, pager and status line stay
+   put and only the tile area moves. */
+.round-ui__board {
+  overflow: hidden;
+}
+
+.round-ui__rail {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* ── Quest board ─────────────────────────────────────────────── */
+
+.round-ui__board {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  padding: clamp(12px, 1.4vw, 18px) clamp(12px, 1.8vw, 24px) clamp(10px, 1.2vw, 14px);
+  border: 12px solid var(--rd-frame-edge);
+  border-image: var(--rd-frame) 24 round;
+  background: var(--rd-board);
+  box-shadow: inset 0 14px 18px -20px rgba(0, 0, 0, 0.9), inset 0 -16px 18px -20px rgba(0, 0, 0, 0.9),
+    0 14px 24px -16px rgba(0, 0, 0, 0.75);
+  color: var(--rd-board-ink);
+}
+
+.round-ui__board-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 9px;
+  border-bottom: 2px solid var(--rd-board-line);
+}
+
+.round-ui__board-head h1 {
+  font-family: var(--rd-font-display);
+  font-size: clamp(16px, 1.7vw, 24px);
+  line-height: 1.1;
+  font-weight: 400;
+  text-transform: uppercase;
+}
+
+.round-ui__board-head p {
+  margin-top: 6px;
+  color: var(--rd-board-dim);
+  font-size: 13px;
+}
+
+.round-ui__pager {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+}
+
+.round-ui__pager span {
+  margin-right: 4px;
+  font-family: var(--rd-font-display);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.round-ui__pager button {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 2px solid var(--rd-board-line);
+  background: var(--rd-board-tile);
+  box-shadow: inset 2px 2px 0 rgba(255, 255, 255, 0.5), inset -2px -2px 0 rgba(0, 0, 0, 0.18);
+  color: var(--rd-board-ink);
+  cursor: pointer;
+}
+
+.round-ui__pager button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.round-ui__pager button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+/* min-height:0 lets the grid shrink past its content on a short screen, so the
+   question list scrolls inside its own tile and the board keeps its heading,
+   Submit button and status line on screen. */
+.round-ui__board-grid {
+  display: grid;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  grid-template-columns: minmax(178px, 0.8fr) minmax(0, 1.7fr) minmax(150px, 0.6fr);
+  gap: 10px;
+  align-items: stretch;
+  padding-top: 11px;
+}
+
+.round-ui__tile {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  border: 2px solid var(--rd-board-tile-edge);
+  border-radius: 2px;
+  background: var(--rd-board-tile);
+  padding: 12px;
+}
+
+.round-ui__tile-title {
+  margin-bottom: 8px;
+  color: var(--rd-board-dim);
+  font-family: var(--rd-font-display);
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+/* ── Question list ───────────────────────────────────────────── */
+
+.round-ui__qlist {
+  gap: 4px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.round-ui__qitem {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  min-height: 44px;
+  padding: 7px 9px;
+  border: 2px solid transparent;
+  border-left: 3px solid var(--rd-board-line);
+  background: var(--rd-board-sunk);
+  color: var(--rd-board-ink);
+  cursor: pointer;
+  text-align: left;
+}
+
+.round-ui__qitem:hover {
+  background: rgba(255, 255, 255, 0.34);
+}
+
+.round-ui__qitem--active {
+  border-color: var(--rd-accent);
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+}
+
+.round-ui__qitem-no {
+  font-family: var(--rd-font-display);
+  font-size: 13px;
+}
+
+.round-ui__qitem-text {
+  min-width: 0;
+}
+
+.round-ui__qitem-text strong {
+  display: block;
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.round-ui__qitem-text small {
+  display: block;
+  margin-top: 3px;
+  color: inherit;
+  font-size: 10px;
+  opacity: 0.75;
+  text-transform: capitalize;
+}
+
+.round-ui__qitem-state {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--rd-board-line);
+}
+
+.round-ui__qitem-state--done {
+  background: var(--rd-good);
+}
+
+.round-ui__qitem-state--sent {
+  background: var(--rd-gold);
+}
+
+.round-ui__qitem-state svg {
+  display: block;
+}
+
+.round-ui__qitem-lock {
+  flex: 0 0 auto;
+  opacity: 0.7;
+}
+
+.round-ui__empty {
+  padding: 22px 6px;
+  color: var(--rd-board-dim);
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+/* ── Answer tile ─────────────────────────────────────────────── */
+
+/* A floor on the answer tile: below this the board scrolls rather than letting
+   the grid squeeze until the tiles spill over each other. */
+.round-ui__answer {
+  min-height: 232px;
+}
+
+.round-ui__prompt {
+  margin-bottom: 12px;
+  font-family: var(--rd-font-mono);
+  font-size: clamp(13px, 1.05vw, 15px);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.round-ui__field-label {
+  margin-bottom: 6px;
+  color: var(--rd-board-dim);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.round-ui__field {
+  width: 100%;
+  min-height: 84px;
+  flex: 1;
+  padding: 11px;
+  border: 2px solid var(--rd-board-line);
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.62);
+  box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.14);
+  color: var(--rd-board-ink);
+  font-family: var(--rd-font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.round-ui__field:focus {
+  border-color: var(--rd-accent-deep);
+  background: rgba(255, 255, 255, 0.85);
+  outline: 2px solid var(--rd-accent-deep);
+  outline-offset: 1px;
+}
+
+.round-ui__field:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.round-ui__actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 11px;
+}
+
+.round-ui__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 0 16px;
+  border: 2px solid rgba(0, 0, 0, 0.5);
+  border-radius: 2px;
+  cursor: pointer;
+  font-family: var(--rd-font-display);
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.round-ui__btn--ghost {
+  background: var(--rd-board-sunk);
+  border-color: var(--rd-board-line);
+  color: var(--rd-board-dim);
+}
+
+.round-ui__btn--ghost:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.45);
+  color: var(--rd-board-ink);
+}
+
+.round-ui__btn--go {
+  background: linear-gradient(180deg, var(--rd-good) 0%, var(--rd-good-deep) 100%);
+  box-shadow: inset 2px 2px 0 rgba(255, 255, 255, 0.3), inset -2px -2px 0 rgba(0, 0, 0, 0.35);
+  color: #f4ffe9;
+}
+
+.round-ui__btn--go:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.round-ui__btn:disabled {
+  cursor: not-allowed;
+  filter: grayscale(0.8);
+  opacity: 0.55;
+}
+
+.round-ui__btn:focus-visible {
+  outline: 2px solid var(--rd-accent-deep);
+  outline-offset: 2px;
+}
+
+/* ── Rewards tile ────────────────────────────────────────────── */
+
+/* A flex strip rather than a grid: rewards then keep a sane tile size whether
+   the card is a narrow column or a full-width band under the answer. */
+.round-ui__rewards {
+  display: flex;
+  min-height: 0;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-content: start;
+  overflow-y: auto;
+}
+
+.round-ui__reward {
+  display: flex;
+  flex: 1 1 84px;
+  max-width: 168px;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 10px 6px;
+  border: 2px solid var(--rd-board-tile-edge);
+  background: rgba(255, 255, 255, 0.28);
+  text-align: center;
+}
+
+.round-ui__reward img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  filter: drop-shadow(2px 3px 0 rgba(0, 0, 0, 0.22));
+}
+
+.round-ui__reward b {
+  font-family: var(--rd-font-display);
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.round-ui__reward span {
+  color: var(--rd-board-dim);
+  font-size: 10px;
+}
+
+.round-ui__reward-note {
+  margin-top: auto;
+  padding-top: 12px;
+  color: var(--rd-board-dim);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.round-ui__board-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 9px;
+  color: var(--rd-board-dim);
+  font-size: 12px;
+}
+
+.round-ui__board-foot strong {
+  color: var(--rd-board-ink);
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+/* ── Rail ────────────────────────────────────────────────────── */
+
+.round-ui__rail {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--rd-gap);
+}
+
+/* The rail has to fit the screen without scrolling, so the cards share the
+   height they are given: text keeps its natural size and the artwork wells
+   absorb the difference. */
+.round-ui__card {
+  display: flex;
+  min-height: 0;
+  flex: 0 1 auto;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+}
+
+.round-ui__card > * {
+  flex: 0 0 auto;
+}
+
+.round-ui__card > .round-ui__art,
+.round-ui__card > .round-ui__choices {
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+/* Artwork sits in its own framed well. Flex (not grid) plus overflow:hidden is
+   what keeps a tall sprite inside the frame instead of spilling over the card
+   beneath it. */
+.round-ui__art {
+  display: flex;
+  height: clamp(84px, 13vh, 130px);
+  min-height: 56px;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 6px;
+  border: 2px solid rgba(0, 0, 0, 0.45);
+  background: radial-gradient(circle at 50% 45%, rgba(255, 255, 255, 0.09), rgba(0, 0, 0, 0.35) 72%);
+}
+
+.round-ui__art img {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+
+.round-ui__event {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.round-ui__event .round-ui__art {
+  width: 76px;
+  height: 76px;
+  flex: 0 0 76px;
+}
+
+.round-ui__event-name {
+  display: block;
+  color: var(--rd-gold);
+  font-family: var(--rd-font-display);
+  font-size: 12px;
+  line-height: 1.35;
+  text-transform: uppercase;
+}
+
+.round-ui__event-note {
+  display: block;
+  margin-top: 7px;
+  color: var(--rd-ink-dim);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.round-ui__event-clock {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--rd-accent);
+  font-family: var(--rd-font-display);
+  font-size: 15px;
+}
+
+.round-ui__event-clock small {
+  color: var(--rd-ink-dim);
+  font-family: var(--rd-font-body);
+  font-size: 11px;
+  letter-spacing: 1px;
+}
+
+.round-ui__meter {
+  height: 8px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.5);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.round-ui__meter i {
+  display: block;
+  height: 100%;
+  background: var(--rd-accent);
+}
+
+.round-ui__card-text {
+  color: var(--rd-ink-dim);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.round-ui__card-foot {
+  color: var(--rd-ink-dim);
+  font-size: 11px;
+  line-height: 1.45;
+  opacity: 0.8;
+}
+
+.round-ui__cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px;
+  border: 2px solid var(--rd-accent);
+  border-radius: 2px;
+  background: linear-gradient(180deg, var(--rd-accent-deep) 0%, rgba(0, 0, 0, 0.6) 100%);
+  color: var(--rd-ink);
+  cursor: pointer;
+  font-family: var(--rd-font-display);
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.round-ui__cta:hover {
+  background: linear-gradient(180deg, var(--rd-accent-deep) 0%, rgba(0, 0, 0, 0.35) 100%);
+}
+
+.round-ui__cta:focus-visible {
+  outline: 2px solid var(--rd-accent);
+  outline-offset: 2px;
+}
+
+.round-ui__choices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.round-ui__choice {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  border: 2px solid var(--rd-edge);
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--rd-ink);
+  cursor: pointer;
+  font-family: var(--rd-font-display);
+  font-size: 9px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.round-ui__choice:hover {
+  border-color: var(--rd-accent);
+}
+
+.round-ui__choice .round-ui__art {
+  height: clamp(48px, 8vh, 84px);
+  min-height: 44px;
+  flex: 1 1 auto;
+  padding: 4px;
+}
+
+/* ── Inventory ───────────────────────────────────────────────── */
+
+/* Wrapping flex rather than a two-column grid: when the action buttons no
+   longer fit beside the hotbar they drop to their own line instead of
+   squeezing the slots into unreadable slivers. */
+.round-ui__inventory {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 9px 12px;
+}
+
+.round-ui__inventory-main {
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.round-ui__inventory-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.round-ui__inventory-head b {
+  color: var(--rd-gold);
+  font-family: var(--rd-font-display);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.5px;
+}
+
+.round-ui__inventory-head span {
+  color: var(--rd-ink-dim);
+  font-size: 11px;
+}
+
+.round-ui__hotbar {
+  display: grid;
+  max-width: min(520px, 100%);
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+  padding: var(--rd-slot);
+  border: 3px solid #6f7570;
+  background: #3f4441;
+}
+
+.round-ui__slot {
+  position: relative;
+  display: grid;
+  aspect-ratio: 1;
+  place-items: center;
+  border: 3px solid #1d201e;
+  background: linear-gradient(135deg, #8b8f8c 0%, #626764 100%);
+  box-shadow: inset 2px 2px 0 #b9bdba, inset -2px -2px 0 #383c3a;
+  cursor: pointer;
+  transition: transform 0.12s ease, filter 0.12s ease;
+}
+
+.round-ui__slot:hover {
+  z-index: 1;
+  filter: brightness(1.15);
+  transform: translateY(-3px);
+}
+
+.round-ui__slot--active {
+  z-index: 2;
+  outline: 3px solid #fff;
+  outline-offset: -3px;
+}
+
+.round-ui__slot:focus-visible {
+  outline: 3px solid var(--rd-gold);
+  outline-offset: -3px;
+}
+
+.round-ui__slot img {
+  width: 62%;
+  height: 62%;
+  object-fit: contain;
+  image-rendering: pixelated;
+  filter: drop-shadow(2px 3px 0 rgba(0, 0, 0, 0.55));
+}
+
+.round-ui__slot b {
+  position: absolute;
+  right: 4px;
+  bottom: 2px;
+  color: #fff;
+  font-family: var(--rd-font-display);
+  font-size: 11px;
+  font-weight: 400;
+  text-shadow: 2px 2px 0 #000;
+}
+
+.round-ui__inventory-actions {
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.round-ui__craft {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 16px;
+  border: 2px solid var(--rd-gold);
+  border-radius: 2px;
+  background: linear-gradient(180deg, #6d4d15 0%, #2e2008 100%);
+  color: #ffeeb8;
+  cursor: pointer;
+  font-family: var(--rd-font-display);
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  text-align: center;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.round-ui__craft:hover:not(:disabled) {
+  filter: brightness(1.15);
+}
+
+.round-ui__craft:disabled {
+  cursor: not-allowed;
+  filter: grayscale(0.6);
+  opacity: 0.6;
+}
+
+.round-ui__craft--alt {
+  border-color: var(--rd-edge-lit);
+  background: linear-gradient(180deg, #2c3a41 0%, #131b1f 100%);
+  color: var(--rd-ink);
+}
+
+/* ── Modal ───────────────────────────────────────────────────── */
+
+.round-ui__modal {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  padding: 18px;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(4px);
+}
+
+/* The close button lives in the gutter above the panel rather than on top of
+   it, so it cannot cover the panel's own status badge. */
+.round-ui__modal-card {
+  position: relative;
+  display: flex;
+  width: min(100%, 680px);
+  max-height: 88vh;
+  flex-direction: column;
+  gap: 14px;
+  overflow: auto;
+  padding-top: 42px;
+}
+
+/*
+ * The panels inside these modals (guardian, structures, crafting, marketplace,
+ * shrine) are styled by app/theme-kit.css, but every one of its rules is scoped
+ * to `:is(.nether, .biome)` — a palette holder the rounds never had, so the
+ * modals rendered as unstyled text. `.biome` on the modal card supplies the
+ * token names the kit asks for, mapped onto this round's colours.
+ */
+.round-ui__modal-card.biome {
+  /* The kit paints its root with --bg-void; here the panels are the surface. */
+  background: transparent;
+  --bg-void: var(--rd-void);
+  --text-onDark: var(--rd-ink);
+  --text-portal: var(--rd-ink-dim);
+  --ok: var(--rd-good);
+  --warn: var(--rd-gold);
+  --font-display: var(--rd-font-display);
+}
+
+.round-ui--forest .round-ui__modal-card.biome {
+  --bg-panel: #16211a;
+  --bg-panel-raised: #223020;
+  --accent-secondary: #2c5a1f;
+  --accent-danger: #5a1712;
+  --accent-primary: var(--rd-accent);
+  --accent-primary-hover: #64bf3c;
+  --accent-muted: #437030;
+  --text-onLava: var(--rd-accent-ink);
+}
+
+.round-ui--cave .round-ui__modal-card.biome {
+  --bg-panel: #142026;
+  --bg-panel-raised: #1e2d35;
+  --accent-secondary: #1d4a63;
+  --accent-danger: #5a1c18;
+  --accent-primary: var(--rd-accent);
+  --accent-primary-hover: #49b5dd;
+  --accent-muted: #37636f;
+  --text-onLava: var(--rd-accent-ink);
+}
+
+.round-ui__modal-card .n-panel {
+  border-color: var(--rd-edge-lit);
+}
+
+.round-ui__modal-close {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 1;
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 2px solid var(--rd-edge-lit);
+  background: #0f1512;
+  color: #fff;
+  cursor: pointer;
+}
+
+/* ── Responsive ──────────────────────────────────────────────── */
+
+@media (max-width: 1240px) {
+  .round-ui__main {
+    grid-template-columns: minmax(0, 1fr) 262px;
+  }
+
+  .round-ui__board-grid {
+    grid-template-columns: minmax(170px, 0.85fr) minmax(0, 1.6fr);
+  }
+
+  /* Rewards drop under the answer and lay out as a strip instead of a column,
+     so a single reward can no longer stretch into an empty banner. */
+  .round-ui__rewards-tile {
+    grid-column: 1 / -1;
+  }
+
+  .round-ui__reward {
+    flex: 0 1 132px;
+  }
+
+  .round-ui__reward-note {
+    margin-top: 0;
+    padding-top: 10px;
+  }
+}
+
+@media (max-width: 1080px) {
+  .round-ui__timer {
+    justify-content: flex-start;
+  }
+}
+
+/*
+ * Stacked layout. One column cannot be squeezed into a single screen without
+ * making the board unusable, so here the shrink-to-fit rules above are handed
+ * back: every block takes its natural size and the middle region scrolls as
+ * one. The page itself still never scrolls — the header, tabs and inventory
+ * stay put.
+ */
+@media (max-width: 940px) {
+  .round-ui__main {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    grid-auto-rows: min-content;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .round-ui__board,
+  .round-ui__rail {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .round-ui__qlist {
+    overflow-y: auto;
+  }
+
+  .round-ui__board-grid {
+    min-height: auto;
+    flex: 0 0 auto;
+    overflow: visible;
+  }
+
+  .round-ui__tile {
+    min-height: auto;
+  }
+
+  .round-ui__answer {
+    min-height: 300px;
+  }
+
+  .round-ui__rewards {
+    overflow: visible;
+  }
+
+  .round-ui__rail {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    align-items: start;
+  }
+
+  .round-ui__card {
+    flex: 0 0 auto;
+  }
+
+  .round-ui__art {
+    height: clamp(96px, 15vw, 140px);
+    min-height: 96px;
+  }
+
+  .round-ui__choice .round-ui__art {
+    height: 76px;
+    min-height: 76px;
+  }
+
+  .round-ui__qlist {
+    max-height: 240px;
+  }
+
+  .round-ui__tab {
+    padding: 10px 13px 12px;
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 760px) {
+  .round-ui {
+    padding: 12px 10px 20px;
+  }
+
+  .round-ui__header {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .round-ui__biome,
+  .round-ui__team {
+    grid-row: auto;
+  }
+
+  .round-ui__biome {
+    grid-column: 1 / -1;
+  }
+
+  .round-ui__timer,
+  .round-ui__tools {
+    grid-row: auto;
+  }
+
+  .round-ui__board {
+    border-width: 10px;
+  }
+
+  .round-ui__board-head {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  /* Counter stays on the left, both arrows stay together on the right. */
+  .round-ui__pager span {
+    margin-right: auto;
+  }
+
+  .round-ui__board-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .round-ui__inventory-main {
+    flex-basis: auto;
+  }
+
+  .round-ui__hotbar {
+    max-width: none;
+  }
+
+  .round-ui__inventory-actions {
+    flex: 1 1 100%;
+  }
+
+  .round-ui__craft {
+    flex: 1 1 150px;
+  }
+}
+
+@media (max-width: 520px) {
+  .round-ui__brand img {
+    width: 38px;
+    height: 38px;
+  }
+
+  .round-ui__tab {
+    padding: 10px 12px 12px;
+    font-size: 10px;
+  }
+
+  .round-ui__actions {
+    flex-direction: column-reverse;
+  }
+
+  .round-ui__btn {
+    width: 100%;
+  }
+
+  .round-ui__hotbar {
+    --rd-slot: 2px;
+    border-width: 2px;
+  }
+
+  .round-ui__slot {
+    border-width: 2px;
+  }
+
+  .round-ui__slot img {
+    width: 56%;
+    height: 56%;
+  }
+
+  .round-ui__slot b {
+    right: 2px;
+    font-size: 9px;
+  }
+
+  .round-ui__choices {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Short laptop screens: give the rail back the last few pixels it needs so
+   Round 2's three cards still fit without a scrollbar. Scoped above the
+   stacking breakpoint — a short phone wants natural sizes, not tighter ones. */
+@media (max-width: 1340px) {
+  .round-ui__header {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  }
+
+  .round-ui__team {
+    grid-row: 2;
+  }
+
+  .round-ui__timer {
+    grid-row: 2;
+  }
+
+  .round-ui__tools {
+    grid-row: 2;
+  }
+}
+
+@media (min-width: 941px) and (max-height: 800px) {
+  .round-ui__card {
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .round-ui__art {
+    min-height: 48px;
+  }
+
+  .round-ui__choice .round-ui__art {
+    min-height: 38px;
+  }
+
+  .round-ui__cta {
+    padding: 9px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .round-ui__slot {
+    transition: none;
+  }
+
+  .round-ui__slot:hover {
+    transform: none;
+  }
+}
+
+/* ── Team identity ───────────────────────────────────────────── */
+
+.round-ui__team {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 8px 12px;
+}
+
+.round-ui__team-crest {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 2px solid var(--rd-accent);
+  background: rgba(0, 0, 0, 0.45);
+  color: var(--rd-accent);
+  font-family: var(--rd-font-display);
+  font-size: 12px;
+}
+
+.round-ui__team-text {
+  min-width: 0;
+}
+
+.round-ui__team-name {
+  overflow: hidden;
+  color: var(--rd-ink);
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.round-ui__team-code {
+  margin-top: 3px;
+  color: var(--rd-gold);
+  font-family: var(--rd-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.5px;
+}
+
+/* ── Collapsible rail ────────────────────────────────────────── */
+
+/* Closed, the rail leaves a slim handle behind: the board takes the width it
+   frees up and the handle still shows what is waiting in there (and pulses
+   while a world event runs), so the sidebar can always be found again. */
+.round-ui__main--railclosed {
+  grid-template-columns: minmax(0, 1fr) 46px;
+}
+
+.round-ui__handle {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 0;
+  border: 2px solid var(--rd-edge);
+  border-radius: 2px;
+  background: var(--rd-panel);
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.55), 0 4px 0 rgba(0, 0, 0, 0.5);
+  color: var(--rd-ink-dim);
+  cursor: pointer;
+}
+
+.round-ui__handle:hover {
+  border-color: var(--rd-accent);
+  color: var(--rd-ink);
+}
+
+.round-ui__handle-label {
+  color: var(--rd-accent);
+  font-family: var(--rd-font-display);
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  writing-mode: vertical-rl;
+}
+
+.round-ui__handle-icons {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: auto;
+}
+
+.round-ui__handle-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.round-ui__handle-icon--live::after {
+  content: "";
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--rd-gold);
+  animation: rd-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes rd-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.7); }
+}
+
+.round-ui__rail-close {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 7px;
+  border: 2px solid var(--rd-edge);
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--rd-ink-dim);
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.round-ui__rail-close:hover {
+  border-color: var(--rd-accent);
+  color: var(--rd-ink);
+}
+
+/* ── Footer: inventory + companion video ─────────────────────── */
+
+.round-ui__foot {
+  display: flex;
+  flex: 0 0 auto;
+  gap: var(--rd-gap);
+  align-items: stretch;
+}
+
+.round-ui__foot > .round-ui__inventory {
+  flex: 1 1 auto;
+}
+
+/* The hotbar is the centrepiece of the row, so it centres rather than sitting
+   against the left edge with the actions pushed far away. */
+.round-ui__inventory {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.round-ui__inventory-main {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+}
+
+.round-ui__inventory-head {
+  width: min(520px, 100%);
+}
+
+.round-ui__inventory-actions {
+  justify-content: center;
+}
+
+/* Square card. Its height is driven from the viewport and the width follows,
+   so the footer row can never grow to swallow the board above it. */
+.round-ui__companion {
+  display: grid;
+  height: clamp(84px, 13vh, 148px);
+  flex: 0 0 auto;
+  align-self: center;
+  aspect-ratio: 1;
+  place-items: center;
+  overflow: hidden;
+  padding: 4px;
+}
+
+.round-ui__companion video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ── Guardian arena ──────────────────────────────────────────── */
+
+.gd {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.gd__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 2px solid var(--rd-edge);
+}
+
+.gd__head .round-ui__panel-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.gd__sub {
+  margin-top: 6px;
+  color: var(--rd-ink-dim);
+  font-size: 11px;
+}
+
+.gd__badge {
+  flex: 0 0 auto;
+  padding: 4px 9px;
+  border: 1px solid var(--rd-edge-lit);
+  background: rgba(0, 0, 0, 0.4);
+  color: var(--rd-ink-dim);
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.gd__badge--won { border-color: var(--rd-good); color: var(--rd-good); }
+.gd__badge--started { border-color: var(--rd-gold); color: var(--rd-gold); }
+.gd__badge--lost { border-color: var(--rd-bad); color: var(--rd-bad); }
+
+.gd__body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.gd__note {
+  color: var(--rd-ink-dim);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.gd__error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--rd-bad);
+  background: rgba(160, 40, 30, 0.28);
+  color: #ffc3ba;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.gd__error svg { flex: 0 0 auto; margin-top: 1px; }
+
+.gd__result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 18px 8px;
+  color: var(--rd-good);
+  text-align: center;
+}
+
+.gd__result-title {
+  color: var(--rd-ink);
+  font-family: var(--rd-font-display);
+  font-size: 13px;
+}
+
+.gd__idle,
+.gd__battle {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.gd__art {
+  height: 160px;
+  min-height: 0;
+}
+
+.gd__stakes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.gd__stakes div {
+  padding: 10px;
+  border: 2px solid var(--rd-edge);
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.gd__stakes dt {
+  color: var(--rd-ink-dim);
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.gd__stakes dd {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.gd__win { color: var(--rd-good); }
+.gd__loss { color: var(--rd-bad); }
+
+.gd__battle-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--rd-ink-dim);
+  font-size: 11px;
+}
+
+.gd__timer {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px;
+  border: 1px solid var(--rd-gold);
+  color: var(--rd-gold);
+  font-family: var(--rd-font-display);
+  font-size: 12px;
+}
+
+.gd__timer--low {
+  border-color: var(--rd-bad);
+  color: var(--rd-bad);
+}
+
+.gd__question {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 11px;
+  border: 2px solid var(--rd-edge);
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.gd__question label {
+  color: var(--rd-ink);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.gd__question b {
+  margin-right: 6px;
+  color: var(--rd-accent);
+  font-family: var(--rd-font-display);
+  font-size: 11px;
+}
+
+.gd__input {
+  width: 100%;
+  padding: 9px 10px;
+  border: 2px solid var(--rd-edge-lit);
+  background: rgba(0, 0, 0, 0.5);
+  color: var(--rd-ink);
+  font-family: var(--rd-font-mono);
+  font-size: 13px;
+}
+
+.gd__input:focus {
+  border-color: var(--rd-accent);
+  outline: none;
+}
+
+.gd__input:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+/* ── World event ─────────────────────────────────────────────── */
+
+/* Announcement toast. Rendered through sonner so it can never overlap the
+   round's own controls — the page is a fixed screen with no spare room. */
+.we-toast {
+  display: flex;
+  width: min(380px, calc(100vw - 32px));
+  align-items: center;
+  gap: 12px;
+  padding: 11px 13px;
+  border: 2px solid #f2c14e;
+  background: linear-gradient(180deg, rgba(28, 22, 6, 0.98), rgba(12, 10, 4, 0.98));
+  box-shadow: 0 6px 0 rgba(0, 0, 0, 0.5);
+  color: #f2f0e6;
+  font-family: ui-sans-serif, system-ui, 'Segoe UI', Roboto, sans-serif;
+}
+
+.we-toast > svg { flex: 0 0 auto; color: #f2c14e; }
+.we-toast > div { min-width: 0; }
+
+.we-toast strong {
+  display: block;
+  color: #f2c14e;
+  font-family: var(--font-minecraft), 'Press Start 2P', monospace;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.we-toast span {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+}
+
+.we-art--live {
+  border-color: var(--rd-gold);
+  box-shadow: 0 0 12px rgba(242, 193, 78, 0.35);
+}
+
+.we-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  color: var(--rd-ink-dim);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.we-hint svg { flex: 0 0 auto; margin-top: 2px; }
+
+/* ── Section submit ──────────────────────────────────────────── */
+
+.round-ui__section-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 2px solid var(--rd-board-line);
+}
+
+.round-ui__section-state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--rd-board-dim);
+  font-size: 12px;
+}
+
+.round-ui__section-state b {
+  color: var(--rd-board-ink);
+  font-weight: 700;
+}
+
+.round-ui__btn--lock {
+  border-color: #7a4a12;
+  background: linear-gradient(180deg, #c98f27 0%, #7d5310 100%);
+  box-shadow: inset 2px 2px 0 rgba(255, 255, 255, 0.28), inset -2px -2px 0 rgba(0, 0, 0, 0.35);
+  color: #2a1c04;
+}
+
+.round-ui__btn--lock:hover:not(:disabled) { filter: brightness(1.1); }
+
+.round-ui__locked-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 2px solid var(--rd-board-tile-edge);
+  background: var(--rd-board-sunk);
+  color: var(--rd-board-dim);
+  font-size: 12px;
+}
+
+.round-ui__confirm {
+  display: flex;
+  max-width: 420px;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+}
+
+.round-ui__confirm h2 {
+  color: var(--rd-gold);
+  font-family: var(--rd-font-display);
+  font-size: 13px;
+}
+
+.round-ui__confirm p {
+  color: var(--rd-ink-dim);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.round-ui__confirm-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+@media (max-width: 940px) {
+  .round-ui__main--railclosed {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .round-ui__handle {
+    height: auto;
+    flex-direction: row;
+    justify-content: center;
+    padding: 10px;
+  }
+
+  .round-ui__handle-label {
+    writing-mode: horizontal-tb;
+  }
+
+  .round-ui__handle-icons {
+    flex-direction: row;
+    margin: 0;
+  }
+
+  .round-ui__foot {
+    flex-wrap: wrap;
+  }
+
+  .round-ui__companion {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 5;
+  }
+
+}
+
+/* ── Notification tray ───────────────────────────────────────── */
+
+.nt {
+  position: relative;
+  display: flex;
+}
+
+/* Fixed rather than absolute: the round clips its own overflow, and a tray
+   anchored inside the header would be cut off at the header's edge. */
+.nt__panel {
+  position: fixed;
+  top: 78px;
+  right: clamp(8px, 1.4vw, 18px);
+  z-index: 35;
+  display: flex;
+  width: min(360px, calc(100vw - 24px));
+  max-height: min(460px, calc(100dvh - 120px));
+  flex-direction: column;
+  padding: 12px;
+  gap: 10px;
+  overflow: hidden;
+}
+
+.nt__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.nt__head button {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border: 2px solid var(--rd-edge);
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--rd-ink-dim);
+  cursor: pointer;
+}
+
+.nt__head button:hover {
+  border-color: var(--rd-accent);
+  color: var(--rd-ink);
+}
+
+.nt__pending {
+  padding: 9px 10px;
+  border: 2px solid var(--rd-edge);
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--rd-gold);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.nt__section {
+  color: var(--rd-ink-dim);
+  font-size: 10px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+
+.nt__empty {
+  padding: 14px 4px;
+  color: var(--rd-ink-dim);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.nt__list {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 7px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.nt__item {
+  padding: 9px 10px;
+  border: 2px solid var(--rd-edge);
+  border-left: 3px solid var(--rd-accent);
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.nt__item-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.nt__source {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--rd-ink);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nt__item-head time {
+  flex: 0 0 auto;
+  color: var(--rd-ink-dim);
+  font-family: var(--rd-font-mono);
+  font-size: 11px;
+}
+
+.nt__deltas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 7px;
+}
+
+.nt__delta {
+  padding: 2px 7px;
+  border: 1px solid var(--rd-edge-lit);
+  color: var(--rd-ink-dim);
+  font-family: var(--rd-font-mono);
+  font-size: 11px;
+  text-transform: capitalize;
+}
+
+.nt__delta--up {
+  border-color: var(--rd-good);
+  color: var(--rd-good);
+}
+
+.nt__delta--down {
+  border-color: var(--rd-bad);
+  color: var(--rd-bad);
+}

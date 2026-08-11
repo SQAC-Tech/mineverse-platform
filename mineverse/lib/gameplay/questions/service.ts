@@ -193,6 +193,88 @@ export async function upsertTeamSubmission(teamId: string, payload: z.infer<type
   };
 }
 
+export const sectionSubmitPayloadSchema = z.object({
+  round_id: z.number().int(),
+  question_ids: z.array(z.string().uuid()).min(1).max(100),
+});
+
+/**
+ * Locks every submission in a section so the team can no longer revise it.
+ *
+ * A section is submitted as a unit: the whole set is checked first and nothing
+ * is written unless every question in it has an answer, so a team can never end
+ * up with half a section frozen. Locking is what `upsertTeamSubmission` already
+ * refuses to write past, so this is the only gate the flow needs.
+ */
+export async function lockTeamSection(teamId: string, payload: z.infer<typeof sectionSubmitPayloadSchema>) {
+  const access = await verifyDev4RoundAccess(teamId, payload.round_id);
+  if (!access.ok) return access;
+
+  const { data: questions, error: questionsError } = await db
+    .from('questions')
+    .select('id, round_id, guardian_name')
+    .in('id', payload.question_ids);
+
+  if (questionsError) throw questionsError;
+
+  // Every id must be a real, non-guardian question of the round being submitted,
+  // so a crafted payload cannot reach across rounds or into a guardian pack.
+  const valid = (questions ?? []).filter(
+    (question: QuestionRow & { guardian_name: string | null }) =>
+      question.round_id === payload.round_id && !question.guardian_name,
+  );
+
+  if (valid.length !== payload.question_ids.length) {
+    return { ok: false as const, status: 400, code: 'INVALID_SECTION', message: 'That section does not belong to this round.' };
+  }
+
+  const { data: submissions, error: submissionsError } = await db
+    .from('submissions')
+    .select('id, question_id, status')
+    .eq('team_id', teamId)
+    .in('question_id', payload.question_ids);
+
+  if (submissionsError) throw submissionsError;
+
+  const answered = new Set((submissions ?? []).map((row: SubmissionRow) => row.question_id));
+  const missing = payload.question_ids.filter((id) => !answered.has(id));
+
+  if (missing.length > 0) {
+    return {
+      ok: false as const,
+      status: 400,
+      code: 'SECTION_INCOMPLETE',
+      message: `Answer every question first — ${missing.length} still unanswered.`,
+    };
+  }
+
+  // Graded and manual-review rows are already final; re-locking them would
+  // overwrite a grading outcome.
+  const lockable = (submissions ?? [])
+    .filter((row: SubmissionRow) => row.status === 'draft' || row.status === 'submitted')
+    .map((row: SubmissionRow) => row.id);
+
+  if (lockable.length > 0) {
+    const lockedAt = new Date().toISOString();
+    const { error: lockError } = await db
+      .from('submissions')
+      .update({ status: 'locked', locked_at: lockedAt, updated_at: lockedAt })
+      .eq('team_id', teamId)
+      .in('id', lockable);
+
+    if (lockError) throw lockError;
+  }
+
+  return {
+    ok: true as const,
+    data: {
+      round_id: payload.round_id,
+      locked_count: lockable.length,
+      already_final: payload.question_ids.length - lockable.length,
+    },
+  };
+}
+
 export async function getMySubmissions(teamId: string, roundId: number) {
   const access = await verifyDev4RoundAccess(teamId, roundId);
   if (!access.ok) return access;
