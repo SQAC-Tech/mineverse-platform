@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144">
+  <defs>
+    <filter id="grain" x="-12%" y="-12%" width="124%" height="124%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.035 0.18" numOctaves="3" seed="21" result="noise"/>
+      <feColorMatrix in="noise" type="matrix" values=".38 0 0 0 .22  0 .18 0 0 .10  0 0 .06 0 .025  0 0 0 .48 0" result="woodNoise"/>
+      <feBlend in="SourceGraphic" in2="woodNoise" mode="multiply"/>
+    </filter>
+    <linearGradient id="topWood" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#d79549"/>
+      <stop offset=".18" stop-color="#8d4a20"/>
+      <stop offset=".58" stop-color="#b96b2c"/>
+      <stop offset="1" stop-color="#633114"/>
+    </linearGradient>
+    <linearGradient id="sideWood" x1="0" y1="0" x2="1" y2="0">
+      <stop stop-color="#602d12"/>
+      <stop offset=".35" stop-color="#bd6d2c"/>
+      <stop offset=".72" stop-color="#824017"/>
+      <stop offset="1" stop-color="#d99443"/>
+    </linearGradient>
+    <linearGradient id="corner" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#e4a251"/>
+      <stop offset=".38" stop-color="#8a461b"/>
+      <stop offset="1" stop-color="#4b220e"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Outer dark bevel and four straight wooden rail sections. The centre stays transparent for border-image use. -->
+  <path d="M0 0h144v144H0z M25 25h94v94H25z" fill="#2a160a" fill-rule="evenodd"/>
+  <g filter="url(#grain)">
+    <rect x="24" y="2" width="96" height="33" fill="url(#topWood)"/>
+    <rect x="24" y="109" width="96" height="33" fill="url(#topWood)"/>
+    <rect x="2" y="24" width="33" height="96" fill="url(#sideWood)"/>
+    <rect x="109" y="24" width="33" height="96" fill="url(#sideWood)"/>
+    <path d="M2 2h31v31H2zM111 2h31v31h-31zM2 111h31v31H2zM111 111h31v31h-31z" fill="url(#corner)"/>
+  </g>
+
+  <!-- Saw cuts, dark grain and nails are intentionally kept inside the outer 24px border slices. -->
+  <g fill="none" stroke="#3e1c0a" stroke-linecap="round" opacity=".72">
+    <path d="M31 10c13 8 19-5 32 3s20-5 34 3 16-4 23 1M29 20c16-7 24 6 39-1s22 6 38-1" stroke-width="2"/>
+    <path d="M29 118c15 7 21-5 35 2s22-4 35 3 17-3 23 1M31 133c18-7 25 5 40-1s20 5 38-2" stroke-width="2"/>
+    <path d="M12 31c8 12-5 20 3 33s-5 19 3 34M22 28c-7 14 6 23-1 37s6 21-1 36" stroke-width="2"/>
+    <path d="M132 31c-8 12 5 20-3 33s5 19-3 34M122 28c7 14-6 23 1 37s-6 21 1 36" stroke-width="2"/>
+  </g>
+  <g fill="#211006" stroke="#e0a35c" stroke-width="1.5">
+    <circle cx="14" cy="14" r="3"/><circle cx="130" cy="14" r="3"/><circle cx="14" cy="130" r="3"/><circle cx="130" cy="130" r="3"/>
+  </g>
+  <g stroke="#3a1b0b" stroke-width="2" opacity=".9">
+    <path d="M24 0v36M120 0v36M24 108v36M120 108v36M0 24h36M108 24h36M0 120h36M108 120h36"/>
+  </g>
+</svg>

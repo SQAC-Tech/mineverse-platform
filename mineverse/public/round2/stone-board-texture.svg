@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144">
+  <defs>
+    <filter id="chisel" x="-12%" y="-12%" width="124%" height="124%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.12 0.12" numOctaves="3" seed="7" result="noise"/>
+      <feColorMatrix in="noise" type="matrix" values=".22 0 0 0 .30  0 .24 0 0 .32  0 0 .26 0 .34  0 0 0 .40 0" result="rockNoise"/>
+      <feBlend in="SourceGraphic" in2="rockNoise" mode="multiply"/>
+    </filter>
+    <linearGradient id="topStone" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#8d9490"/>
+      <stop offset=".2" stop-color="#5c6462"/>
+      <stop offset=".6" stop-color="#717976"/>
+      <stop offset="1" stop-color="#3d4442"/>
+    </linearGradient>
+    <linearGradient id="sideStone" x1="0" y1="0" x2="1" y2="0">
+      <stop stop-color="#3c4341"/>
+      <stop offset=".35" stop-color="#767e7a"/>
+      <stop offset=".72" stop-color="#525a57"/>
+      <stop offset="1" stop-color="#8b9290"/>
+    </linearGradient>
+    <linearGradient id="cornerStone" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#98a09c"/>
+      <stop offset=".4" stop-color="#5a625f"/>
+      <stop offset="1" stop-color="#2c3230"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Outer dark bevel and four straight rail sections. The centre stays transparent for border-image use. -->
+  <path d="M0 0h144v144H0z M25 25h94v94H25z" fill="#161b1a" fill-rule="evenodd"/>
+  <g filter="url(#chisel)">
+    <rect x="24" y="2" width="96" height="33" fill="url(#topStone)"/>
+    <rect x="24" y="109" width="96" height="33" fill="url(#topStone)"/>
+    <rect x="2" y="24" width="33" height="96" fill="url(#sideStone)"/>
+    <rect x="109" y="24" width="33" height="96" fill="url(#sideStone)"/>
+    <path d="M2 2h31v31H2zM111 2h31v31h-31zM2 111h31v31H2zM111 111h31v31h-31z" fill="url(#cornerStone)"/>
+  </g>
+
+  <!-- Cobble seams, kept inside the outer 24px border slices so the slice stays clean. -->
+  <g fill="none" stroke="#222826" stroke-width="2" opacity=".8">
+    <path d="M40 2v33M64 2v18h22M86 20v15M96 2v18M40 109v14h26M66 123v19M96 109v33"/>
+    <path d="M2 44h33M20 44v22M2 66h18M20 66v20M109 44h33M126 44v24M109 68h17M126 68v22"/>
+  </g>
+  <!-- Faint moss catches the light on the top edge, the way a lit cave wall does. -->
+  <g fill="#4c6a3a" opacity=".5">
+    <path d="M28 3h10v4H28zM52 3h7v3h-7zM104 3h9v4h-9zM4 92h4v9H4zM137 60h4v7h-4z"/>
+  </g>
+  <g stroke="#1b201f" stroke-width="2" opacity=".9">
+    <path d="M24 0v36M120 0v36M24 108v36M120 108v36M0 24h36M108 24h36M0 120h36M108 120h36"/>
+  </g>
+</svg>

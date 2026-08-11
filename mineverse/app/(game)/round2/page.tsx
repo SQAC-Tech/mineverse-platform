@@ -1,5 +1,5 @@
-import { CustomRoundShell } from '@/components/game/custom-round-ui/CustomRoundShell';
+import { CaveRoundShell } from '@/components/game/custom-round-ui/CaveRoundShell';
 
 export default function RoundPage() {
-  return <CustomRoundShell roundId={2} />;
+  return <CaveRoundShell />;
 }
