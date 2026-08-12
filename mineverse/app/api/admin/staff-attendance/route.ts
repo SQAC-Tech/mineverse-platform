@@ -124,6 +124,63 @@ export async function POST(req: Request) {
   return NextResponse.json({ success: true, data });
 }
 
+/**
+ * Corrects an entry that was logged wrong — the usual case is the hours or the
+ * time, typed in a hurry at a busy desk. Every field is replaced, so the client
+ * sends the whole row back rather than a partial patch.
+ */
+export async function PATCH(req: Request) {
+  const guard = await requirePanelScope('admin');
+  if (!guard.ok) return guard.response;
+
+  const body = await req.json().catch(() => ({}));
+  const id = typeof body.id === 'string' ? body.id : new URL(req.url).searchParams.get('id');
+  const desk = body.desk;
+  const personName = typeof body.person_name === 'string' ? body.person_name.trim() : '';
+  const hours = Number(body.hours);
+
+  if (!id) {
+    return NextResponse.json({ success: false, error: 'Missing entry id' }, { status: 400 });
+  }
+  if (!isDesk(desk)) {
+    return NextResponse.json({ success: false, error: 'Pick C2C or Helpdesk' }, { status: 400 });
+  }
+  if (!personName) {
+    return NextResponse.json({ success: false, error: 'Name is required' }, { status: 400 });
+  }
+  if (!Number.isFinite(hours) || hours <= 0 || hours > 24) {
+    return NextResponse.json({ success: false, error: 'Hours must be between 0 and 24' }, { status: 400 });
+  }
+
+  const reportedAt = typeof body.reported_at === 'string' ? new Date(body.reported_at) : null;
+  if (!reportedAt || Number.isNaN(reportedAt.getTime())) {
+    return NextResponse.json({ success: false, error: 'Invalid date and time' }, { status: 400 });
+  }
+
+  const { data, error } = await supabaseServer
+    .from('staff_attendance')
+    .update({
+      desk,
+      person_name: personName,
+      hours,
+      reported_at: reportedAt.toISOString(),
+      notes: typeof body.notes === 'string' && body.notes.trim() ? body.notes.trim() : null,
+    })
+    .eq('id', id)
+    .select('*')
+    .maybeSingle();
+
+  if (error) {
+    console.error('Staff attendance update failed:', error);
+    return NextResponse.json({ success: false, error: 'Could not save the changes' }, { status: 500 });
+  }
+  if (!data) {
+    return NextResponse.json({ success: false, error: 'That entry no longer exists' }, { status: 404 });
+  }
+
+  return NextResponse.json({ success: true, data });
+}
+
 export async function DELETE(req: Request) {
   const guard = await requirePanelScope('admin');
   if (!guard.ok) return guard.response;

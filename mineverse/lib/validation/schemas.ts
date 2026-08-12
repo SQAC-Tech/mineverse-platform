@@ -37,7 +37,10 @@ export const registrationSchema = z.object({
     .max(50)
     .regex(/^[A-Za-z0-9-]+$/, { message: 'Transaction ID can only contain letters, numbers and dashes' }),
   sender_name: z.string().trim().min(2, { message: 'Enter the name on the paying UPI account' }).max(50),
-  members: z.array(memberSchema).min(1).max(3)
+  // Solo entries are not accepted — a team is either a duo or a trio.
+  members: z.array(memberSchema)
+    .min(2, { message: 'A team needs at least 2 members — solo entries are not allowed' })
+    .max(3, { message: 'A team can have at most 3 members' })
     .refine((m) => m.filter(x => x.is_team_lead).length === 1 && m[0].is_team_lead,
       { message: 'First member must be the team lead' })
     .refine((m) => new Set(m.map(x => x.college_email.toLowerCase())).size === m.length,

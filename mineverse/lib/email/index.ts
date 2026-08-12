@@ -1,5 +1,6 @@
 import { sendResendEmail } from './resend';
 import { sendSmtpEmail } from './smtp';
+import type { EmailAttachment } from './types';
 import { supabaseServer } from '@/lib/supabase/server';
 import { env } from '@/lib/env';
 
@@ -17,6 +18,37 @@ async function logEmail(type: string, provider: 'resend'|'smtp', to: string, sub
     error: err,
     sent_at: success ? new Date().toISOString() : null,
   });
+}
+
+/**
+ * Sends through Resend, falling back to SMTP only if Resend refuses.
+ *
+ * Gmail SMTP caps daily sends, which is the wrong ceiling to sit under on
+ * event day, so the transactional provider goes first and the mailbox is the
+ * safety net. Each attempt is logged separately: a failed `resend` row
+ * followed by a `smtp` row is how you spot the fallback carrying traffic
+ * rather than it silently becoming the primary again.
+ */
+async function deliver({
+  type, to, subject, html, attachments, teamId, memberId,
+}: {
+  type: string;
+  to: string;
+  subject: string;
+  html: string;
+  attachments?: EmailAttachment[];
+  teamId?: string;
+  memberId?: string;
+}): Promise<EmailResult> {
+  const viaResend = await sendResendEmail({ to, subject, html, attachments });
+  await logEmail(type, 'resend', to, subject, viaResend.success, viaResend.error, teamId, memberId);
+  if (viaResend.success) return { success: true };
+
+  const viaSmtp = await sendSmtpEmail({ to, subject, html, attachments });
+  await logEmail(type, 'smtp', to, subject, viaSmtp.success, viaSmtp.error, teamId, memberId);
+  if (viaSmtp.success) return { success: true };
+
+  return { success: false, error: `Resend: ${viaResend.error} | SMTP: ${viaSmtp.error}` };
 }
 
 // ─── MINECRAFT THEME HELPERS (DARK MODE SAFE) ─────────────────────────────────
@@ -141,9 +173,7 @@ export async function sendOtpEmail({
     <p style="color: #a3a3a3; font-size: 14px;">This code expires in <strong style="color: #fca311;">${env.OTP_EXPIRY_MINUTES} minutes</strong>. Do not share it with anyone.</p>
   `);
 
-  const res = await sendSmtpEmail({ to, subject, html });
-  await logEmail(`otp_${purpose}`, 'smtp', to, subject, res.success, res.error, team_id);
-  return res;
+  return deliver({ type: `otp_${purpose}`, to, subject, html, teamId: team_id });
 }
 
 export async function sendRegistrationReceivedEmail({
@@ -172,9 +202,7 @@ export async function sendRegistrationReceivedEmail({
     ${mcButton('CHECK STATUS', statusUrl)}
   `);
 
-  const res = await sendSmtpEmail({ to, subject, html });
-  await logEmail('reg_pending', 'smtp', to, subject, res.success, res.error, team_id);
-  return res;
+  return deliver({ type: 'reg_pending', to, subject, html, teamId: team_id });
 }
 
 export async function sendPaymentVerifiedEmail({
@@ -218,9 +246,10 @@ export async function sendPaymentVerifiedEmail({
     cid: 'attendance-qr'
   }];
 
-  const res = await sendSmtpEmail({ to, subject, html, attachments });
-  await logEmail('payment_verified', 'smtp', to, subject, res.success, res.error, team_id, member_id);
-  return res;
+  return deliver({
+    type: 'payment_verified', to, subject, html, attachments,
+    teamId: team_id, memberId: member_id,
+  });
 }
 
 export async function sendPaymentIssueEmail({
@@ -247,7 +276,5 @@ export async function sendPaymentIssueEmail({
     <p>Please contact us at <strong style="color: #4ade80;">${process.env.NEXT_PUBLIC_CONTACT_EMAIL}</strong> for assistance or try paying again.</p>
   `);
 
-  const res = await sendSmtpEmail({ to, subject, html });
-  await logEmail('payment_issue', 'smtp', to, subject, res.success, res.error, team_id);
-  return res;
+  return deliver({ type: 'payment_issue', to, subject, html, teamId: team_id });
 }

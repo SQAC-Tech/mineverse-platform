@@ -1,8 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { RefreshCw, Plus, Trash2, ClipboardList, Download } from 'lucide-react';
+import { RefreshCw, Plus, Trash2, ClipboardList, Download, Pencil, Check } from 'lucide-react';
 import {
   Panel, Btn, Table, Empty, Loading, PageTitle, Field, Grid, StatTile, Pill, apiCall,
 } from '@/components/admin/nether-ui';
@@ -55,9 +55,35 @@ export default function StaffAttendancePage() {
   const [when, setWhen] = useState(() => toLocalInput(new Date()));
   const [showPicker, setShowPicker] = useState(false);
 
+  /**
+   * Editing reuses the same form rather than turning the row into six inline
+   * inputs — the row is already tight on a phone, and the "when" control with
+   * its one-tap backfills is the part most corrections need.
+   */
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const formRef = useRef<HTMLDivElement>(null);
+
   /** Quick backfill: minutes before now. 0 means "right now". */
   const shiftWhen = (minutesAgo: number) =>
     setWhen(toLocalInput(new Date(Date.now() - minutesAgo * 60_000)));
+
+  const resetForm = () => {
+    setEditingId(null);
+    setName('');
+    setHours('');
+    setWhen(toLocalInput(new Date()));
+    setShowPicker(false);
+  };
+
+  const startEdit = (entry: Entry) => {
+    setEditingId(entry.id);
+    setDesk(entry.desk);
+    setName(entry.person_name);
+    setHours(String(entry.hours));
+    setWhen(toLocalInput(new Date(entry.reported_at)));
+    setShowPicker(false);
+    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   const load = useCallback(async () => {
     const res = await apiCall<Entry[]>('/api/admin/staff-attendance');
@@ -93,8 +119,9 @@ export default function StaffAttendancePage() {
 
     setBusy(true);
     const res = await apiCall('/api/admin/staff-attendance', {
-      method: 'POST',
+      method: editingId ? 'PATCH' : 'POST',
       body: JSON.stringify({
+        ...(editingId ? { id: editingId } : {}),
         desk,
         person_name: trimmed,
         hours: parsedHours,
@@ -105,11 +132,8 @@ export default function StaffAttendancePage() {
 
     if (!res.ok) return toast.error(res.message);
 
-    toast.success(`${trimmed} logged — ${parsedHours} h`);
-    setName('');
-    setHours('');
-    setWhen(toLocalInput(new Date()));
-    setShowPicker(false);
+    toast.success(editingId ? `${trimmed}'s entry updated` : `${trimmed} logged — ${parsedHours} h`);
+    resetForm();
     void load();
   };
 
@@ -127,6 +151,8 @@ export default function StaffAttendancePage() {
     const res = await apiCall(`/api/admin/staff-attendance?id=${entry.id}`, { method: 'DELETE' });
     if (res.ok) {
       toast.success('Entry removed');
+      // Don't leave the form editing a row that no longer exists.
+      if (editingId === entry.id) resetForm();
       void load();
     } else {
       toast.error(res.message);
@@ -155,7 +181,16 @@ export default function StaffAttendancePage() {
       </Grid>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 12, marginTop: 12 }}>
-        <Panel title="Log a shift" subtitle="Defaults to right now — change the time to backfill">
+        <div ref={formRef}>
+        <Panel
+          title={editingId ? 'Edit entry' : 'Log a shift'}
+          subtitle={
+            editingId
+              ? 'Fix the desk, name, time or hours, then save'
+              : 'Defaults to right now — change the time to backfill'
+          }
+          actions={editingId ? <Btn small variant="ghost" onClick={resetForm}>Cancel</Btn> : undefined}
+        >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <Field label="Desk">
               <div style={{ display: 'flex', gap: 8 }}>
@@ -231,10 +266,12 @@ export default function StaffAttendancePage() {
             </Field>
 
             <Btn variant="primary" disabled={busy} onClick={submit}>
-              <Plus size={14} /> {busy ? 'Saving…' : 'Add entry'}
+              {editingId ? <Check size={14} /> : <Plus size={14} />}
+              {busy ? 'Saving…' : editingId ? 'Save changes' : 'Add entry'}
             </Btn>
           </div>
         </Panel>
+        </div>
 
         <Panel
           title={`Log (${visible.length})`}
@@ -274,9 +311,19 @@ export default function StaffAttendancePage() {
                   </td>
                   <td className="n-mono">{Number(entry.hours).toFixed(1)} h</td>
                   <td>
-                    <Btn small variant="ghost" onClick={() => remove(entry)} aria-label={`Remove ${entry.person_name}`}>
-                      <Trash2 size={13} />
-                    </Btn>
+                    <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
+                      <Btn
+                        small
+                        variant={editingId === entry.id ? 'primary' : 'ghost'}
+                        onClick={() => startEdit(entry)}
+                        aria-label={`Edit ${entry.person_name}`}
+                      >
+                        <Pencil size={13} />
+                      </Btn>
+                      <Btn small variant="ghost" onClick={() => remove(entry)} aria-label={`Remove ${entry.person_name}`}>
+                        <Trash2 size={13} />
+                      </Btn>
+                    </div>
                   </td>
                 </tr>
               ))}
