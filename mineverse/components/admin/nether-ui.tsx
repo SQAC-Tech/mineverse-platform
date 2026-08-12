@@ -176,11 +176,10 @@ export function PageTitle({ title, subtitle, actions }: { title: string; subtitl
         <div>
           <h2
             style={{
-              fontSize: 22,
-              letterSpacing: 2,
-              textTransform: 'uppercase',
+              fontSize: 24,
+              fontWeight: 650,
+              letterSpacing: 0.4,
               color: 'var(--text-onDark)',
-              textShadow: '0 0 12px rgb(235 71 4 / 35%)',
             }}
           >
             {title}

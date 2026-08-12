@@ -1,26 +1,150 @@
 /*
- * Nether Portal palette for the admin panel.
- * Token values come from `docs/DESIGN and images/D.md`.
+ * Admin panel palette, typography and layout.
  *
- * The component classes themselves live in `app/theme-kit.css`, shared with the
- * gameplay rounds — this file only supplies the colours.
+ * The component classes live in `app/theme-kit.css`, shared with the gameplay
+ * rounds. That file is deliberately left alone — everything here is scoped to
+ * `.nether` so the `.biome` rounds keep their pixel-font arcade look while the
+ * admin panel reads like a tool an organizer stares at for two days straight.
+ *
+ * Two changes from the original Nether theme:
+ *   1. Palette moved off purple/orange to slate + sky. Warm orange on magenta
+ *      vibrated badly and the purple body text was the least legible thing here.
+ *   2. Typography moved off the pixel display font and every size went up.
+ *      9px uppercase letter-spaced pixel text is unreadable on a laptop.
  */
 
 .nether {
-  --bg-void: #16000b;
-  --bg-panel: #26021c;
-  --bg-panel-raised: #32034d;
-  --accent-secondary: #4c0855;
-  --accent-danger: #550c1b;
-  --accent-primary: #eb4704;
-  --accent-primary-hover: #d43b05;
-  --accent-muted: #96230e;
-  --text-onDark: #fdf4e3;
-  --text-onLava: #120008;
-  --text-portal: #d9b3ff;
+  --bg-void: #0a1017;
+  --bg-panel: #121b26;
+  --bg-panel-raised: #1c2938;
+  --accent-secondary: #2c3e52;
+  --accent-danger: #7f1d2f;
+  --accent-primary: #38bdf8;
+  --accent-primary-hover: #0ea5e9;
+  --accent-muted: #38536e;
+  --text-onDark: #e9eef5;
+  --text-onLava: #06131c;
+  /* Was purple; now a neutral slate so secondary text stays readable. */
+  --text-portal: #9db2c8;
 
   --ok: #4ade80;
   --warn: #fbbf24;
 
-  --font-display: var(--font-minecraft), 'Press Start 2P', monospace;
+  --font-display: ui-sans-serif, system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  /* The pixel font survives on the wordmark only, where it is decorative. */
+  --font-brand: var(--font-minecraft), 'Press Start 2P', monospace;
+}
+
+/* ── Typography: bigger, tighter tracking, still uppercase for structure ── */
+.nether .n-panel-title   { font-size: 15px; letter-spacing: 0.4px; font-weight: 600; }
+.nether .n-panel-sub     { font-size: 12.5px; letter-spacing: 0; opacity: 1; line-height: 1.45; }
+.nether .n-stat-value    { font-size: 32px; font-weight: 650; }
+.nether .n-stat-label    { font-size: 11.5px; letter-spacing: 0.6px; }
+.nether .n-btn           { font-size: 13px; letter-spacing: 0.4px; font-weight: 600; padding: 10px 16px; }
+.nether .n-btn-sm        { font-size: 12px; padding: 7px 11px; }
+.nether .n-table         { font-size: 13.5px; }
+.nether .n-table th      { font-size: 11.5px; letter-spacing: 0.6px; padding: 11px 12px; }
+.nether .n-table td      { padding: 11px 12px; }
+.nether .n-mono          { font-size: 12.5px; }
+.nether .n-pill          { font-size: 11.5px; letter-spacing: 0.4px; padding: 4px 10px; }
+.nether .n-label         { font-size: 11.5px; letter-spacing: 0.6px; }
+.nether .n-nav-group     { font-size: 11px; letter-spacing: 1px; }
+.nether .n-nav-item      { font-size: 13.5px; letter-spacing: 0.3px; padding: 10px 12px; }
+.nether .n-empty         { font-size: 13px; letter-spacing: 0; }
+.nether :is(.n-input, .n-select, .n-textarea) { font-size: 14px; padding: 10px 12px; }
+
+.nether .n-brand {
+  font-family: var(--font-brand);
+  font-size: 15px;
+  letter-spacing: 2px;
+  color: var(--accent-primary);
+  text-shadow: 0 0 14px rgb(56 189 248 / 45%);
+}
+
+/* The divider is no longer lava; keep the class name, lose the fire. */
+.nether .n-lava-divider {
+  background: linear-gradient(90deg, var(--accent-primary), transparent);
+}
+
+/* ── Shell ───────────────────────────────────────────────── */
+/* Compound, not descendant: `n-shell` sits on the same element as `nether`. */
+.nether.n-shell { display: flex; min-height: 100vh; width: 100%; position: relative; }
+
+.nether .n-sidebar {
+  /* Sticky so the nav stays reachable on a long table page. */
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  z-index: 30;
+  width: 232px;
+  flex-shrink: 0;
+  background: var(--bg-void);
+  border-right: 1px solid rgb(56 83 110 / 45%);
+  display: flex;
+  flex-direction: column;
+}
+
+.nether .n-main {
+  flex: 1;
+  position: relative;
+  z-index: 10;
+  padding: 28px 24px;
+  overflow-x: hidden;
+  min-width: 0;
+}
+
+.nether .n-main-inner { max-width: 1240px; margin: 0 auto; }
+
+/* The mobile top bar and the drawer scrim only exist below the breakpoint. */
+.nether .n-topbar { display: none; }
+.nether .n-scrim { display: none; }
+
+@media (max-width: 900px) {
+  .nether .n-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background: var(--bg-void);
+    border-bottom: 1px solid rgb(56 83 110 / 45%);
+  }
+
+  .nether.n-shell { flex-direction: column; }
+
+  .nether .n-sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: 250px;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+    box-shadow: 4px 0 24px rgb(0 0 0 / 55%);
+  }
+  .nether .n-sidebar.open { transform: translateX(0); }
+
+  .nether .n-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 25;
+    background: rgb(0 0 0 / 60%);
+  }
+
+  .nether .n-main { padding: 16px 14px 40px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nether .n-sidebar { transition: none; }
+}
+
+/* ── Small-screen density ────────────────────────────────── */
+@media (max-width: 640px) {
+  .nether .n-panel-body { padding: 13px; }
+  .nether .n-panel-head { padding: 12px 13px; }
+  .nether .n-stat-value { font-size: 26px; }
+  .nether .n-table th, .nether .n-table td { padding: 9px 10px; }
+  /* iOS zooms the page when a focused field is under 16px. */
+  .nether :is(.n-input, .n-select, .n-textarea) { font-size: 16px; }
 }

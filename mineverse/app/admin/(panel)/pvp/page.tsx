@@ -244,7 +244,7 @@ export default function AdminPvpPage() {
               </Table>
 
               {detail.void_reason && (
-                <p style={{ marginTop: 10, fontSize: 10.5, color: '#ff9db0' }}>Voided: {detail.void_reason}</p>
+                <p style={{ marginTop: 10, fontSize: 12.5, color: '#ff9db0' }}>Voided: {detail.void_reason}</p>
               )}
               {detail.status === 'live' && (
                 <p className="n-panel-sub" style={{ marginTop: 10 }}>

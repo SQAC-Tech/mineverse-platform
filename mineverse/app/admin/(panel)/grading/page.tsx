@@ -189,7 +189,7 @@ export default function AdminGradingPage() {
               <StatTile label="Round" value={run.round_id} />
             </Grid>
             {run.error && (
-              <p style={{ marginTop: 10, color: '#ff9db0', fontSize: 10.5 }}>{run.error}</p>
+              <p style={{ marginTop: 10, color: '#ff9db0', fontSize: 12.5 }}>{run.error}</p>
             )}
           </Panel>
         </div>
@@ -215,7 +215,7 @@ export default function AdminGradingPage() {
                         wordBreak: 'break-word',
                         maxHeight: 60,
                         overflow: 'hidden',
-                        fontSize: 10.5,
+                        fontSize: 12.5,
                       }}
                     >
                       {row.answer_text || row.code || <span className="n-panel-sub">empty</span>}
@@ -264,8 +264,8 @@ export default function AdminGradingPage() {
                 style={{
                   padding: 10,
                   background: 'var(--bg-void)',
-                  border: '1px solid rgb(150 35 14 / 25%)',
-                  fontSize: 10.5,
+                  border: '1px solid rgb(from var(--accent-muted) r g b / 25%)',
+                  fontSize: 12.5,
                   whiteSpace: 'pre-wrap',
                   wordBreak: 'break-word',
                   maxHeight: 160,

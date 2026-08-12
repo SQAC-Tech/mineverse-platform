@@ -113,7 +113,7 @@ export default function AdminResourcesPage() {
             <Panel title="Balance" subtitle={`Ledger version ${view.version}`}>
               <Grid min={112} gap={8}>
                 {RESOURCES.map((key) => (
-                  <div key={key} style={{ padding: 12, background: 'var(--bg-void)', border: '1px solid rgb(150 35 14 / 22%)', textAlign: 'center' }}>
+                  <div key={key} style={{ padding: 12, background: 'var(--bg-void)', border: '1px solid rgb(from var(--accent-muted) r g b / 22%)', textAlign: 'center' }}>
                     <div className="n-stat-label">{key}</div>
                     <div className="n-stat-value" style={{ fontSize: 22, marginTop: 4 }}>{view.balance?.[key] ?? 0}</div>
                   </div>
@@ -169,7 +169,7 @@ export default function AdminResourcesPage() {
                 </Field>
 
                 {entries.length > 0 && (
-                  <div style={{ padding: 9, background: 'var(--bg-void)', border: '1px solid rgb(235 71 4 / 35%)', fontSize: 10.5 }}>
+                  <div style={{ padding: 9, background: 'var(--bg-void)', border: '1px solid rgb(from var(--accent-primary) r g b / 35%)', fontSize: 12.5 }}>
                     Applying:{' '}
                     <span className="n-mono">
                       {entries.map(([k, v]) => `${Number(v) > 0 ? '+' : ''}${v} ${k}`).join(', ')}

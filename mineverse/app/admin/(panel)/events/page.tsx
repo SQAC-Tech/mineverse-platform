@@ -113,12 +113,12 @@ export default function AdminEventsPage() {
                 style={{
                   padding: 12,
                   background: 'var(--bg-void)',
-                  border: `1px solid ${alreadyActive ? 'rgb(235 71 4 / 55%)' : 'rgb(150 35 14 / 25%)'}`,
+                  border: `1px solid ${alreadyActive ? 'rgb(from var(--accent-primary) r g b / 55%)' : 'rgb(from var(--accent-muted) r g b / 25%)'}`,
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                   <Icon size={15} />
-                  <span style={{ fontSize: 11 }}>{item.label}</span>
+                  <span style={{ fontSize: 13.5 }}>{item.label}</span>
                 </div>
                 <div className="n-panel-sub" style={{ marginBottom: 4 }}>
                   Round {item.round_id}
@@ -179,7 +179,7 @@ export default function AdminEventsPage() {
           title={`Trigger ${confirming.label}?`}
           body={
             <>
-              <p style={{ fontSize: 10.5, marginBottom: 8 }}>{KIND_COPY[confirming.kind]}</p>
+              <p style={{ fontSize: 12.5, marginBottom: 8 }}>{KIND_COPY[confirming.kind]}</p>
               <p className="n-panel-sub">
                 This applies to every active, payment-verified team in round {confirming.round_id} and writes a ledger
                 entry for each resource change. It cannot be undone — only expired.

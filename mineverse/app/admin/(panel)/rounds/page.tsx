@@ -93,7 +93,7 @@ export default function AdminRoundsPage() {
                   style={{
                     padding: 12,
                     background: 'var(--bg-void)',
-                    border: '1px solid rgb(235 71 4 / 40%)',
+                    border: '1px solid rgb(from var(--accent-primary) r g b / 40%)',
                     textAlign: 'center',
                     marginBottom: 12,
                   }}
@@ -104,7 +104,7 @@ export default function AdminRoundsPage() {
                     style={{
                       fontSize: 26,
                       color: left === 'time up' ? '#ff9db0' : 'var(--accent-primary)',
-                      textShadow: '0 0 10px rgb(235 71 4 / 45%)',
+                      textShadow: '0 0 10px rgb(from var(--accent-primary) r g b / 45%)',
                       marginTop: 4,
                     }}
                   >
@@ -149,8 +149,8 @@ export default function AdminRoundsPage() {
                         gap: 7,
                         padding: '9px 12px',
                         background: 'var(--bg-void)',
-                        border: '1px solid rgb(150 35 14 / 30%)',
-                        fontSize: 10,
+                        border: '1px solid rgb(from var(--accent-muted) r g b / 30%)',
+                        fontSize: 12.5,
                         letterSpacing: 1,
                         textTransform: 'uppercase',
                         color: 'var(--text-portal)',

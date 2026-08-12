@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, CreditCard, Users, Clock, ClipboardCheck,
-  Zap, Dices, Swords, Coins, Trophy,
+  Zap, Dices, Swords, Coins, Trophy, ClipboardList,
 } from 'lucide-react';
 
 /**
@@ -27,6 +27,7 @@ const NAV_GROUPS = [
       { name: 'World Events', href: '/admin/events', icon: Zap },
       { name: 'Offline Games', href: '/admin/offline', icon: Dices },
       { name: 'PvP Matches', href: '/admin/pvp', icon: Swords },
+      { name: 'Desk Attendance', href: '/admin/staff-attendance', icon: ClipboardList },
     ],
   },
   {
