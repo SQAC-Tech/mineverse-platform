@@ -29,6 +29,21 @@ function toLocalInput(date: Date) {
   return new Date(date.getTime() - offset).toISOString().slice(0, 16);
 }
 
+/** "Today, 12:05" reads faster than "12-08-2026 12:05" at a busy desk. */
+function describeWhen(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Invalid time';
+
+  const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const today = new Date();
+  const yesterday = new Date(today.getTime() - 86_400_000);
+  const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
+
+  if (sameDay(date, today)) return `Today, ${time}`;
+  if (sameDay(date, yesterday)) return `Yesterday, ${time}`;
+  return `${date.toLocaleDateString([], { day: '2-digit', month: 'short' })}, ${time}`;
+}
+
 export default function StaffAttendancePage() {
   const [entries, setEntries] = useState<Entry[] | null>(null);
   const [filter, setFilter] = useState<Desk | 'all'>('all');
@@ -38,6 +53,11 @@ export default function StaffAttendancePage() {
   const [name, setName] = useState('');
   const [hours, setHours] = useState('');
   const [when, setWhen] = useState(() => toLocalInput(new Date()));
+  const [showPicker, setShowPicker] = useState(false);
+
+  /** Quick backfill: minutes before now. 0 means "right now". */
+  const shiftWhen = (minutesAgo: number) =>
+    setWhen(toLocalInput(new Date(Date.now() - minutesAgo * 60_000)));
 
   const load = useCallback(async () => {
     const res = await apiCall<Entry[]>('/api/admin/staff-attendance');
@@ -89,6 +109,7 @@ export default function StaffAttendancePage() {
     setName('');
     setHours('');
     setWhen(toLocalInput(new Date()));
+    setShowPicker(false);
     void load();
   };
 
@@ -161,9 +182,39 @@ export default function StaffAttendancePage() {
               />
             </Field>
 
-            <Field label="Date and time">
-              <input className="n-input" type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} />
-            </Field>
+            {/*
+              The answer is "now" almost every time, so the exact picker stays
+              collapsed behind a toggle and the common backfills are one tap.
+            */}
+            <div>
+              <span className="n-label">When</span>
+              <div className="n-when">
+                <strong className="n-when-value">{describeWhen(when)}</strong>
+                <div className="n-when-chips">
+                  <Btn small variant="ghost" onClick={() => shiftWhen(0)}>Now</Btn>
+                  <Btn small variant="ghost" onClick={() => shiftWhen(60)}>1 h ago</Btn>
+                  <Btn small variant="ghost" onClick={() => shiftWhen(120)}>2 h ago</Btn>
+                  <Btn
+                    small
+                    variant="ghost"
+                    onClick={() => setShowPicker((v) => !v)}
+                    aria-expanded={showPicker}
+                  >
+                    {showPicker ? 'Hide' : 'Pick'}
+                  </Btn>
+                </div>
+              </div>
+              {showPicker && (
+                <input
+                  className="n-input"
+                  style={{ marginTop: 8 }}
+                  type="datetime-local"
+                  value={when}
+                  max={toLocalInput(new Date())}
+                  onChange={(e) => setWhen(e.target.value)}
+                />
+              )}
+            </div>
 
             <Field label="Hours">
               <input

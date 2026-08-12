@@ -53,6 +53,28 @@
 .nether .n-empty         { font-size: 13px; letter-spacing: 0; }
 .nether :is(.n-input, .n-select, .n-textarea) { font-size: 14px; padding: 10px 12px; }
 
+/*
+ * Tells the browser to paint native widgets — the datetime picker, its
+ * calendar glyph, the number spinners — in dark mode. Without this the icons
+ * render near-black on the dark panel and look broken.
+ */
+.nether { color-scheme: dark; }
+
+/* ── "When" field: readable value + one-tap backfills ────── */
+.nether .n-when {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  background: var(--bg-void);
+  border: 1px solid rgb(from var(--accent-muted) r g b / 50%);
+  border-radius: 2px;
+  padding: 8px 10px;
+}
+.nether .n-when-value { font-size: 14px; font-weight: 600; color: var(--text-onDark); }
+.nether .n-when-chips { display: flex; gap: 5px; flex-wrap: wrap; }
+
 .nether .n-brand {
   font-family: var(--font-brand);
   font-size: 15px;
