@@ -21,7 +21,8 @@ const serverEnvSchema = z.object({
   FEE_DUO: z.coerce.number(),
   FEE_TRIO: z.coerce.number(),
   JWT_SECRET: z.string().min(32),
-  ATTENDANCE_QR_SECRET: z.string().min(32),
+  // ATTENDANCE_QR_SECRET removed: the attendance QR now encodes the plain team
+  // code, so there is no token to sign or verify.
   ADMIN_PASSWORD: z.string().min(8),
   ATTENDANCE_PASSWORD: z.string().min(8),
   OTP_EXPIRY_MINUTES: z.coerce.number().default(10),

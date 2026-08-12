@@ -123,9 +123,9 @@ export default function AdminTeamsPage() {
                             {(team.members ?? []).map((m) => (
                               <div
                                 key={m.id}
-                                style={{ padding: '8px 10px', border: '1px solid rgb(150 35 14 / 22%)', background: 'var(--bg-panel)' }}
+                                style={{ padding: '8px 10px', border: '1px solid rgb(from var(--accent-muted) r g b / 22%)', background: 'var(--bg-panel)' }}
                               >
-                                <div style={{ fontSize: 10.5 }}>{m.name}</div>
+                                <div style={{ fontSize: 12.5 }}>{m.name}</div>
                                 <div className="n-panel-sub n-mono" style={{ marginTop: 3 }}>{m.email}</div>
                                 {m.phone && <div className="n-panel-sub n-mono">{m.phone}</div>}
                               </div>

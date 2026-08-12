@@ -129,12 +129,12 @@ export default function AdminQualificationClient({ initialData }: { initialData:
       />
 
       {error && (
-        <div style={{ marginBottom: 12, padding: 10, background: 'rgb(85 12 27 / 55%)', border: '1px solid #a3324a', color: '#ff9db0', fontSize: 10.5 }}>
+        <div style={{ marginBottom: 12, padding: 10, background: 'rgb(85 12 27 / 55%)', border: '1px solid #a3324a', color: '#ff9db0', fontSize: 12.5 }}>
           {error}
         </div>
       )}
       {message && (
-        <div style={{ marginBottom: 12, padding: 10, background: 'rgb(235 71 4 / 12%)', border: '1px solid rgb(235 71 4 / 45%)', fontSize: 10.5 }}>
+        <div style={{ marginBottom: 12, padding: 10, background: 'rgb(from var(--accent-primary) r g b / 12%)', border: '1px solid rgb(from var(--accent-primary) r g b / 45%)', fontSize: 12.5 }}>
           {message}
         </div>
       )}

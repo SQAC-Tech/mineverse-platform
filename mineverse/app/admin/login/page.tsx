@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { Loader2, Flame } from 'lucide-react';
+import { Loader2, ShieldCheck } from 'lucide-react';
 import '../../theme-kit.css';
 import '../nether.css';
 
@@ -58,8 +58,8 @@ export default function AdminLoginPage() {
           backgroundImage: 'url(/cavern-bg.webp)',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
-          opacity: 0.14,
-          filter: 'saturate(0.6) hue-rotate(-25deg)',
+          opacity: 0.1,
+          filter: 'saturate(0.35) hue-rotate(150deg)',
         }}
       />
       <div
@@ -67,24 +67,24 @@ export default function AdminLoginPage() {
         style={{
           position: 'absolute',
           inset: 0,
-          background: 'radial-gradient(ellipse at 50% 40%, rgb(76 8 85 / 55%), transparent 60%)',
+          background: 'radial-gradient(ellipse at 50% 40%, rgb(from var(--accent-primary) r g b / 14%), transparent 60%)',
         }}
       />
 
       <div className="n-panel" style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 380 }}>
         <div style={{ padding: '30px 26px' }}>
           <div style={{ textAlign: 'center', marginBottom: 22 }}>
-            <Flame
+            <ShieldCheck
               size={34}
-              style={{ color: 'var(--accent-primary)', filter: 'drop-shadow(0 0 10px rgb(235 71 4 / 70%))' }}
+              style={{ color: 'var(--accent-primary)', filter: 'drop-shadow(0 0 10px rgb(from var(--accent-primary) r g b / 70%))' }}
             />
             <h1
               style={{
-                fontSize: 19,
-                letterSpacing: 3,
+                fontSize: 22,
+                fontWeight: 650,
+                letterSpacing: 1,
                 marginTop: 12,
                 color: 'var(--text-onDark)',
-                textShadow: '0 0 14px rgb(235 71 4 / 45%)',
               }}
             >
               COMMAND BLOCK

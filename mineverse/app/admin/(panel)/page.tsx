@@ -102,11 +102,11 @@ export default function AdminOverviewPage() {
                   gap: 10,
                   padding: '9px 11px',
                   background: 'var(--bg-void)',
-                  border: '1px solid rgb(150 35 14 / 22%)',
+                  border: '1px solid rgb(from var(--accent-muted) r g b / 22%)',
                 }}
               >
                 <div>
-                  <div style={{ fontSize: 11 }}>{round.name}</div>
+                  <div style={{ fontSize: 13.5 }}>{round.name}</div>
                   <div className="n-panel-sub">Day {round.day} · Round {round.sequence}</div>
                 </div>
                 <Pill tone={statusTone(round.status)}>{round.status}</Pill>
@@ -154,9 +154,9 @@ function Attention({ show, href, label }: { show: boolean; href: string; label: 
         alignItems: 'center',
         gap: 9,
         padding: '9px 11px',
-        background: 'rgb(235 71 4 / 10%)',
-        border: '1px solid rgb(235 71 4 / 45%)',
-        fontSize: 10.5,
+        background: 'rgb(from var(--accent-primary) r g b / 10%)',
+        border: '1px solid rgb(from var(--accent-primary) r g b / 45%)',
+        fontSize: 12.5,
         color: 'var(--text-onDark)',
       }}
     >

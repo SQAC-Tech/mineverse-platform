@@ -6,8 +6,8 @@ export function LogoutButton() {
   return (
     <button
       type="button"
-      className="n-btn n-btn-danger"
-      style={{ width: '100%' }}
+      className="n-btn n-btn-ghost"
+      style={{ width: '100%', justifyContent: 'flex-start' }}
       onClick={async () => {
         await fetch('/api/panel/logout', { method: 'POST' });
         window.location.href = '/admin/login';
