@@ -23,7 +23,7 @@ type FormValues = {
     college_email: string;
     phone: string;
     section?: string;
-    department: 'CSE' | 'IT' | 'ECE' | 'EEE' | 'MECH' | 'CIVIL' | 'OTHER';
+    department: string;
     is_team_lead: boolean;
   }[];
 };
@@ -51,7 +51,7 @@ export function RegistrationForm() {
       team_name: '',
       transaction_id: '',
       sender_name: '',
-      members: [{ name: '', email: '', college_email: '', phone: '', section: '', department: 'CSE', is_team_lead: true }],
+      members: [{ name: '', email: '', college_email: '', phone: '', section: '', department: '', is_team_lead: true }],
     }
   });
 
@@ -426,17 +426,10 @@ export function RegistrationForm() {
                     <input {...register(`members.${index}.phone`)} style={inputStyle} placeholder="10-digit number" inputMode="tel" />
                     {errors.members?.[index]?.phone && <p style={{ color: '#b91c1c', fontSize: '0.7rem', marginTop: '4px', fontWeight: 'bold' }}>{errors.members[index]?.phone?.message}</p>}
                   </div>
-                  <div style={{ flex: '1 1 100px', minWidth: '90px' }}>
+                  <div style={{ flex: '1 1 140px', minWidth: '120px' }}>
                     <label style={labelStyle}>&gt; DEPT</label>
-                    <select {...register(`members.${index}.department`)} style={{ ...inputStyle, cursor: 'pointer' }}>
-                      <option value="CSE">CSE</option>
-                      <option value="IT">IT</option>
-                      <option value="ECE">ECE</option>
-                      <option value="EEE">EEE</option>
-                      <option value="MECH">MECH</option>
-                      <option value="CIVIL">CIVIL</option>
-                      <option value="OTHER">OTHER</option>
-                    </select>
+                    <input {...register(`members.${index}.department`)} style={inputStyle} placeholder="e.g. CSE" maxLength={100} />
+                    {errors.members?.[index]?.department && <p style={{ color: '#b91c1c', fontSize: '0.7rem', marginTop: '4px', fontWeight: 'bold' }}>{errors.members[index]?.department?.message}</p>}
                   </div>
                 </div>
 
@@ -500,7 +493,7 @@ export function RegistrationForm() {
           {fields.length < 3 && (
             <button
               type="button"
-              onClick={() => append({ name: '', email: '', college_email: '', phone: '', section: '', department: 'CSE', is_team_lead: false })}
+              onClick={() => append({ name: '', email: '', college_email: '', phone: '', section: '', department: '', is_team_lead: false })}
               style={{
                 ...woodBg,
                 padding: '10px 20px',

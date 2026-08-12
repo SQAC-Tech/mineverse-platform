@@ -11,7 +11,7 @@ export const memberSchema = z.object({
   ),
   phone: z.string().regex(/^[6-9]\d{9}$/, { message: 'Invalid Indian phone number' }),
   section: z.string().max(10).optional(),
-  department: z.enum(['CSE', 'IT', 'ECE', 'EEE', 'MECH', 'CIVIL', 'OTHER']),
+  department: z.string().trim().min(1, { message: 'Enter your department' }).max(100),
   is_team_lead: z.boolean(),
 });
 
