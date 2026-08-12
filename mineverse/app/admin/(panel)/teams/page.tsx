@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, Fragment } from 'react';
 import { toast } from 'sonner';
-import { RefreshCw, Search, ChevronDown, UserPlus } from 'lucide-react';
+import { RefreshCw, Search, ChevronDown, UserPlus, Trash2, AlertTriangle } from 'lucide-react';
 import { Panel, Btn, Pill, statusTone, Table, Empty, Loading, PageTitle, apiCall, Grid, StatTile, Field } from '@/components/admin/nether-ui';
 
 /** Mirrors `teams_team_size_check` in the database. */
@@ -100,6 +100,80 @@ function AddMemberForm({ teamId, onAdded }: { teamId: string; onAdded: () => voi
           {busy ? 'Adding…' : 'Add to team'}
         </Btn>
         <Btn small variant="ghost" disabled={busy} onClick={() => { setForm(EMPTY_MEMBER); setOpen(false); }}>
+          Cancel
+        </Btn>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Deleting a team takes its members, payment and scores with it and cannot be
+ * undone, so it sits behind the row expander rather than in the row itself, and
+ * asks for the team code to be typed out — the same friction GitHub puts on
+ * deleting a repo, for the same reason.
+ */
+function DeleteTeam({ team, onDeleted }: { team: TeamRow; onDeleted: () => void }) {
+  const [arming, setArming] = useState(false);
+  const [typed, setTyped] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const matches = typed.trim().toUpperCase() === team.team_code;
+
+  const remove = async () => {
+    setBusy(true);
+    const res = await apiCall(
+      `/api/admin/teams?id=${team.id}&confirm=${encodeURIComponent(typed.trim().toUpperCase())}`,
+      { method: 'DELETE' },
+    );
+    setBusy(false);
+
+    if (!res.ok) return toast.error(res.message);
+
+    toast.success(`${team.team_code} deleted`);
+    onDeleted();
+  };
+
+  if (!arming) {
+    return (
+      <Btn small variant="danger" onClick={() => setArming(true)} style={{ marginTop: 10 }}>
+        <Trash2 size={13} /> Delete team
+      </Btn>
+    );
+  }
+
+  return (
+    <div
+      style={{
+        marginTop: 10,
+        padding: 12,
+        border: '1px solid var(--accent-danger)',
+        background: 'rgb(from var(--accent-danger) r g b / 12%)',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+        <AlertTriangle size={16} style={{ color: 'var(--warn)', flexShrink: 0, marginTop: 2 }} />
+        <div className="n-panel-sub" style={{ color: 'var(--text-onDark)' }}>
+          This removes <strong>{team.team_name}</strong>, its {team.members?.length ?? 0} member
+          {(team.members?.length ?? 0) === 1 ? '' : 's'}, the payment record, attendance and all
+          scores. It cannot be undone.
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+        <input
+          className="n-input"
+          style={{ flex: '1 1 180px' }}
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+          placeholder={`Type ${team.team_code} to confirm`}
+          aria-label={`Type ${team.team_code} to confirm deletion`}
+          onKeyDown={(e) => { if (e.key === 'Enter' && matches) void remove(); }}
+        />
+        <Btn small variant="danger" disabled={!matches || busy} onClick={remove}>
+          {busy ? 'Deleting…' : 'Delete permanently'}
+        </Btn>
+        <Btn small variant="ghost" disabled={busy} onClick={() => { setTyped(''); setArming(false); }}>
           Cancel
         </Btn>
       </div>
@@ -241,6 +315,11 @@ export default function AdminTeamsPage() {
                             </div>
                           </div>
                         )}
+
+                        <DeleteTeam
+                          team={team}
+                          onDeleted={() => { setExpanded(null); void load(); }}
+                        />
                       </div>
                     </td>
                   </tr>
