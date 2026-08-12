@@ -16,7 +16,9 @@ export async function POST(req: Request) {
   const parsed = registrationSchema.safeParse(body);
 
   if (!parsed.success) {
-    return NextResponse.json({ success: false, error: (parsed.error as any).errors[0].message }, { status: 400 });
+    // Zod 4 exposes `issues`; reading `.errors` here threw and turned every
+    // validation failure into a 500.
+    return NextResponse.json({ success: false, error: parsed.error.issues[0].message }, { status: 400 });
   }
 
   const { challenge_id, verification_token, turnstile_token, team_name, members, transaction_id, sender_name } = parsed.data;
@@ -67,8 +69,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: false, error: 'Error generating team code' }, { status: 500 });
   }
 
+  // Duo or trio only — the schema already rejects solo, this is the last guard.
   const teamSize = members.length;
-  const amount = teamSize === 1 ? env.FEE_SOLO : teamSize === 2 ? env.FEE_DUO : env.FEE_TRIO;
+  const amount = teamSize === 2 ? env.FEE_DUO : env.FEE_TRIO;
 
   // Insert Team
   const { data: team, error: teamErr } = await supabaseServer.from('teams')

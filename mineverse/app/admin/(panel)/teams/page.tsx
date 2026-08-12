@@ -2,8 +2,11 @@
 
 import { useEffect, useState, useCallback, Fragment } from 'react';
 import { toast } from 'sonner';
-import { RefreshCw, Search, ChevronDown } from 'lucide-react';
-import { Panel, Btn, Pill, statusTone, Table, Empty, Loading, PageTitle, apiCall, Grid, StatTile } from '@/components/admin/nether-ui';
+import { RefreshCw, Search, ChevronDown, UserPlus } from 'lucide-react';
+import { Panel, Btn, Pill, statusTone, Table, Empty, Loading, PageTitle, apiCall, Grid, StatTile, Field } from '@/components/admin/nether-ui';
+
+/** Mirrors `teams_team_size_check` in the database. */
+const MAX_TEAM_SIZE = 3;
 
 type Member = { id: string; name: string; email: string; phone?: string };
 type TeamRow = {
@@ -18,6 +21,91 @@ type TeamRow = {
   members?: Member[];
   attendance_records?: { checkpoint_id: number; members_present: number }[];
 };
+
+const EMPTY_MEMBER = { name: '', email: '', college_email: '', phone: '', department: '', section: '' };
+
+/**
+ * Desk override for adding someone the registration form missed. State is kept
+ * per-team inside this component so opening a second team does not inherit
+ * half-typed details from the first.
+ */
+function AddMemberForm({ teamId, onAdded }: { teamId: string; onAdded: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState(EMPTY_MEMBER);
+  const [busy, setBusy] = useState(false);
+
+  const set = (key: keyof typeof EMPTY_MEMBER) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setForm((f) => ({ ...f, [key]: e.target.value }));
+
+  const submit = async () => {
+    setBusy(true);
+    const res = await apiCall('/api/admin/teams/members', {
+      method: 'POST',
+      body: JSON.stringify({ team_id: teamId, ...form }),
+    });
+    setBusy(false);
+
+    if (!res.ok) return toast.error(res.message);
+
+    toast.success(`${form.name.trim()} added to the team`);
+    setForm(EMPTY_MEMBER);
+    setOpen(false);
+    onAdded();
+  };
+
+  if (!open) {
+    return (
+      <Btn small onClick={() => setOpen(true)} style={{ marginTop: 10 }}>
+        <UserPlus size={13} /> Add member
+      </Btn>
+    );
+  }
+
+  return (
+    <div
+      style={{
+        marginTop: 10,
+        padding: 12,
+        border: '1px solid rgb(from var(--accent-muted) r g b / 40%)',
+        background: 'var(--bg-panel)',
+      }}
+    >
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 10 }}>
+        <Field label="Full name">
+          <input className="n-input" value={form.name} onChange={set('name')} placeholder="Name" />
+        </Field>
+        <Field label="Personal email">
+          <input className="n-input" type="email" value={form.email} onChange={set('email')} placeholder="name@gmail.com" />
+        </Field>
+        <Field label="College email">
+          <input className="n-input" type="email" value={form.college_email} onChange={set('college_email')} placeholder="name@college.edu.in" />
+        </Field>
+        <Field label="Phone">
+          <input className="n-input" inputMode="tel" value={form.phone} onChange={set('phone')} placeholder="10-digit number" />
+        </Field>
+        <Field label="Department">
+          <input className="n-input" value={form.department} onChange={set('department')} placeholder="e.g. CSE" />
+        </Field>
+        <Field label="Section (optional)">
+          <input className="n-input" value={form.section} onChange={set('section')} placeholder="e.g. B" />
+        </Field>
+      </div>
+
+      <div className="n-panel-sub" style={{ marginTop: 10 }}>
+        No OTP is sent and the fee is not recalculated — collect any difference at the desk.
+      </div>
+
+      <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+        <Btn small variant="primary" disabled={busy} onClick={submit}>
+          {busy ? 'Adding…' : 'Add to team'}
+        </Btn>
+        <Btn small variant="ghost" disabled={busy} onClick={() => { setForm(EMPTY_MEMBER); setOpen(false); }}>
+          Cancel
+        </Btn>
+      </div>
+    </div>
+  );
+}
 
 export default function AdminTeamsPage() {
   const [teams, setTeams] = useState<TeamRow[] | null>(null);
@@ -132,6 +220,15 @@ export default function AdminTeamsPage() {
                             ))}
                           </div>
                         )}
+
+                        {(team.members?.length ?? 0) < MAX_TEAM_SIZE ? (
+                          <AddMemberForm teamId={team.id} onAdded={load} />
+                        ) : (
+                          <div className="n-panel-sub" style={{ marginTop: 10 }}>
+                            Team is full — {MAX_TEAM_SIZE} of {MAX_TEAM_SIZE} slots used.
+                          </div>
+                        )}
+
                         {(team.attendance_records?.length ?? 0) > 0 && (
                           <div style={{ marginTop: 12 }}>
                             <div className="n-label" style={{ marginBottom: 6 }}>Attendance</div>

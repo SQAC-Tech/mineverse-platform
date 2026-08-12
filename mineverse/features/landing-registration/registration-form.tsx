@@ -51,7 +51,11 @@ export function RegistrationForm() {
       team_name: '',
       transaction_id: '',
       sender_name: '',
-      members: [{ name: '', email: '', college_email: '', phone: '', section: '', department: '', is_team_lead: true }],
+      // Teams are duos or trios — start with the two required slots already open.
+      members: [
+        { name: '', email: '', college_email: '', phone: '', section: '', department: '', is_team_lead: true },
+        { name: '', email: '', college_email: '', phone: '', section: '', department: '', is_team_lead: false },
+      ],
     }
   });
 
@@ -298,9 +302,10 @@ export function RegistrationForm() {
             <div key={field.id} style={{ paddingTop: '16px', marginTop: '4px', borderTop: '2px dashed #a37b45' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                 <h4 style={{ ...mc, color: '#315433', fontSize: 'clamp(0.7rem, 2.5vw, 1rem)', margin: 0 }}>
-                  {index === 0 ? 'TEAM LEADER (MEMBER 1)' : `MEMBER ${index + 1}`}
+                  {index === 0 ? 'TEAM LEADER (MEMBER 1)' : index === 2 ? 'MEMBER 3 (OPTIONAL)' : `MEMBER ${index + 1}`}
                 </h4>
-                {index > 0 && (
+                {/* Only the 3rd member is removable — a team can never drop below 2. */}
+                {index > 1 && (
                   <button type="button" onClick={() => remove(index)} style={{ background: 'none', border: 'none', color: '#991b1b', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }}>
                     <Trash2 size={18} />
                   </button>
@@ -510,9 +515,14 @@ export function RegistrationForm() {
               }}
               className="hover:brightness-110 active:scale-95 transition-all"
             >
-              <Plus size={16} /> ADD MEMBER
+              <Plus size={16} /> ADD 3RD MEMBER
             </button>
           )}
+
+          {/* Says the rule up front rather than letting zod say it at submit. */}
+          <p style={{ ...mc, color: '#5a3a1a', fontSize: '0.6rem', textAlign: 'center', margin: 0 }}>
+            TEAMS OF 2 OR 3 ONLY — NO SOLO ENTRIES
+          </p>
 
           {/* Turnstile CAPTCHA */}
           <div style={{ background: 'rgba(60,36,21,0.2)', padding: '8px', borderRadius: '2px', maxWidth: '100%', overflowX: 'auto' }}>

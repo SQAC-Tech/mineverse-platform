@@ -12,11 +12,12 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const size = Number(searchParams.get('size'));
 
-  if (![1, 2, 3].includes(size)) {
-    return NextResponse.json({ success: false, error: 'size must be 1, 2 or 3' }, { status: 400 });
+  // Registration is duo or trio only, so there is no solo QR to hand out.
+  if (![2, 3].includes(size)) {
+    return NextResponse.json({ success: false, error: 'size must be 2 or 3' }, { status: 400 });
   }
 
-  const amount = size === 1 ? env.FEE_SOLO : size === 2 ? env.FEE_DUO : env.FEE_TRIO;
+  const amount = size === 2 ? env.FEE_DUO : env.FEE_TRIO;
   const upi_string = `upi://pay?pa=${env.UPI_ID}&pn=${encodeURIComponent(env.UPI_PAYEE_NAME)}&am=${amount}&tn=${encodeURIComponent('MINEVERSE Registration')}&cu=INR`;
   const qr_image = await QRCode.toDataURL(upi_string, { width: 400, margin: 2 });
 
