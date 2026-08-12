@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import { env } from '@/lib/env';
+import type { EmailAttachment, TransportResult } from './types';
 
 const smtpConfigured = Boolean(env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS);
 
@@ -19,13 +20,13 @@ export async function sendSmtpEmail({
   to,
   subject,
   html,
-  attachments
+  attachments,
 }: {
   to: string;
   subject: string;
   html: string;
-  attachments?: any[];
-}) {
+  attachments?: EmailAttachment[];
+}): Promise<TransportResult> {
   if (!transporter) {
     console.warn(`SMTP not configured — skipping email "${subject}" to ${to}`);
     return { success: false, error: 'SMTP not configured' };
@@ -38,9 +39,9 @@ export async function sendSmtpEmail({
       html,
       attachments,
     });
-    return { success: true, messageId: info.messageId };
+    return { success: true, id: info.messageId };
   } catch (error: any) {
     console.error('SMTP error:', error);
-    return { success: false, error: error.message };
+    return { success: false, error: error?.message ?? 'SMTP send failed' };
   }
 }
