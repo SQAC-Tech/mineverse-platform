@@ -8,7 +8,13 @@ const serverEnvSchema = z.object({
   // to a logged failure instead of crashing every route at import time.
   SMTP_HOST: z.string().optional().default(''),
   SMTP_PORT: z.coerce.number().optional().default(465),
-  SMTP_SECURE: z.string().optional().default('true').transform((val) => val === 'true'),
+  /**
+   * `SMTP_SECURE=` with no value is present-but-blank, so zod's `.default()`
+   * never fires and `'' === 'true'` yields false — plaintext on port 465, which
+   * Gmail closes on ("Unexpected socket close"). Treat blank as unset so the
+   * secure default applies; only an explicit `false` opts out.
+   */
+  SMTP_SECURE: z.string().optional().transform((val) => (val ?? '') === '' || val === 'true'),
   SMTP_USER: z.string().optional().default(''),
   SMTP_PASS: z.string().optional().default(''),
   SMTP_FROM: z.string().optional().default(''),
