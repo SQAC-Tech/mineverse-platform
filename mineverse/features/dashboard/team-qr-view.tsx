@@ -16,10 +16,9 @@ export function TeamQrView() {
       const json = await res.json();
       if (json.success) {
         setTeamCode(json.team.team_code);
-        if (json.team.qr_token) {
-          const img = await QRCode.toDataURL(json.team.qr_token, { width: 300, margin: 2 });
-          setQrImage(img);
-        }
+        // The QR encodes the team code itself — nothing to fetch or decode.
+        const img = await QRCode.toDataURL(json.team.team_code, { width: 300, margin: 2 });
+        setQrImage(img);
       }
       setLoading(false);
     };
@@ -48,6 +47,7 @@ export function TeamQrView() {
           
           <div className="text-center text-slate-400 text-sm">
             Present this QR code to the organizers at each checkpoint to mark your attendance.
+            If scanning fails, just read out your team code: <span className="font-mono text-slate-200">{teamCode}</span>
           </div>
         </CardContent>
       </Card>

@@ -3,8 +3,6 @@ import { supabaseServer } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 import { sendPaymentVerifiedEmail } from '@/lib/email';
-import { SignJWT } from 'jose';
-import { env } from '@/lib/env';
 import QRCode from 'qrcode';
 import { requirePanelScope } from '@/lib/panel/require-admin';
 
@@ -35,15 +33,6 @@ export async function POST(req: Request) {
     const { data: payment } = await supabaseServer.from('payments').select('*, teams(*)').eq('id', payment_id).single();
     if (!payment) return NextResponse.json({ success: false, error: 'Payment not found' }, { status: 404 });
 
-    // Generate Attendance QR JWT
-    const secret = new TextEncoder().encode(env.ATTENDANCE_QR_SECRET);
-    const qr_token = await new SignJWT({ team_id: payment.team_id, team_code: payment.teams.team_code })
-      .setProtectedHeader({ alg: 'HS256' })
-      .sign(secret);
-
-    // Update team QR token
-    await supabaseServer.from('teams').update({ qr_token }).eq('id', payment.team_id);
-
     // Update payment status
     await supabaseServer.from('payments')
       .update({ status: 'verified', verified_at: new Date().toISOString() })
@@ -51,9 +40,10 @@ export async function POST(req: Request) {
 
     // Fetch members to send email
     const { data: members } = await supabaseServer.from('members').select('*').eq('team_id', payment.team_id);
-    
-    // Generate QR image
-    const qr_image_data_url = await QRCode.toDataURL(qr_token, { width: 400, margin: 2 });
+
+    // The attendance QR is just the team code. A volunteer whose camera fails
+    // can type the same string by hand, so scan and manual entry never diverge.
+    const qr_image_data_url = await QRCode.toDataURL(payment.teams.team_code, { width: 400, margin: 2 });
 
     if (members) {
       for (const member of members) {

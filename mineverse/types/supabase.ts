@@ -52,6 +52,42 @@ export type Database = {
           },
         ]
       }
+      attendance_member_records: {
+        Row: {
+          attendance_record_id: string
+          created_at: string
+          id: string
+          member_id: string
+        }
+        Insert: {
+          attendance_record_id: string
+          created_at?: string
+          id?: string
+          member_id: string
+        }
+        Update: {
+          attendance_record_id?: string
+          created_at?: string
+          id?: string
+          member_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_member_records_attendance_record_id_fkey"
+            columns: ["attendance_record_id"]
+            isOneToOne: false
+            referencedRelation: "attendance_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_member_records_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       attendance_records: {
         Row: {
           checkpoint_id: number
@@ -1302,6 +1338,36 @@ export type Database = {
           starts_at?: string | null
           status?: string
           time_allotted?: number
+        }
+        Relationships: []
+      }
+      staff_attendance: {
+        Row: {
+          created_at: string
+          desk: string
+          hours: number
+          id: string
+          notes: string | null
+          person_name: string
+          reported_at: string
+        }
+        Insert: {
+          created_at?: string
+          desk: string
+          hours: number
+          id?: string
+          notes?: string | null
+          person_name: string
+          reported_at?: string
+        }
+        Update: {
+          created_at?: string
+          desk?: string
+          hours?: number
+          id?: string
+          notes?: string | null
+          person_name?: string
+          reported_at?: string
         }
         Relationships: []
       }

@@ -1,29 +1,79 @@
 import { NextResponse } from 'next/server';
-import { jwtVerify } from 'jose';
-import { env } from '@/lib/env';
 import { supabaseServer } from '@/lib/supabase/server';
+import { requirePanelScope } from '@/lib/panel/require-admin';
 
-const secret = new TextEncoder().encode(env.ATTENDANCE_QR_SECRET);
+export const dynamic = 'force-dynamic';
+
+/**
+ * The attendance QR encodes the plain team code (MNV-XXX), so a scan and a
+ * manual keystroke arrive here in exactly the same shape — there is no token to
+ * verify. Anything that is not a well-formed team code is rejected outright.
+ */
+const TEAM_CODE = /^MNV-\d{3}$/;
+
+function normaliseTeamCode(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const code = raw.trim().toUpperCase();
+  return TEAM_CODE.test(code) ? code : null;
+}
 
 export async function POST(req: Request) {
-  const { qr_token } = await req.json();
+  const guard = await requirePanelScope('attendance');
+  if (!guard.ok) return guard.response;
 
-  if (!qr_token) return NextResponse.json({ success: false, error: 'No token provided' }, { status: 400 });
+  const body = await req.json().catch(() => ({}));
+  const code = normaliseTeamCode(body.code ?? body.team_code);
+  const checkpointId = Number(body.checkpoint_id);
 
-  try {
-    const { payload } = await jwtVerify(qr_token, secret);
-    const team_id = payload.team_id as string;
-
-    const { data: team } = await supabaseServer
-      .from('teams')
-      .select('*, members(id, name, is_team_lead)')
-      .eq('id', team_id)
-      .single();
-
-    if (!team) return NextResponse.json({ success: false, error: 'Team not found' }, { status: 404 });
-
-    return NextResponse.json({ success: true, data: team });
-  } catch (err) {
-    return NextResponse.json({ success: false, error: 'Invalid or expired QR token' }, { status: 400 });
+  if (!code) {
+    return NextResponse.json(
+      { success: false, error: 'Enter or scan a valid team code (MNV-000).' },
+      { status: 400 },
+    );
   }
+
+  const { data: team } = await supabaseServer
+    .from('teams')
+    .select('id, team_code, team_name, team_size, is_payment_verified, members(id, name, is_team_lead)')
+    .eq('team_code', code)
+    .single();
+
+  if (!team) {
+    return NextResponse.json({ success: false, error: `No team found for ${code}.` }, { status: 404 });
+  }
+
+  const members = [...(team.members ?? [])].sort(
+    (a, b) => Number(b.is_team_lead) - Number(a.is_team_lead) || a.name.localeCompare(b.name),
+  );
+
+  // Pre-fill the checkboxes when this team was already marked at this checkpoint.
+  let existing: { member_ids: string[]; members_present: number } | null = null;
+  if (Number.isInteger(checkpointId)) {
+    const { data: record } = await supabaseServer
+      .from('attendance_records')
+      .select('id, members_present, attendance_member_records(member_id)')
+      .eq('team_id', team.id)
+      .eq('checkpoint_id', checkpointId)
+      .maybeSingle();
+
+    if (record) {
+      existing = {
+        members_present: record.members_present,
+        member_ids: (record.attendance_member_records ?? []).map((r) => r.member_id),
+      };
+    }
+  }
+
+  return NextResponse.json({
+    success: true,
+    data: {
+      id: team.id,
+      team_code: team.team_code,
+      team_name: team.team_name,
+      team_size: team.team_size,
+      is_payment_verified: team.is_payment_verified,
+      members,
+      existing,
+    },
+  });
 }
