@@ -1,6 +1,15 @@
 import { z } from 'zod';
+import { REGISTRATION_NO } from '@/lib/registration-no';
+
+export { REGISTRATION_NO };
 
 const collegeDomain = process.env.NEXT_PUBLIC_COLLEGE_EMAIL_DOMAIN || '@college.edu.in';
+
+export const registrationNoSchema = z
+  .string()
+  .trim()
+  .toUpperCase()
+  .regex(REGISTRATION_NO, { message: 'Pick your year and enter all 11 digits of your registration number' });
 
 export const memberSchema = z.object({
   name: z.string().min(2).max(50),
@@ -12,6 +21,7 @@ export const memberSchema = z.object({
   phone: z.string().regex(/^[6-9]\d{9}$/, { message: 'Invalid Indian phone number' }),
   section: z.string().max(10).optional(),
   department: z.string().trim().min(1, { message: 'Enter your department' }).max(100),
+  registration_no: registrationNoSchema,
   is_team_lead: z.boolean(),
 });
 
@@ -44,5 +54,7 @@ export const registrationSchema = z.object({
     .refine((m) => m.filter(x => x.is_team_lead).length === 1 && m[0].is_team_lead,
       { message: 'First member must be the team lead' })
     .refine((m) => new Set(m.map(x => x.college_email.toLowerCase())).size === m.length,
-      { message: 'Duplicate college emails within team' }),
+      { message: 'Duplicate college emails within team' })
+    .refine((m) => new Set(m.map(x => x.registration_no)).size === m.length,
+      { message: 'Duplicate registration numbers within team' }),
 });

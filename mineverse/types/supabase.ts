@@ -612,6 +612,7 @@ export type Database = {
           is_team_lead: boolean
           name: string
           phone: string
+          registration_no: string | null
           section: string | null
           team_id: string
           updated_at: string
@@ -626,6 +627,7 @@ export type Database = {
           is_team_lead?: boolean
           name: string
           phone: string
+          registration_no?: string | null
           section?: string | null
           team_id: string
           updated_at?: string
@@ -640,6 +642,7 @@ export type Database = {
           is_team_lead?: boolean
           name?: string
           phone?: string
+          registration_no?: string | null
           section?: string | null
           team_id?: string
           updated_at?: string

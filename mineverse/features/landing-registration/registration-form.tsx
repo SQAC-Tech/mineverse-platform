@@ -4,6 +4,9 @@ import { useEffect, useRef, useState } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { registrationSchema } from '@/lib/validation/schemas';
+import {
+  registrationYears, splitRegistrationNo, joinRegistrationNo, REG_NO_SUFFIX_LENGTH,
+} from '@/lib/registration-no';
 import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -24,8 +27,86 @@ type FormValues = {
     phone: string;
     section?: string;
     department: string;
+    registration_no: string;
     is_team_lead: boolean;
   }[];
+};
+
+const BLANK_MEMBER = {
+  name: '', email: '', college_email: '', phone: '',
+  section: '', department: '', registration_no: '',
+};
+
+/**
+ * Year dropdown + the 11 digits that follow it. The two halves are stored as a
+ * single `registration_no` string so the schema, the API and the database all
+ * keep seeing one 15-character value — the split exists only to save typing.
+ */
+function RegistrationNoField({
+  index, value, onChange, error, labelStyle, inputStyle,
+}: {
+  index: number;
+  value: string;
+  onChange: (next: string) => void;
+  error?: string;
+  labelStyle: React.CSSProperties;
+  inputStyle: React.CSSProperties;
+}) {
+  const years = registrationYears();
+  const { prefix, suffix } = splitRegistrationNo(value);
+
+  return (
+    <div>
+      <label style={labelStyle}>&gt; REGISTRATION NO.</label>
+      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+        <select
+          value={prefix}
+          onChange={(e) => onChange(joinRegistrationNo(e.target.value, suffix))}
+          style={{ ...inputStyle, flex: '0 0 auto', width: 'auto', minWidth: '124px', cursor: 'pointer' }}
+          aria-label={`Year of study for member ${index + 1}`}
+        >
+          <option value="">Year…</option>
+          {years.map((y) => (
+            <option key={y.prefix} value={y.prefix}>
+              {y.label} ({y.prefix})
+            </option>
+          ))}
+        </select>
+        <input
+          value={suffix}
+          onChange={(e) => onChange(joinRegistrationNo(prefix, e.target.value))}
+          style={{ ...inputStyle, flex: '1 1 150px', letterSpacing: '1px' }}
+          placeholder="11003011234"
+          inputMode="numeric"
+          maxLength={REG_NO_SUFFIX_LENGTH}
+          autoComplete="off"
+          aria-label={`Registration number digits for member ${index + 1}`}
+        />
+        <div style={iconEmojiShared}>🎓</div>
+      </div>
+      <p style={{ color: '#5a3a1a', fontSize: '0.6rem', marginTop: '4px' }}>
+        {prefix
+          ? `Your number: ${prefix}${suffix.padEnd(REG_NO_SUFFIX_LENGTH, '·')}`
+          : 'Pick your year, then type the 11 digits after it'}
+      </p>
+      {error && <p style={{ color: '#b91c1c', fontSize: '0.7rem', marginTop: '4px', fontWeight: 'bold' }}>{error}</p>}
+    </div>
+  );
+}
+
+/** Same chip the other fields use; hoisted so the field component can share it. */
+const iconEmojiShared: React.CSSProperties = {
+  backgroundColor: '#4a3320',
+  border: '2px solid #2f1f12',
+  width: '42px',
+  minWidth: '42px',
+  height: '42px',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.5)',
+  fontSize: '1rem',
+  flexShrink: 0,
 };
 
 export function RegistrationForm() {
@@ -53,8 +134,8 @@ export function RegistrationForm() {
       sender_name: '',
       // Teams are duos or trios — start with the two required slots already open.
       members: [
-        { name: '', email: '', college_email: '', phone: '', section: '', department: '', is_team_lead: true },
-        { name: '', email: '', college_email: '', phone: '', section: '', department: '', is_team_lead: false },
+        { ...BLANK_MEMBER, is_team_lead: true },
+        { ...BLANK_MEMBER, is_team_lead: false },
       ],
     }
   });
@@ -239,19 +320,7 @@ export function RegistrationForm() {
     boxSizing: 'border-box',
   };
 
-  const iconEmoji: React.CSSProperties = {
-    backgroundColor: '#4a3320',
-    border: '2px solid #2f1f12',
-    width: '42px',
-    minWidth: '42px',
-    height: '42px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.5)',
-    fontSize: '1rem',
-    flexShrink: 0,
-  };
+  const iconEmoji = iconEmojiShared;
 
   const labelStyle: React.CSSProperties = {
     ...mc,
@@ -323,6 +392,18 @@ export function RegistrationForm() {
                   </div>
                   {errors.members?.[index]?.name && <p style={{ color: '#b91c1c', fontSize: '0.7rem', marginTop: '4px', fontWeight: 'bold' }}>{errors.members[index]?.name?.message}</p>}
                 </div>
+
+                {/* Registration Number — year picks the RA26/RA25/... prefix */}
+                <RegistrationNoField
+                  index={index}
+                  value={watch(`members.${index}.registration_no`) ?? ''}
+                  onChange={(next) =>
+                    setValue(`members.${index}.registration_no`, next, { shouldValidate: true })
+                  }
+                  error={errors.members?.[index]?.registration_no?.message}
+                  labelStyle={labelStyle}
+                  inputStyle={inputStyle}
+                />
 
                 {/* Personal Email */}
                 <div>
@@ -498,7 +579,7 @@ export function RegistrationForm() {
           {fields.length < 3 && (
             <button
               type="button"
-              onClick={() => append({ name: '', email: '', college_email: '', phone: '', section: '', department: '', is_team_lead: false })}
+              onClick={() => append({ ...BLANK_MEMBER, is_team_lead: false })}
               style={{
                 ...woodBg,
                 padding: '10px 20px',

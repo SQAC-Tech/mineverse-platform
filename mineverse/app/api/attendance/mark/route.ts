@@ -1,8 +1,25 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase/server';
 import { requirePanelScope } from '@/lib/panel/require-admin';
+import { REGISTRATION_NO } from '@/lib/validation/schemas';
 
 export const dynamic = 'force-dynamic';
+
+/**
+ * Registration numbers typed at the desk, keyed by member id. Teams that
+ * registered before the field existed have none on file, so the panel collects
+ * them on the first check-in instead of chasing everyone by email.
+ */
+function readRegistrationNumbers(raw: unknown): Record<string, string> {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const out: Record<string, string> = {};
+  for (const [memberId, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof value !== 'string') continue;
+    const trimmed = value.trim().toUpperCase();
+    if (trimmed) out[memberId] = trimmed;
+  }
+  return out;
+}
 
 /**
  * Attendance is recorded per member: the volunteer ticks who is standing in
@@ -26,12 +43,13 @@ export async function POST(req: Request) {
   }
 
   // Every ticked member must actually belong to this team.
-  const { data: teamMembers } = await supabaseServer
+  const { data: teamMembers, error: membersError } = await supabaseServer
     .from('members')
-    .select('id')
+    .select('id, name, registration_no')
     .eq('team_id', team_id);
 
-  if (!teamMembers) {
+  if (membersError || !teamMembers) {
+    console.error('Loading team members failed:', membersError);
     return NextResponse.json({ success: false, error: 'Team not found' }, { status: 404 });
   }
 
@@ -41,6 +59,61 @@ export async function POST(req: Request) {
       { success: false, error: 'One or more selected members do not belong to this team' },
       { status: 400 },
     );
+  }
+
+  // ── Registration numbers collected at the desk ──────────────────────────
+  const submitted = readRegistrationNumbers(body.registration_numbers);
+  const byId = new Map(teamMembers.map((m) => [m.id, m]));
+
+  // Only fill blanks. An existing number is corrected from the admin panel, not
+  // by whoever happens to be holding the scanner.
+  const toSave = Object.entries(submitted).filter(
+    ([memberId]) => validIds.has(memberId) && !byId.get(memberId)?.registration_no,
+  );
+
+  const malformed = toSave.find(([, value]) => !REGISTRATION_NO.test(value));
+  if (malformed) {
+    const who = byId.get(malformed[0])?.name ?? 'that member';
+    return NextResponse.json(
+      { success: false, error: `${who}'s registration number must look like RA2211003011234` },
+      { status: 400 },
+    );
+  }
+
+  // Everyone being marked present has to have one on file by the time they walk
+  // away from the desk — that is the whole point of asking here.
+  const missing = memberIds.filter(
+    (id) => !byId.get(id)?.registration_no && !submitted[id],
+  );
+  if (missing.length > 0) {
+    const names = missing.map((id) => byId.get(id)?.name ?? 'Unknown').join(', ');
+    return NextResponse.json(
+      { success: false, error: `Enter a registration number for ${names}` },
+      { status: 400 },
+    );
+  }
+
+  // Written before the attendance row so a duplicate is caught while the
+  // student is still standing there, rather than silently dropped.
+  for (const [memberId, registration_no] of toSave) {
+    const { error: regError } = await supabaseServer
+      .from('members')
+      .update({ registration_no })
+      .eq('id', memberId);
+
+    if (regError) {
+      const duplicate = regError.code === '23505';
+      console.error('Saving registration number failed:', regError);
+      return NextResponse.json(
+        {
+          success: false,
+          error: duplicate
+            ? `${registration_no} is already registered to someone else — check the digits`
+            : 'Could not save the registration number',
+        },
+        { status: duplicate ? 409 : 500 },
+      );
+    }
   }
 
   const { data: prior } = await supabaseServer
