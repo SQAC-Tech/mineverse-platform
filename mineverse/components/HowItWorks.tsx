@@ -72,18 +72,18 @@ const mc = { fontFamily: 'var(--font-minecraft)' } as const;
 
 function Slot({ glyph, label, value, tint }: { glyph: string; label: string; value: string; tint: string }) {
   return (
-    <div className="mv-slot flex items-center gap-3">
+    <div className="mv-slot flex items-center gap-4">
       <div
-        className="mv-slot-box flex h-11 w-11 shrink-0 items-center justify-center text-lg"
+        className="mv-slot-box flex h-14 w-14 shrink-0 items-center justify-center text-2xl"
         style={{ background: STONE.slot, ...inset(STONE.slotLight, STONE.slotDark), color: tint }}
       >
         {glyph}
       </div>
       <div className="min-w-0 flex-1">
-        <div className="text-[9px] leading-[1.8] tracking-[0.16em] text-[#8a8a8a]" style={mc}>
+        <div className="text-[11px] leading-[1.9] tracking-[0.16em] text-[#8a8a8a]" style={mc}>
           {label}
         </div>
-        <div className="text-[11px] leading-[1.7] text-[#eaeaea]" style={mc}>
+        <div className="mt-1 text-[15px] leading-[1.6] text-[#eaeaea] md:text-[16px]" style={mc}>
           {value}
         </div>
       </div>
@@ -114,18 +114,18 @@ function RoundCard({ round }: { round: EventRound }) {
             'repeating-linear-gradient(45deg, rgba(255,255,255,0.05) 0 5px, transparent 5px 10px)',
         }}
       >
-        <span className="mv-icon shrink-0 text-[2.4rem] leading-none drop-shadow-[3px_3px_0_rgba(0,0,0,0.65)]">
+        <span className="mv-icon shrink-0 text-[3rem] leading-none drop-shadow-[3px_3px_0_rgba(0,0,0,0.65)]">
           {round.icon}
         </span>
         <div className="min-w-0">
           <div
-            className="text-[10px] leading-[1.9] tracking-[0.16em]"
+            className="text-[13px] leading-[1.9] tracking-[0.16em] md:text-[14px]"
             style={{ ...mc, color: biome.accent }}
           >
             {round.label}
           </div>
           <div
-            className="text-[9px] leading-[1.9] tracking-[0.16em] text-white/55"
+            className="mt-1 text-[11px] leading-[1.9] tracking-[0.16em] text-white/55"
             style={mc}
           >
             {round.day}
@@ -133,19 +133,19 @@ function RoundCard({ round }: { round: EventRound }) {
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col gap-5 p-5">
+      <div className="flex flex-1 flex-col gap-6 p-6">
         <h3
-          className="text-[15px] leading-[1.7] text-white drop-shadow-[2px_2px_0_rgba(0,0,0,0.9)]"
+          className="text-[19px] leading-[1.6] text-white drop-shadow-[2px_2px_0_rgba(0,0,0,0.9)] md:text-[22px]"
           style={mc}
         >
           {round.name}
         </h3>
 
-        <p className="text-[11px] leading-[2] text-[#bdbdbd]" style={mc}>
+        <p className="text-[13px] leading-[2] text-[#c6c6c6] md:text-[14px]" style={mc}>
           {round.desc}
         </p>
 
-        <div className="mt-auto flex flex-col gap-3 pt-1">
+        <div className="mt-auto flex flex-col gap-4 pt-1">
           <Slot glyph="⚔" label="BOSS" value={round.boss} tint="#ff7b6b" />
           <Slot glyph="✦" label="UNLOCKS" value={round.unlock} tint="#7ee05a" />
         </div>
@@ -184,14 +184,14 @@ export const HowItWorks = () => {
 
       <div className="mx-auto w-full max-w-5xl px-4 md:px-8">
         <h2
-          className="mb-10 text-center text-3xl tracking-widest text-[#fca311] drop-shadow-[4px_4px_0_rgba(0,0,0,1)] md:text-4xl"
+          className="mb-10 text-center text-4xl tracking-widest text-[#fca311] drop-shadow-[4px_4px_0_rgba(0,0,0,1)] md:text-5xl"
           style={mc}
         >
           HOW IT WORKS
         </h2>
 
         <p
-          className="mx-auto max-w-3xl text-center text-[12px] leading-[2.1] text-[#d5d5d5] drop-shadow-[2px_2px_0_#000] md:text-[13px]"
+          className="mx-auto max-w-3xl text-center text-[14px] leading-[2.1] text-[#dcdcdc] drop-shadow-[2px_2px_0_#000] md:text-[16px]"
           style={mc}
         >
           MINEVERSE IS A TWO-DAY CODING COMPETITION PLAYED LIKE A MINECRAFT RUN. YOU ENTER AS A TEAM
@@ -202,7 +202,7 @@ export const HowItWorks = () => {
         </p>
 
         <p
-          className="mx-auto mt-6 max-w-3xl text-center text-[10px] leading-[2.1] text-[#9a9a9a] drop-shadow-[2px_2px_0_#000] md:text-[11px]"
+          className="mx-auto mt-7 max-w-3xl text-center text-[12px] leading-[2.1] text-[#a5a5a5] drop-shadow-[2px_2px_0_#000] md:text-[13px]"
           style={mc}
         >
           EACH ROUND HAS A GUARDIAN TO BEAT AND A BIOME TO SURVIVE. DAY 1 IS THREE ROUNDS AND A
@@ -215,19 +215,19 @@ export const HowItWorks = () => {
           {FACTS.map((fact) => (
             <div
               key={fact.label}
-              className="flex items-center gap-3 px-5 py-3.5"
+              className="flex items-center gap-4 px-6 py-4"
               style={{
                 background: STONE.face,
                 ...bevel(STONE.light, STONE.dark, 4),
                 boxShadow: '5px 5px 0 rgba(0,0,0,0.5)',
               }}
             >
-              <span className="text-2xl leading-none">{fact.icon}</span>
+              <span className="text-3xl leading-none">{fact.icon}</span>
               <div>
-                <div className="text-[8px] leading-[1.9] tracking-[0.18em] text-[#fca311]" style={mc}>
+                <div className="text-[10px] leading-[1.9] tracking-[0.18em] text-[#fca311]" style={mc}>
                   {fact.label}
                 </div>
-                <div className="text-[11px] leading-[1.8] text-[#e5e5e5]" style={mc}>
+                <div className="mt-1 text-[14px] leading-[1.7] text-[#e5e5e5] md:text-[15px]" style={mc}>
                   {fact.value}
                 </div>
               </div>
@@ -240,7 +240,7 @@ export const HowItWorks = () => {
           {ROUND_PROGRESSION.map((name, i) => (
             <React.Fragment key={name}>
               <span
-                className="px-4 py-2.5 text-[10px] leading-none tracking-[0.14em] whitespace-nowrap"
+                className="px-5 py-3 text-[13px] leading-none tracking-[0.14em] whitespace-nowrap md:text-[14px]"
                 style={{
                   ...mc,
                   background: BIOME[name].bg,
