@@ -4,7 +4,7 @@ import { getSession } from '@/lib/auth/session';
 import { craftTeamItem, listCraftRecipes } from '@/lib/gameplay/crafting/service';
 
 const craftSchema = z.object({
-  item: z.enum(['wooden_pickaxe', 'stone_pickaxe', 'iron_armor']),
+  item: z.enum(['wooden_pickaxe', 'stone_pickaxe', 'iron_armor', 'diamond_pickaxe']),
   idempotency_key: z.string().uuid().optional(),
 });
 

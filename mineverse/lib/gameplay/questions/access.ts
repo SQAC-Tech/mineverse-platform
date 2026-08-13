@@ -44,6 +44,29 @@ export async function verifyDev4RoundAccess(teamId: string, roundId: number): Pr
     return { ok: false, status: 403, code: 'TEAM_NOT_AUTHORIZED_FOR_ROUND', message: 'This round is not unlocked for your team.' };
   }
 
+  // Round 5 (The End) requires Day 2 qualification + portal repair (Dev 3 tables)
+  if (roundId === 5) {
+    const { data: gameState, error: gsError } = await db
+      .from('team_game_state')
+      .select('qualified_for_day2')
+      .eq('team_id', teamId)
+      .single();
+
+    if (gsError || !gameState || !gameState.qualified_for_day2) {
+      return { ok: false, status: 403, code: 'DAY2_NOT_QUALIFIED', message: 'Your team has not qualified for Day 2.' };
+    }
+
+    const { data: portalRepair, error: prError } = await db
+      .from('day2_portal_repair')
+      .select('team_id')
+      .eq('team_id', teamId)
+      .single();
+
+    if (prError || !portalRepair) {
+      return { ok: false, status: 403, code: 'PORTAL_NOT_REPAIRED', message: 'Your team must repair the Nether Portal before entering The End.' };
+    }
+  }
+
   return { ok: true, round };
 }
 

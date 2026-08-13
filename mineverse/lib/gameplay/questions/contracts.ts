@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const questionTypes = ['crossword', 'aptitude', 'output', 'debugging', 'code_completion', 'coding', 'pvp'] as const;
+export const questionTypes = ['crossword', 'aptitude', 'output', 'debugging', 'code_completion', 'coding', 'pvp', 'logic_puzzle', 'debug_output'] as const;
 export type QuestionType = (typeof questionTypes)[number];
 
 export interface QuestionRow {
@@ -59,7 +59,7 @@ export function validateSubmissionForQuestion(question: QuestionRow, payload: z.
   const answerText = payload.answer_text?.trim() ?? '';
   const code = payload.code?.trim() ?? '';
 
-  if (['crossword', 'aptitude', 'output', 'pvp'].includes(question.type) && answerText.length === 0) {
+  if (['crossword', 'aptitude', 'output', 'pvp', 'logic_puzzle'].includes(question.type) && answerText.length === 0) {
     return { ok: false as const, code: 'ANSWER_REQUIRED', message: 'An answer is required for this question.' };
   }
 
@@ -67,7 +67,7 @@ export function validateSubmissionForQuestion(question: QuestionRow, payload: z.
     return { ok: false as const, code: 'CODE_REQUIRED', message: 'Code is required for this question.' };
   }
 
-  if (question.type === 'debugging' && answerText.length === 0 && code.length === 0) {
+  if ((question.type === 'debugging' || question.type === 'debug_output') && answerText.length === 0 && code.length === 0) {
     return { ok: false as const, code: 'ANSWER_REQUIRED', message: 'A debugging response is required.' };
   }
 

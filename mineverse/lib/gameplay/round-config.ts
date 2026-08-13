@@ -13,7 +13,7 @@ import type { CraftItem } from '@/lib/gameplay/crafting/rules';
 export interface RoundConfig {
   id: number;
   name: string;
-  biome: 'forest' | 'cave' | 'mountain' | 'nether';
+  biome: 'forest' | 'cave' | 'mountain' | 'nether' | 'end';
   tagline: string;
   /** Progression item craftable in this round, if any. */
   craft: CraftItem | null;
@@ -82,6 +82,20 @@ export const ROUND_CONFIGS: Record<number, RoundConfig> = {
     marketplace: false,
     pvp: false,
     objective: 'Day 2 content is delivered in Phase 3.',
+  },
+  5: {
+    id: 5,
+    name: 'The End',
+    biome: 'end',
+    tagline: 'Craft the Diamond Pickaxe and face the Ender Dragon',
+    craft: 'diamond_pickaxe',
+    guardian: null,
+    structures: [],
+    choice: 'end_merchant',
+    marketplace: true,
+    pvp: false,
+    objective:
+      'Solve challenges, craft the Diamond Pickaxe (25 Iron + 20 Gold + 100 Diamonds + 10 Emeralds), then defeat the Final Boss.',
   },
 };
 
