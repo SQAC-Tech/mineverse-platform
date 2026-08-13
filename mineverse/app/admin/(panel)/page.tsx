@@ -133,7 +133,7 @@ export default function AdminOverviewPage() {
           <Grid min={168} gap={8}>
             <QuickLink href="/admin/grading" icon={<CheckCircle2 size={13} />} label="Run grading" />
             <QuickLink href="/admin/events" icon={<Zap size={13} />} label="Trigger event" />
-            <QuickLink href="/admin/offline" icon={<Coins size={13} />} label="Offline result" />
+            <QuickLink href="/admin/resources" icon={<Coins size={13} />} label="Grant resources" />
             <QuickLink href="/admin/pvp" icon={<Swords size={13} />} label="Start PvP" />
             <QuickLink href="/admin/resources" icon={<Coins size={13} />} label="Adjust resources" />
             <QuickLink href="/admin/qualification" icon={<Users size={13} />} label="Qualification" />

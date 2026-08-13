@@ -1,5 +1,9 @@
 # Round 3 — Mountain Biome
 
+> **Partly superseded by [`../REMOVED_SYSTEMS.md`](../REMOVED_SYSTEMS.md) (14 Aug 2026).** Structures,
+> negative world events, and platform-recorded offline games were removed. Where this document
+> describes any of them, it is a record of what was planned, not of what exists.
+
 ## Purpose
 
 Round 3 is the only elimination round. Teams earn Iron and Gold, defeat the mandatory Blaze Guardian, craft Iron Armor, then take part in an organizer-created private PvP duel. Winning PvP awards the Nether Core and makes the team eligible for Day 2 qualification; only the top 50% of teams qualify.
@@ -16,9 +20,8 @@ Show six challenges, with save/submit/graded/manual-review/locked states as appl
 |---|---:|---|---|
 | Debugging | 2 | Corrected code or identified fix | 6 Iron + 3 Gold |
 | Coding | 2 | Code submission, evaluated against the configured grader | 5 Iron + 12 Gold + 1 Emerald |
-| Physical games | 2 | Staff-recorded offline result | 8 Iron + 6 Gold |
 
-The physical games are Bounce the Ball into the Cup and Odd/Even Marble Guess. They are recorded by staff only; teams can view the verified outcome and award.
+The physical games — Bounce the Ball into the Cup and Odd/Even Marble Guess — happen in the room and are not part of this table. The platform has no record of them; an organizer grants whatever a team earned on `/admin/resources`, and the team sees it as an **Organizer grant** ledger entry.
 
 ## Mandatory guardian: Blaze Guardian
 
@@ -30,31 +33,11 @@ The Guardian can be attempted at any point, but must be defeated before PvP elig
 - Win reward can be claimed once only.
 - Show the Guardian requirement as incomplete or satisfied in the PvP eligibility status.
 
-## Structures
-
-A team chooses one base structure.
-
-| Structure | Effect | Constraints |
-|---|---|---|
-| Bastion | Blocks 1 negative Round 3 event | Permanent while active |
-| TNT Storage | Skip 1 question for 50% of that question's reward | One use only |
-
-The frontend must show the selected structure, active/damaged state, and remaining use for TNT Storage. Before a question skip is committed, show the target question and the reduced reward. The server decides whether the action is allowed and applies the result.
-
-Post-round upgrades:
-
-| Upgrade | Cost | New effect |
-|---|---|---|
-| Reinforced Bastion | 20 Iron + 10 Gold | Blocks 2 negative events instead of 1 |
-| Mega TNT Storage | 15 Iron + 15 Gold | Skips 2 questions instead of 1 |
-
 ## World events and merchant choice
 
-| Event | Effect | Protection / repair |
+| Event | Effect | Special handling |
 |---|---|---|
 | Gold Rush | For 5 minutes, coding-question Gold rewards are doubled | Show active window and remaining server time |
-| Lava Eruption | −10 Gold, −5 Iron | Bastion prevents the loss while active |
-| Ghast Bombardment | A randomly selected structure is damaged | Bastion repair: 10 Iron + 5 Gold; TNT Storage repair: 10 Stone + 8 Iron |
 
 The Piglin Merchant is a one-time irreversible choice:
 
@@ -84,4 +67,3 @@ PvP victory: Nether Core ×1, +20 Gold, +15 Iron, +25 Stone, +4 Emerald. The com
 ## Shared features
 
 Include inventory and resource history, Marketplace access, active timer, server-enforced round lock, and protected resource/crafting mutations. Marketplace buying and using an owned consumable are separate actions.
-

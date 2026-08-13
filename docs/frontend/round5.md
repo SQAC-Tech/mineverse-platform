@@ -1,5 +1,9 @@
 # Round 5 — The End (Final Round)
 
+> **Partly superseded by [`../REMOVED_SYSTEMS.md`](../REMOVED_SYSTEMS.md) (14 Aug 2026).** Structures,
+> negative world events, and platform-recorded offline games were removed. Where this document
+> describes any of them, it is a record of what was planned, not of what exists.
+
 ## Purpose
 
 Round 5 is the final technical round. Qualified teams with a repaired portal solve final challenges, earn Diamonds and Emeralds, craft the Diamond Pickaxe, unlock the Final Boss, and attempt to defeat it. The earliest valid Final Boss victory wins Mineverse after organizer certification.
@@ -67,4 +71,3 @@ Never expose future boss packs, answer keys, hidden test cases, another team’s
 The first valid Final Boss victory becomes a provisional winner claim. Organizers certify the champion only after verifying qualification, portal repair, Diamond Pickaxe craft, and boss outcome. Team-facing copy must distinguish `boss defeated`, `provisional result`, `pending tiebreak/dispute`, and `champion certified`.
 
 Include shared inventory and resource history, Marketplace access, current timer, grading/manual-review states, and safe loading/error handling. Marketplace purchase and consumable use remain separate actions.
-

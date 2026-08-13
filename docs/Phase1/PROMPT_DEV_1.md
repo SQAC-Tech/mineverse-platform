@@ -1,4 +1,8 @@
 # PROMPT: Developer 1 — Foundation, Database, Landing, Registration (inline OTP) & Payment Page
+
+> **Partly superseded by [`../REMOVED_SYSTEMS.md`](../REMOVED_SYSTEMS.md) (14 Aug 2026).** Structures,
+> negative world events, and platform-recorded offline games were removed. Where this document
+> describes any of them, it is a record of what was planned, not of what exists.
 ## For: Codex / Claude Code / Antigravity
 
 **Context:** You are building Phase 1 of the MINEVERSE platform — a **Next.js 16 (App Router) + Supabase + Tailwind CSS v4** project. You are Developer 1. You own two things:

@@ -1,5 +1,9 @@
 # Phase 1 Frontend — Every Page, Every Button (already built)
 
+> **Partly superseded by [`../REMOVED_SYSTEMS.md`](../REMOVED_SYSTEMS.md) (14 Aug 2026).** Structures,
+> negative world events, and platform-recorded offline games were removed. Where this document
+> describes any of them, it is a record of what was planned, not of what exists.
+
 Phase 1 is done and live. This doc walks every real route, what's on screen, and which file owns it — read it side by side with the actual code. Read [00-how-the-frontend-works.md](./00-how-the-frontend-works.md) first for the conventions (Server/Client split, forms, state).
 
 ## Visual language note

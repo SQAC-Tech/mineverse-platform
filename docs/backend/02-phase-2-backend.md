@@ -1,5 +1,9 @@
 # Phase 2 Backend — Day 1 Gameplay (planning stage — this is what you'll build)
 
+> **Partly superseded by [`../REMOVED_SYSTEMS.md`](../REMOVED_SYSTEMS.md) (14 Aug 2026).** Structures,
+> negative world events, and platform-recorded offline games were removed. Where this document
+> describes any of them, it is a record of what was planned, not of what exists.
+
 **Status: not built yet.** This doc translates `../Phase 2/PHASE2_MASTER.md`, `PHASE2_API.md`, `PHASE2_DATABASE.md`, and `PHASE2_PVP.md` into plain language so you can start writing code without first parsing four dense spec documents. When you need an exact field name, exact error code, or an edge case not covered here, go to those files — they are the binding contract, this is the tour guide.
 
 Read [00-how-the-backend-works.md](./00-how-the-backend-works.md) and [01-phase-1-backend.md](./01-phase-1-backend.md) first. **Nothing about Phase 1's stack, cookies, or database access pattern changes.** Phase 2 is purely additive: new tables, new routes, reusing the exact same `session_token` / `panel_session` cookies and the exact same deny-all-RLS-via-service-role pattern.

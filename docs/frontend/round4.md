@@ -1,26 +1,27 @@
 # Round 4 — Nether Portal Repair (Pre-Final)
 
+> **Partly superseded by [`../REMOVED_SYSTEMS.md`](../REMOVED_SYSTEMS.md) (14 Aug 2026).** Structures,
+> negative world events, and platform-recorded offline games were removed. Where this document
+> describes any of them, it is a record of what was planned, not of what exists.
+
 ## Purpose
 
-Round 4 is a Day 2, offline-only round for teams qualified after Round 3. It records staff-run activities, tracks Portal Repair requirements, and unlocks Round 5 after the portal is repaired. There are no team-entered coding questions or self-report forms.
+Round 4 is a Day 2 round for teams qualified after Round 3. The physical games happen in the room; **the only thing the platform does in this round is the Nether Portal repair**, which unlocks Round 5. There are no team-entered coding questions and no self-report forms.
 
 **Duration:** approximately 60 minutes  
 **Access requirement:** Team is qualified for Day 2.  
 **Completion gate:** Nether Portal repaired.
 
-## Offline activity records
+## Where the Diamonds and the Portal Fragment come from
 
-Volunteers/operators enter one verified result per team per activity. Teams can only see their recorded result, award, and resulting inventory change.
+Memory Challenge, Spot the Difference, Crack the Code, Cup Flip and the rest are run and judged entirely off the platform. There is no activity list in the product, no award table, and no result-entry screen.
 
-| Activity | Format | Result / reward |
-|---|---|---|
-| Memory Challenge | Individual offline activity | +10 Diamonds, Portal Fragment ×1 |
-| Spot the Difference | Individual offline activity | +8 Diamonds, +2 Emeralds |
-| Insta lollipop and soap | Individual offline activity | Organizer-configured reward; no fixed award in the event rules |
-| Crack the Code | Offline PvP activity | Win: +8 Diamonds, +1 Emerald; loss: +3 Diamonds |
-| Cup Flip | Offline PvP activity | Win: +8 Diamonds, +1 Emerald; loss: +3 Diamonds, +1 Emerald |
+An organizer grants what a team earned on `/admin/resources`, which also grants the two portal artifacts that are not resources:
 
-Repeated operator submission must not double-pay. The operator experience needs the previously recorded result, not a second reward action.
+- **Portal Fragment** — a checkbox on that form.
+- **Nether Core** — a checkbox on that form, for a team that did not win one in Day 1 PvP.
+
+The team sees each grant as an **Organizer grant** entry in its resource history, with the reason the organizer typed. Granting twice is inert, so a repeated submission cannot double-pay.
 
 ## Portal Repair status and action
 
@@ -35,7 +36,7 @@ The player-facing status must clearly identify each requirement:
 Show these portal states:
 
 - `locked`: team is not qualified for Day 2 or Round 4 is unavailable.
-- `collecting`: offline activities are still being recorded.
+- `collecting`: the team is still short of at least one requirement.
 - `missing core`, `missing fragment`, or `diamonds needed`: show the exact outstanding requirement.
 - `ready to repair`: all requirements are present.
 - `repaired`: record the server repair time and Round 5 availability.
@@ -44,8 +45,7 @@ When ready, **Repair Portal** asks the server to verify and finalize the repair.
 
 ## Additional features
 
-- Day 2 carried inventory: Wood, Stone, Iron, Gold, Diamond, Emerald, Obsidian, structures, upgrades, and persistent artifacts must display as read-only carried state until a permitted action changes them.
-- Resource history must show every verified Round 4 reward and portal-repair record.
-- Round 4 has no Guardian, buildable structure, marketplace-specific rule, online question submission, or team-side PvP interface.
+- Day 2 carried inventory: Wood, Stone, Iron, Gold, Diamond, Emerald, Obsidian, crafted items, and persistent artifacts must display as read-only carried state until a permitted action changes them.
+- Resource history must show every organizer grant and the portal-repair record.
+- Round 4 has no Guardian, marketplace-specific rule, online question submission, or team-side PvP interface.
 - Non-qualified teams see an outcome/thank-you state only and cannot access Day 2 actions or private team data.
-

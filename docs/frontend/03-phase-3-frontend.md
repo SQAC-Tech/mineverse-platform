@@ -1,5 +1,9 @@
 # Phase 3 Frontend — Day 2 Gameplay UI (planning stage — builds after Phase 2)
 
+> **Partly superseded by [`../REMOVED_SYSTEMS.md`](../REMOVED_SYSTEMS.md) (14 Aug 2026).** Structures,
+> negative world events, and platform-recorded offline games were removed. Where this document
+> describes any of them, it is a record of what was planned, not of what exists.
+
 **Status: not built yet.** This translates the UI-relevant parts of `PHASE3_MASTER.md` and the three Phase 3 `PROMPT_DEV_*.md` files. Those `PROMPT_DEV` files are the binding file-path contract — this doc is the plain-language tour on top of them.
 
 Read [00-how-the-frontend-works.md](./00-how-the-frontend-works.md), [02-phase-2-frontend.md](./02-phase-2-frontend.md), and [../backend/03-phase-3-backend.md](../backend/03-phase-3-backend.md) first. Phase 3 reuses Phase 2's round shell, resource bar, and question components rather than building parallel copies — most of Dev 4's Phase 3 work is *extending* files they already own, not creating new ones.

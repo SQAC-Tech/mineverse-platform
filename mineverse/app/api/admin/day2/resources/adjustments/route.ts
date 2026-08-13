@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requirePanelScope } from '@/lib/panel/require-admin';
 import { supabaseServer } from '@/lib/supabase/server';
-import { addDelta, day2ResourceKeys, hasNonZeroDelta, normalizeDelta } from '@/lib/day2/events/offline';
+import { addDelta, day2ResourceKeys, hasNonZeroDelta, normalizeDelta } from '@/lib/day2/events/resources';
 
 const db = supabaseServer as any;
 

@@ -1,4 +1,8 @@
 # PROMPT: Developer 5 — Grading, World Events & Admin Game Operations
+
+> **Partly superseded by [`../REMOVED_SYSTEMS.md`](../REMOVED_SYSTEMS.md) (14 Aug 2026).** Structures,
+> negative world events, and platform-recorded offline games were removed. Where this document
+> describes any of them, it is a record of what was planned, not of what exists.
 ## For: Codex / Claude Code / Antigravity
 
 **Context:** Build the operator-facing gameplay services for MINEVERSE Phase 2 Day 1. Preserve Phase 1’s contracts: Next.js 16 App Router, Zod 4, service-role server access, and `panel_session` with `admin` scope. Never introduce `x-admin-key`, `NEXT_PUBLIC_ADMIN_SECRET`, or a separate admin-auth system.

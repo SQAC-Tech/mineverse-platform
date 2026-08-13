@@ -1,5 +1,10 @@
 # MINEVERSE — Full Event Details
 
+> **Superseded in three places by [`../REMOVED_SYSTEMS.md`](../REMOVED_SYSTEMS.md) (14 Aug 2026).**
+> Structures are gone, negative world events are gone, and the offline games are no longer
+> recorded by the platform. Sections below that still describe them are marked, but read the
+> removals doc first — it wins wherever the two disagree.
+
 ## How Mineverse Works
 
 Mineverse is a Minecraft-style coding game where teams of 2 to 3 players move through four different biomes. They solve coding problems along with debugging and logic tasks to earn resources and build things like pickaxes that let them go further. As teams advance, they encounter guardian battles, random world events, strategic marketplace trades, and resource management decisions that influence their journey. Every round becomes progressively more challenging, requiring not only coding skills but also effective planning and teamwork.
@@ -16,10 +21,9 @@ MINEVERSE is divided into **five progressive rounds across four biomes** — For
 1. Solve coding and technical challenges.
 2. Earn resources based on challenge performance.
 3. Participate in Guardian Battles for bonus rewards.
-4. Experience random World Events that may help or hinder progress.
-5. Build one optional structure with unique abilities.
-6. Visit the Marketplace to purchase hints, resources, or power-ups.
-7. Craft the required gear (pickaxe or armor) to unlock the next biome.
+4. Catch a World Event — a five-minute window that doubles one resource.
+5. Visit the Marketplace to purchase hints, resources, or power-ups.
+6. Craft the required gear (pickaxe or armor) to unlock the next biome.
 
 ### Core Gameplay Elements
 
@@ -29,8 +33,8 @@ MINEVERSE is divided into **five progressive rounds across four biomes** — For
 | Guardian Battles | Face biome-specific bosses for high-risk, high-reward bonuses. |
 | Resource Collection | Gather Wood, Stone, Iron, Gold, Diamonds, and Emeralds throughout the adventure. |
 | Crafting | Use collected resources to craft the pickaxes and armor required to unlock new biomes. |
-| Structures | Build one optional structure per biome to gain special gameplay advantages. |
-| World Events | Random positive, negative, and choice-based events that keep gameplay dynamic. |
+| World Events | Organizer-triggered reward windows that double one resource for five minutes. Nothing an event does can cost a team resources. |
+| Choice Events | The Ancient Shrine and Piglin Merchant, where a team trades one resource for another. |
 | Marketplace | Spend Emeralds to purchase hints, resource bundles, or special abilities. |
 | Progression | Advance through each biome until reaching the Nether Portal Finale and defeating the Ender Dragon. |
 
@@ -90,9 +94,9 @@ MINEVERSE is divided into **five progressive rounds across four biomes** — For
 
 **Time Allotted:** 60 minutes
 
-**Objective:** Teams solve coding challenges to collect Stone and Iron, essential for crafting the Stone Pickaxe. Teams may build their first optional structure, face dynamic world events, and challenge the Skeleton Archer Guardian. No eliminations this round.
+**Objective:** Teams solve coding challenges to collect Stone and Iron, essential for crafting the Stone Pickaxe. The marketplace opens, a reward window may fire, and the Skeleton Archer Guardian can be challenged. No eliminations this round.
 
-Offline games are played after the Debugging, Code Completion, and Output question round — while teams play offline games, the tech team evaluates answers and allocates resources. The aptitude round follows the offline games.
+Offline games are played after the Debugging, Code Completion, and Output question round — while teams play offline games, the tech team evaluates answers and allocates resources. The aptitude round follows the offline games. **The offline games are run entirely off the platform**; an organizer credits whatever a team earns through the Grant Resources screen.
 
 ### Challenges (8 platform questions + offline games + optional guardian)
 
@@ -119,19 +123,12 @@ Offline games are played after the Debugging, Code Completion, and Output questi
 - **Defeat:** -10 Iron, -10 Stone
 - **Retry Rules:** Unlimited retries; 3-minute cooldown after failed attempt; event timer continues; reward claimable once.
 
-**Structures** (free to build, unlocks after 10 min — choose one):
-1. **Bat Cave** — Bats scout hidden passages. Effect: Reveal one bonus challenge worth extra resources.
-2. **Forge** — 10% reduction on all future crafting costs. Lasts for the remainder of the event.
-
 **World Events**
-- **Fertile Marsh (Positive, 5 min):** Iron rewards from coding questions are doubled.
-- **Creeper Explosion (Negative):** "A group of Creepers has entered your mining camp! Their explosions have damaged your supplies." Every team loses 5 Wood and 5 Stone; built structure is damaged (repair cost: 8 Stone). **Protection:** Teams with Bat Cave built get advance warning — no resources lost.
+- **Fertile Marsh (5 min):** Iron rewards from coding questions are doubled.
 
-**Crafting — Stone Pickaxe:** Cost 10 Wood + 45 Stone + 25 Iron. Required to unlock Mountain Biome (nothing else mandatory).
+*Creeper Explosion and the Bat Cave / Forge structures were removed — see [`../REMOVED_SYSTEMS.md`](../REMOVED_SYSTEMS.md).*
 
-**Post-Round Structure Upgrades**
-- **Bat Cave → Echo Bat Cave** — Cost: 10 Stone + 10 Iron. Ability: reveals 2 bonus challenges instead of 1.
-- **Forge → Master Forge** — Cost: 15 Iron + 10 Stone. Ability: crafting cost reduction increases from 10% to 20%.
+**Crafting — Stone Pickaxe:** Cost 10 Wood + 45 Stone + 25 Iron. Required to unlock Mountain Biome (nothing else mandatory). There is no crafting discount any more; base cost is the cost.
 
 **Trader (Choice Event)** — appears after completion of the Cave Biome. An Ancient Shrine rises from the swamp; every team must choose one:
 - **Option A:** Offer 10 Wood → Receive +2 Emeralds
@@ -144,7 +141,7 @@ Offline games are played after the Debugging, Code Completion, and Output questi
 
 **Time Allotted:** 70 minutes
 
-**Objective:** Teams tackle more challenging coding problems to collect Iron and Gold, required to craft the Iron Armor. Teams may construct the Bastion for strategic advantage, face dynamic world events, and fight the mandatory Blaze Guardian boss battle. Defeating the Blaze Guardian and crafting the Iron Armor makes teams eligible for the PvP battle. Winning the PvP rewards the **Nether Core**, a key artifact required to repair the Nether Portal on Day 2.
+**Objective:** Teams tackle more challenging coding problems to collect Iron and Gold, required to craft the Iron Armor. A reward window may fire, and the mandatory Blaze Guardian boss battle happens here. Defeating the Blaze Guardian and crafting the Iron Armor makes teams eligible for the PvP battle. Winning the PvP rewards the **Nether Core**, a key artifact required to repair the Nether Portal on Day 2.
 
 **ELIMINATION ROUND:** This is the first and only elimination round of MINEVERSE. To qualify, teams must defeat the Blaze Guardian, craft the Iron Armor, and then win the PvP battle. Only the **top 50%** of teams qualify for the Nether Portal Finale.
 
@@ -172,14 +169,10 @@ Offline games are played after the Debugging, Code Completion, and Output questi
 - **Defeat:** -8 Iron, -5 Gold
 - **Retry Rules:** Unlimited retries; 3-minute cooldown after every failed attempt; round timer keeps running; guardian reward can only be claimed once.
 
-**Structures** (choose one):
-1. **Bastion** — Blocks 1 negative world event for the team while active. Permanent once built.
-2. **TNT Storage** — Skip 1 question and get 50% of its reward. Can be used only once.
-
 **World Events**
-- **Gold Rush (Positive, 5 min):** Gold rewards from coding questions are doubled.
-- **Lava Eruption (Negative):** Lose 10 Gold and 5 Iron — unless a Bastion has been built.
-- **Ghast Bombardment (Negative):** Randomly chosen structure gets damaged; players must spend resources to repair it or its ability stops working. Bastion repair: 10 Iron + 5 Gold. TNT Storage repair: 10 Stone + 8 Iron.
+- **Gold Rush (5 min):** Gold rewards from coding questions are doubled.
+
+*Lava Eruption, Ghast Bombardment and the Bastion / TNT Storage structures were removed — see [`../REMOVED_SYSTEMS.md`](../REMOVED_SYSTEMS.md).*
 
 **Piglin Merchant (Choice Event)** — a Piglin Merchant offers a rare trade. Choose one:
 - **Option A:** Trade 10 Gold → Receive +3 Emeralds
@@ -197,10 +190,6 @@ Offline games are played after the Debugging, Code Completion, and Output questi
 
 **Reward after winning PvP:** Nether Core ×1 (required for the Nether Portal repair on Day 2), +20 Gold, +15 Iron, +25 Stone, +4 Emerald
 
-**Post-Round Structure Upgrades**
-- **Bastion → Reinforced Bastion** — Cost: 20 Iron + 10 Gold. Ability: blocks 2 negative events instead of 1.
-- **TNT Storage → Mega TNT Storage** — Cost: 15 Iron + 15 Gold. Ability: skip 2 questions instead of 1.
-
 ---
 
 ## Pre-Final Round — Nether Portal Repair
@@ -217,7 +206,10 @@ The Ancient Nether Portal has collapsed after years of neglect, preventing anyon
 - Collect enough resources to activate the portal.
 - Unlock the Final Round.
 
-**Played purely as offline games**
+**Played purely as offline games.** The platform records none of them and holds no award table
+for them: an organizer decides what a team earned and hands it over on the Grant Resources
+screen, which is also where the Portal Fragment and the Nether Core are granted. The reward
+values below are the organizers' guide, not a platform rule.
 
 **Individual games (no PvP):**
 1. **Memory challenge** — Reward: +10 Diamonds, Portal Fragment ×1
@@ -268,9 +260,12 @@ Having successfully repaired the Ancient Nether Portal, the qualified teams fina
 - **Retry Rules:** Unlimited retries; 3-minute cooldown; main timer continues.
 
 **World Events**
-- **Chorus Fruit Blessing (Positive, 5 min):** Every coding challenge solved during this period gives +2 Emeralds.
-- **Enderman Ambush (Negative):** Every team immediately loses 8 Diamonds.
-- **Dragon's Fury (Negative, late-game):** Triggered by organizers during the late-game phase of the Final Round (e.g., the last ~15 minutes). The Ender Dragon destroys part of your inventory — lose 10 Diamonds unless your team has **weakened the Dragon**. *Weakening:* a team that has started at least one Final Boss attempt (win or lose) counts as having weakened the Dragon.
+- **Chorus Fruit Blessing (5 min):** Every coding challenge solved during this period gives +2 Emeralds.
+
+*Enderman Ambush and Dragon's Fury were removed, and with them the "weakened the Dragon"
+protection — see [`../REMOVED_SYSTEMS.md`](../REMOVED_SYSTEMS.md). Chorus Fruit Blessing is the
+only Day 2 event an organizer can trigger.*
+
 - **End Merchant (Choice Event):** An End Merchant appears with rare offers. Choose one:
   - **Option A:** Trade 5 Emeralds → Receive +18 Diamonds
   - **Option B:** Trade 12 Diamonds → Receive +4 Emeralds
@@ -312,13 +307,13 @@ A wandering Villager Merchant is willing to trade knowledge for Emeralds. Availa
 | |
 | 9:00 – 10:00 AM | Registration & Check-in | 60 min | Team registration, ID verification, welcome kit distribution, seating arrangement |
 | 10:00 – 10:40 AM | Opening Ceremony | 40 min | Welcome address, faculty speech, sponsor introduction, inauguration, club introduction |
-| 10:40 – 11:00 AM | Gameplay Briefing & Platform Demo | 20 min | Explain rules, scoring, gameplay mechanics, crafting, structures, platform demonstration |
+| 10:40 – 11:00 AM | Gameplay Briefing & Platform Demo | 20 min | Explain rules, scoring, gameplay mechanics, crafting, platform demonstration |
 | 11:00 – 11:45 AM | Round 1 – Forest Biome | 45 min | Coding challenges, Forest Guardian, Wooden Pickaxe crafting |
 | 11:45 AM – 12:00 PM | Buffer Time | 15 min | Submission collection, answer evaluation, resource calculation, technical synchronization |
-| 12:00 – 1:00 PM | Round 2 – Cave Biome | 60 min | Coding challenges, Skeleton Archer, world event, marketplace, structure building, Stone Pickaxe crafting |
-| 1:00 – 1:10 PM | Buffer Time | 10 min | Resource calculation, structure upgrade verification, marketplace updates, technical synchronization |
+| 12:00 – 1:00 PM | Round 2 – Cave Biome | 60 min | Coding challenges, Skeleton Archer, reward window, marketplace, Stone Pickaxe crafting |
+| 1:00 – 1:10 PM | Buffer Time | 10 min | Resource calculation, marketplace updates, technical synchronization |
 | 1:10 – 2:00 PM | Lunch Break | 50 min (10 in buffer) | — |
-| 2:10 – 3:20 PM | Round 3 – Mountain Biome | 70 min | Coding challenges, Blaze Guardian, world event, marketplace, structure building, Iron Armor crafting |
+| 2:10 – 3:20 PM | Round 3 – Mountain Biome | 70 min | Coding challenges, Blaze Guardian, reward window, marketplace, Iron Armor crafting |
 | 3:20 – 3:30 PM | Buffer Time | 10 min | Final resource verification, qualification validation, leaderboard finalization, prep for Final Round |
 | 3:30 – 3:45 PM | Qualification (PvP Battle) & Leaderboard | 15 min | Verify scores, resources, announce teams qualified for Day 2 |
 | 3:45 – 4:00 PM | Snack Break (if available) | 15 min | Tea, coffee, snacks *(if arranged)* |
@@ -352,7 +347,7 @@ Earnable vs. required per progression gate, assuming the rewards above. "Max" = 
 | Portal Repair (R4) | Nether Core + 1 Fragment + 15 Diamonds | 24–34 Diamonds (R4 games) | Comfortable (not consumed) |
 | Diamond Pickaxe (R5) | 25 Iron + 20 Gold + 100 Diamonds + 10 Emeralds | ~110 Diamonds max (34 R4 + 76 R5) | **Razor-thin — see below** |
 
-**⚠ Diamond tightness:** Max earnable is ~110 Diamonds. Enderman Ambush (−8) leaves 102; an unweakened Dragon's Fury (−10) drops a team below 100. In practice **no team crafts the Diamond Pickaxe without trades** (End Merchant: 5 Emeralds → 18 Diamonds, or Marketplace Diamond Bundle: 20 Emeralds → 15 Diamonds). Organizer must pick one before the event:
+**⚠ Diamond tightness:** Max earnable is ~110 Diamonds against a 100-Diamond cost — a 10-Diamond margin. Removing Enderman Ambush (−8) and Dragon's Fury (−10) took the worst case off the table, so this is no longer a guaranteed dead end, but it is still tight enough that most teams will want a trade (End Merchant: 5 Emeralds → 18 Diamonds, or Marketplace Diamond Bundle: 20 Emeralds → 15 Diamonds). Organizer may still choose to loosen it:
 1. Reduce Diamond Pickaxe cost from 100 → **90 Diamonds**, or
 2. Raise the R5 coding reward from +12 → **+15 Diamonds** (max becomes ~119).
 

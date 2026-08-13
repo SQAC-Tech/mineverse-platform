@@ -1,5 +1,5 @@
-import { supabaseServer } from '@/lib/supabase/server';
-import { day2ResourceKeys } from '@/lib/day2/events/offline';
+﻿import { supabaseServer } from '@/lib/supabase/server';
+import { day2ResourceKeys } from '@/lib/day2/events/resources';
 
 const db = supabaseServer as any;
 

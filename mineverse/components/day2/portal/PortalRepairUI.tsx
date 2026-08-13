@@ -95,7 +95,8 @@ export function PortalRepairUI() {
 
       <div className="p-4 rounded-lg bg-blue-950/30 border border-blue-900">
         <p className="text-sm text-blue-200">
-          Note: Volunteers and organizers will record the outcomes of your physical offline games (Memory Challenge, Spot the Difference, etc.) which will grant you the Portal Fragment and Diamonds. There is no self-entry for these.
+          Note: the Round 4 games happen in the room, not on this screen. Organizers credit whatever your team earns —
+          Diamonds, and the Portal Fragment — straight to your inventory. There is no self-entry for these.
         </p>
       </div>
 

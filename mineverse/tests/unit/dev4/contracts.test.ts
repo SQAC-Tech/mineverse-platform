@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { discountedCost, CRAFT_RECIPES } from '../../../lib/gameplay/crafting/rules';
+import { CRAFT_RECIPES } from '../../../lib/gameplay/crafting/rules';
 import { serializeSafeQuestion, validateSubmissionForQuestion, type QuestionRow } from '../../../lib/gameplay/questions/contracts';
 import { serializeSafePvpQuestion } from '../../../lib/gameplay/pvp/contracts';
 
@@ -77,8 +77,6 @@ describe('Dev4 crafting contract', () => {
     expect(CRAFT_RECIPES.wooden_pickaxe.base_cost).toEqual({ wood: 60 });
     expect(CRAFT_RECIPES.stone_pickaxe.base_cost).toEqual({ wood: 10, stone: 45, iron: 25 });
     expect(CRAFT_RECIPES.iron_armor.base_cost).toEqual({ iron: 40, gold: 25 });
-    expect(discountedCost({ wood: 10, stone: 45, iron: 25 }, 10)).toEqual({ wood: 9, stone: 41, iron: 23 });
-    expect(discountedCost({ iron: 40, gold: 25 }, 20)).toEqual({ iron: 32, gold: 20 });
   });
 });
 

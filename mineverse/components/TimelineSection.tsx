@@ -7,7 +7,7 @@ import { motion, useScroll, useTransform } from "framer-motion";
 const DAY1_TIMELINE = [
   { time: '9:00 – 10:00 AM', activity: 'Registration & Check-in', desc: 'Team registration, ID verification, welcome kit distribution, seating arrangement' },
   { time: '10:00 – 10:40 AM', activity: 'Opening Ceremony', desc: 'Welcome address, faculty speech, sponsor introduction, inauguration, club introduction' },
-  { time: '10:40 – 11:00 AM', activity: 'Gameplay Briefing', desc: 'Explain rules, scoring, gameplay mechanics, crafting, structures, platform demonstration' },
+  { time: '10:40 – 11:00 AM', activity: 'Gameplay Briefing', desc: 'Explain rules, scoring, gameplay mechanics, crafting, platform demonstration' },
   { time: '11:00 – 11:45 AM', activity: 'Round 1 — Forest Biome', desc: 'Coding challenges, Forest Guardian, Wooden Pickaxe crafting' },
   { time: '12:00 – 1:00 PM', activity: 'Round 2 — Cave Biome', desc: 'Coding challenges, Skeleton Archer, world event, marketplace, Stone Pickaxe crafting' },
   { time: '2:10 – 3:20 PM', activity: 'Round 3 — Mountain Biome', desc: 'Coding challenges, Blaze Guardian, world event, marketplace, Iron Armor crafting' },

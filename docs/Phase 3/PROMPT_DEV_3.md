@@ -1,4 +1,8 @@
 # PROMPT: Developer 3 — Day 2 Access, Portal Repair, Final Boss & Winner Certification
+
+> **Partly superseded by [`../REMOVED_SYSTEMS.md`](../REMOVED_SYSTEMS.md) (14 Aug 2026).** Structures,
+> negative world events, and platform-recorded offline games were removed. Where this document
+> describes any of them, it is a record of what was planned, not of what exists.
 ## For: Codex / Claude Code / Antigravity
 
 **Context:** Build the strategic/final-state domain for MINEVERSE Phase 3 Day 2. Phase 1 and Phase 2 are established contracts: Next.js 16, React 19, Tailwind v4, Zod 4, service-role API routes, Phase 1 team/admin cookies, and Phase 2’s resource ledger and qualification snapshot. The event brief at `../event details/Mineverse_Full_Event_Details.md` is authoritative.

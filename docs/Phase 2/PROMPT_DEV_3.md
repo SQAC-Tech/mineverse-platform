@@ -1,4 +1,8 @@
 # PROMPT: Developer 3 — Guardians, Structures, Marketplace & Qualification
+
+> **Partly superseded by [`../REMOVED_SYSTEMS.md`](../REMOVED_SYSTEMS.md) (14 Aug 2026).** Structures,
+> negative world events, and platform-recorded offline games were removed. Where this document
+> describes any of them, it is a record of what was planned, not of what exists.
 ## For: Codex / Claude Code / Antigravity
 
 **Context:** You are building the Day 1 gameplay features of MINEVERSE Phase 2. Phase 1 is already complete and remains the authority for stack, auth, routes, and security: Next.js 16 App Router, React 19, Tailwind v4, Zod 4, service-role Supabase routes, team `session_token`, and scoped `panel_session` cookies.

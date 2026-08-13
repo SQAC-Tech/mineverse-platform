@@ -1,5 +1,9 @@
 # Team Dashboard — Frontend Functional Specification
 
+> **Partly superseded by [`../REMOVED_SYSTEMS.md`](../REMOVED_SYSTEMS.md) (14 Aug 2026).** Structures,
+> negative world events, and platform-recorded offline games were removed. Where this document
+> describes any of them, it is a record of what was planned, not of what exists.
+
 ## Purpose
 
 The dashboard is the authenticated team’s central status page. It tells the team what round is available, where to continue, what they own, what is required next, and which event actions need attention. It does not expose another team’s private answers, inventory, guardian attempts, PvP status, or resources.
@@ -21,10 +25,9 @@ The dashboard needs one current server-backed team snapshot containing:
 | Round progress | Each round’s `locked`, `active`, `completed`, or `expired` state and its entry action |
 | Inventory | Wood, Stone, Iron, Gold, Diamond, Emerald, and Obsidian balances |
 | Crafted items | Wooden Pickaxe, Stone Pickaxe, Iron Armor, Diamond Pickaxe |
-| Structures | Chosen structure, upgrade status, damage state, active/inactive ability, and remaining one-time uses |
 | Persistent artifacts | Nether Core, Portal Fragment, and Nether Portal repair status |
 | Important eligibility | Current round gate, PvP eligibility, Day 2 qualification, and Final Boss eligibility |
-| Resource ledger | Paginated history of rewards, losses, crafts, purchases, trades, repairs, and organizer adjustments |
+| Resource ledger | Paginated history of rewards, crafts, purchases, trades, and organizer grants |
 
 All balances, timers, eligibility, and progression status are server-authoritative. Realtime updates can improve responsiveness, but the dashboard must poll/refetch as a fallback.
 
@@ -37,7 +40,7 @@ The dashboard lists all five rounds with the relevant purpose and the team’s a
 | Round 1 — Forest & Grasslands | Active by organizer control; craft Wooden Pickaxe to complete |
 | Round 2 — Cave Biome | Requires Wooden Pickaxe; craft Stone Pickaxe to complete |
 | Round 3 — Mountain Biome | Requires Stone Pickaxe; defeat Blaze Guardian, craft Iron Armor, then complete PvP |
-| Round 4 — Nether Portal Repair | Requires Day 2 qualification; record offline rewards and repair portal |
+| Round 4 — Nether Portal Repair | Requires Day 2 qualification; repair the portal. The physical games are off-platform |
 | Round 5 — The End | Requires Day 2 qualification and repaired portal; craft Diamond Pickaxe and defeat Final Boss |
 
 For every round card/state, show the specific reason entry is unavailable instead of only a generic lock. Examples include missing crafted item, inactive round, missing Guardian victory, not selected/eligible for PvP, not qualified for Day 2, or portal not repaired.
@@ -50,10 +53,9 @@ Show server-generated, team-relevant alerts only:
 
 - Active world event, its effect, and remaining server-controlled duration.
 - Guardian cooldown or Guardian retry availability.
-- Structure damage and required repair cost.
 - Pending one-time choice event: Ancient Shrine, Piglin Merchant, or End Merchant.
 - Pending PvP selection/waiting state, active private PvP, or safe resolved result.
-- Offline Round 4 activity outcome recorded by staff.
+- Organizer grants credited to the team, with the organizer's stated reason.
 - Portal repair readiness and missing requirements.
 - Diamond Pickaxe eligibility and Final Boss cooldown/attempt result.
 
@@ -86,4 +88,3 @@ The dashboard must refresh inventory and resource history after a completed purc
 - Do not use dashboard state as permission to perform an action; every linked page and API mutation independently validates team identity, round status, resources, cooldowns, and one-time-use constraints.
 - Treat a client timer as display-only. Round deadlines, event windows, Guardian cooldowns, PvP completion time, and Final Boss ordering come from the server.
 - Every resource-changing action must refresh from the resulting server snapshot or ledger entry so the displayed history remains auditable.
-

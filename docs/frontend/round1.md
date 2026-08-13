@@ -1,5 +1,9 @@
 # Round 1 — Forest & Grasslands
 
+> **Partly superseded by [`../REMOVED_SYSTEMS.md`](../REMOVED_SYSTEMS.md) (14 Aug 2026).** Structures,
+> negative world events, and platform-recorded offline games were removed. Where this document
+> describes any of them, it is a record of what was planned, not of what exists.
+
 ## Purpose
 
 Round 1 introduces the Mineverse loop: teams solve questions, earn resources, may attempt an optional guardian, and craft the Wooden Pickaxe to unlock Round 2. There are no eliminations.
@@ -60,4 +64,3 @@ No structure can be built in Round 1.
 - Heavy Rain inactive/active/finished state.
 - Current inventory, resource-change history, and Wooden Pickaxe eligibility.
 - Clear server error and loading states for every mutation.
-

@@ -1,4 +1,8 @@
 # PROMPT: Developer 5 — Day 2 Offline Operations, Grading, Events & Reconciliation
+
+> **Partly superseded by [`../REMOVED_SYSTEMS.md`](../REMOVED_SYSTEMS.md) (14 Aug 2026).** Structures,
+> negative world events, and platform-recorded offline games were removed. Where this document
+> describes any of them, it is a record of what was planned, not of what exists.
 ## For: Codex / Claude Code / Antigravity
 
 **Context:** Extend your Phase 2 admin-operations ownership for MINEVERSE Phase 3 Day 2. Keep Phase 1’s scoped `panel_session` admin authentication, server-only provider access, service-role routes, Zod validation, deny-all RLS, and Phase 2’s atomic resource-ledger contract. The event brief at `../event details/Mineverse_Full_Event_Details.md` is authoritative.

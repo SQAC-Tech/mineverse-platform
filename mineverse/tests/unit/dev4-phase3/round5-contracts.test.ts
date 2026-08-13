@@ -13,7 +13,6 @@ describe('Dev4 Phase 3 — Round 5 config', () => {
     expect(cfg!.guardian).toBeNull(); // Final Boss is Dev 3's domain
     expect(cfg!.marketplace).toBe(true);
     expect(cfg!.pvp).toBe(false);
-    expect(cfg!.structures).toEqual([]);
   });
 
   it('Round 5 does not assign a guardian (Final Boss is Dev 3)', () => {

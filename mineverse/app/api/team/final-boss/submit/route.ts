@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireDay2Access, Day2Session } from '@/lib/day2/access/guard';
 import { supabaseServer } from '@/lib/supabase/server';
-import { checkDeterministicAnswer } from '@/lib/gameplay/grading/deterministic';
+import { checkDeterministicAnswer, type ExpectedAnswer } from '@/lib/gameplay/grading/deterministic';
 
 export async function POST(request: Request) {
   const guardResult = await requireDay2Access();
@@ -25,9 +25,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: false, error: 'NO_ACTIVE_ATTEMPT' }, { status: 400 });
   }
 
-  // Fetch the questions for this attempt to get the expected_answer
-  // The attempt has question_payload which has the list of questions
-  const questionIds = attempt.question_payload.questions.map((q: any) => q.id);
+  // `question_payload` is a jsonb column, so the generated types give it back as
+  // `Json`. The shape is written by the attempts route, not by a client.
+  const payload = (attempt.question_payload ?? {}) as { questions?: { id: string }[] };
+  const questionIds = (payload.questions ?? []).map((q) => q.id);
 
   const { data: questions } = await supabaseServer
     .from('questions')
@@ -40,7 +41,7 @@ export async function POST(request: Request) {
   for (const q of questions || []) {
     const submitted = answers.find(a => a.question_id === q.id);
     const text = submitted?.answer_text ?? submitted?.code ?? null;
-    const isCorrect = checkDeterministicAnswer(text, q.expected_answer);
+    const isCorrect = checkDeterministicAnswer(text, q.expected_answer as ExpectedAnswer);
     
     scoreEvidence.push({
       question_id: q.id,

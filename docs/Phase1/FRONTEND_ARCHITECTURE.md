@@ -1,4 +1,8 @@
 # MINEVERSE — Frontend Architecture
+
+> **Partly superseded by [`../REMOVED_SYSTEMS.md`](../REMOVED_SYSTEMS.md) (14 Aug 2026).** Structures,
+> negative world events, and platform-recorded offline games were removed. Where this document
+> describes any of them, it is a record of what was planned, not of what exists.
 ## Phase 1 Specification (v1.0)
 
 **Framework:** Next.js 16.2.x (App Router, Turbopack) + React 19.2.x + TypeScript 5 (strict)

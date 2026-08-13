@@ -18,25 +18,6 @@ export interface Dev3GuardianBattle {
   consumed_items: string[] | null;
 }
 
-export interface Dev3Structure {
-  id: string;
-  team_id: string;
-  round_id: number;
-  type: string;
-  state: 'active' | 'damaged' | 'repaired' | 'upgraded' | 'consumed';
-  built_at: string;
-  updated_at: string;
-  upgrade_lineage: string[] | null;
-}
-
-export interface Dev3StructureRepair {
-  id: string;
-  structure_type: string;
-  team_id: string;
-  repaired_at: string;
-  cost_ledger_id: string;
-}
-
 export interface Dev3Transaction {
   id: string;
   team_id: string;

@@ -1,5 +1,9 @@
 # Phase 3 Backend — Day 2 Gameplay (planning stage — builds after Phase 2)
 
+> **Partly superseded by [`../REMOVED_SYSTEMS.md`](../REMOVED_SYSTEMS.md) (14 Aug 2026).** Structures,
+> negative world events, and platform-recorded offline games were removed. Where this document
+> describes any of them, it is a record of what was planned, not of what exists.
+
 **Status: not built yet.** This translates `../Phase 3/PHASE3_MASTER.md`, `PHASE3_API.md`, and `PHASE3_DATABASE.md`. Same rule as the Phase 2 doc: when you need an exact field name or edge case, go to those files — this is the plain-language tour.
 
 Read [00-how-the-backend-works.md](./00-how-the-backend-works.md), [01-phase-1-backend.md](./01-phase-1-backend.md), and [02-phase-2-backend.md](./02-phase-2-backend.md) first. **Phase 3 changes nothing about the stack.** It reuses Phase 1's cookies and Phase 2's resource ledger contract exactly. It is purely additive — new tables, new routes, zero edits to Phase 1 or Phase 2 migration files.

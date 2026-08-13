@@ -1,4 +1,8 @@
 # MINEVERSE Platform — Phase 2 PRD
+
+> **Partly superseded by [`../REMOVED_SYSTEMS.md`](../REMOVED_SYSTEMS.md) (14 Aug 2026).** Structures,
+> negative world events, and platform-recorded offline games were removed. Where this document
+> describes any of them, it is a record of what was planned, not of what exists.
 ## Day 1 Gameplay Engine: Rounds, Resources, Grading & Operations
 
 **Version:** 3.0  

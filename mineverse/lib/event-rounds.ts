@@ -27,13 +27,13 @@ export const ROUND_PROGRESSION = ['Forest', 'Cave', 'Mountain', 'Nether', 'End']
 export const EVENT_ROUNDS: EventRound[] = [
   {
     label: 'ROUND 1', name: 'Forest & Grasslands', biome: 'Forest', icon: '🌲', day: 'DAY 1',
-    desc: 'Warm-up coding problems. Every solve mines resources into your team inventory.',
+    desc: 'The starting biome. Every challenge you clear mines resources into your team inventory.',
     boss: 'Forest Guardian',
     unlock: 'Wooden Pickaxe',
   },
   {
     label: 'ROUND 2', name: 'Cave Biome', biome: 'Cave', icon: '⛏️', day: 'DAY 1',
-    desc: 'Harder problems, and the marketplace and structure building open up. A world event shakes things up mid-round.',
+    desc: 'Underground, with the marketplace open for trading. Mid-round a bonus window doubles what you mine for five minutes.',
     boss: 'Skeleton Archer',
     unlock: 'Stone Pickaxe',
   },
@@ -51,13 +51,13 @@ export const EVENT_ROUNDS: EventRound[] = [
   },
   {
     label: 'ROUND 4', name: 'Pre-Final', biome: 'Nether', icon: '🏃', day: 'DAY 2',
-    desc: 'Away from the keyboard — physical games and the Nether Portal repair earn the resources you carry into the finale.',
+    desc: 'Away from the keyboard. Team games in the room earn resources, credited to your inventory before the Nether Portal repair.',
     boss: 'The Nether Portal',
     unlock: 'Finale resources',
   },
   {
     label: 'ROUND 5', name: 'The End', biome: 'End', icon: '🐉', day: 'DAY 2',
-    desc: 'Pure code, hardest problems, everything on the line. Whoever stands tallest here takes the crown.',
+    desc: 'Pure code and the Diamond Pickaxe, everything on the line. Whoever stands tallest here takes the crown.',
     boss: 'Ender Dragon',
     unlock: 'Victory',
   },

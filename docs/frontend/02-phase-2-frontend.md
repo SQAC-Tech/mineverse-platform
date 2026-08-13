@@ -1,5 +1,9 @@
 # Phase 2 Frontend — Day 1 Gameplay UI (planning stage — this is what you'll build)
 
+> **Partly superseded by [`../REMOVED_SYSTEMS.md`](../REMOVED_SYSTEMS.md) (14 Aug 2026).** Structures,
+> negative world events, and platform-recorded offline games were removed. Where this document
+> describes any of them, it is a record of what was planned, not of what exists.
+
 **Status: not built yet.** This translates the UI-relevant parts of `PHASE2_MASTER.md` and the three `PROMPT_DEV_*.md` files into a page-by-page tour. Those `PROMPT_DEV_*.md` files are the actual binding file-path contract for whoever builds this — if a path here and there ever disagree, the `PROMPT_DEV` file wins.
 
 Read [00-how-the-frontend-works.md](./00-how-the-frontend-works.md) and [../backend/02-phase-2-backend.md](../backend/02-phase-2-backend.md) first — every screen below is a thin UI layer over the routes and tables described there.

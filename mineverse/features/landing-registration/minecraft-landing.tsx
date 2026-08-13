@@ -568,13 +568,13 @@ const DAY1_TIMELINE = [
   { time: '8:00 – 9:00 AM', activity: 'Venue Setup', icon: '🏗️', desc: 'Venue decoration, registration desk setup, technical testing, volunteer briefing', biome: 'Overworld' },
   { time: '9:00 – 10:00 AM', activity: 'Registration & Check-in', icon: '📋', desc: 'Team registration, ID verification, welcome kit distribution, seating arrangement', biome: 'Overworld' },
   { time: '10:00 – 10:40 AM', activity: 'Opening Ceremony', icon: '🎺', desc: 'Welcome address, faculty speech, sponsor introduction, inauguration, club introduction', biome: 'Overworld' },
-  { time: '10:40 – 11:00 AM', activity: 'Gameplay Briefing & Platform Demo', icon: '🎮', desc: 'Explain rules, scoring, gameplay mechanics, crafting, structures, and platform demonstration', biome: 'Overworld' },
+  { time: '10:40 – 11:00 AM', activity: 'Gameplay Briefing & Platform Demo', icon: '🎮', desc: 'Explain rules, scoring, gameplay mechanics, crafting, and platform demonstration', biome: 'Overworld' },
   { time: '11:00 – 11:45 AM', activity: 'Round 1 – Forest Biome', icon: '🌲', desc: 'Coding challenges, Forest Guardian, Wooden Pickaxe crafting', biome: 'Forest' },
   { time: '11:45 – 12:00 PM', activity: 'Buffer Time', icon: '⏳', desc: 'Submission collection, answer evaluation, resource calculation, and technical synchronization', biome: 'Forest' },
-  { time: '12:00 – 1:00 PM', activity: 'Round 2 – Cave Biome', icon: '⛏️', desc: 'Coding challenges, Skeleton Archer, world event, marketplace, structure building, Stone Pickaxe crafting', biome: 'Cave' },
-  { time: '1:00 – 1:10 PM', activity: 'Buffer Time', icon: '⏳', desc: 'Resource calculation, structure upgrade verification, marketplace updates, and technical synchronization', biome: 'Cave' },
+  { time: '12:00 – 1:00 PM', activity: 'Round 2 – Cave Biome', icon: '⛏️', desc: 'Challenges, Skeleton Archer, bonus window, marketplace, Stone Pickaxe crafting', biome: 'Cave' },
+  { time: '1:00 – 1:10 PM', activity: 'Buffer Time', icon: '⏳', desc: 'Resource calculation, marketplace updates, and technical synchronization', biome: 'Cave' },
   { time: '1:10 – 2:00 PM', activity: 'Lunch Break', icon: '🍖', desc: 'Refuel your hunger bar!', biome: 'Cave' },
-  { time: '2:10 – 3:20 PM', activity: 'Round 3 – Mountain Biome', icon: '🏔️', desc: 'Coding challenges, Ice Golem, world event, marketplace, structure building, Iron Pickaxe crafting', biome: 'Mountain' },
+  { time: '2:10 – 3:20 PM', activity: 'Round 3 – Mountain Biome', icon: '🏔️', desc: 'Challenges, Blaze Guardian, bonus window, marketplace, Iron Armor crafting', biome: 'Mountain' },
   { time: '3:20 – 3:30 PM', activity: 'Buffer Time', icon: '⏳', desc: 'Final resource verification, qualification validation, leaderboard finalization', biome: 'Mountain' },
   { time: '3:30 – 3:45 PM', activity: 'Qualification (PvP Battle) & Leaderboard', icon: '⚔️', desc: 'Verify scores, resources, and announce teams qualified for Day 2', biome: 'Nether' },
   { time: '3:45 – 4:00 PM', activity: 'Snack Break', icon: '🍪', desc: 'Tea, coffee, snacks', biome: 'Nether' },
@@ -1236,9 +1236,9 @@ function CavernContent({ config }: { config: any }) {
             MINEVERSE is a two-day coding competition played like a Minecraft run. You enter as a team
             of two or three and start with nothing. Every problem you solve <strong style={{ color: '#4ade80' }}>mines
             resources</strong>; resources let you <strong style={{ color: '#fca311' }}>craft better pickaxes</strong>,
-            trade at the marketplace and <strong style={{ color: '#5a8aba' }}>build structures</strong> that protect your
-            score. Each round has a guardian to beat and a biome to survive, and the tools you carry out of one round
-            are the tools you take into the next.
+            and <strong style={{ color: '#5a8aba' }}>trade at the marketplace</strong> for whatever you are short of.
+            Each round has a guardian to beat and a biome to clear, and the tools you carry out of one round are the
+            tools you take into the next.
           </p>
 
           <p style={{
@@ -1389,9 +1389,9 @@ function CavernContent({ config }: { config: any }) {
           margin: '0 auto',
         }}>
           {[
-            { icon: '💻', title: 'CODING CHALLENGES', desc: '5 rounds of increasing difficulty across biomes' },
+            { icon: '💻', title: 'FIVE ROUNDS', desc: 'A different biome and a different guardian in each' },
             { icon: '⚔️', title: 'PVP BATTLES', desc: 'Compete head-to-head with other teams' },
-            { icon: '🏗️', title: 'STRUCTURE BUILDING', desc: 'Build and upgrade your team\'s base' },
+            { icon: '⛏️', title: 'CRAFTING', desc: 'Work your way up from a wooden pickaxe to a diamond one' },
             { icon: '🎲', title: 'PHYSICAL GAMES', desc: 'Fun activities and mini-games between rounds' },
             { icon: '🏪', title: 'MARKETPLACE', desc: 'Trade resources and strategize upgrades' },
             { icon: '🏆', title: 'EPIC PRIZES', desc: 'Cash prizes, certificates, and exclusive swag' },

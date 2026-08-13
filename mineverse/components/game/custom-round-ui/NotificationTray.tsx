@@ -24,11 +24,9 @@ const SOURCE_LABELS: Record<string, string> = {
   event: 'World event',
   craft: 'Crafting',
   purchase: 'Marketplace',
-  structure: 'Structure',
   choice: 'Trader choice',
-  offline_game: 'Offline game',
-  admin: 'Organizer adjustment',
-  adjustment: 'Organizer adjustment',
+  admin: 'Organizer grant',
+  adjustment: 'Organizer grant',
 };
 
 function sourceLabel(entry: LedgerEntry) {
