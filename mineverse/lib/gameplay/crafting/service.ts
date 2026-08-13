@@ -3,7 +3,7 @@ import type { ResourceDelta } from '@/lib/gameplay/resources/service';
 
 const db = supabaseServer as any;
 
-export type CraftItem = 'wooden_pickaxe' | 'stone_pickaxe' | 'iron_armor';
+export type CraftItem = 'wooden_pickaxe' | 'stone_pickaxe' | 'iron_armor' | 'diamond_pickaxe';
 
 export interface CraftRecipe {
   item: CraftItem;
@@ -34,6 +34,13 @@ export const CRAFT_RECIPES: Record<CraftItem, CraftRecipe> = {
     base_cost: { iron: 40, gold: 25 },
     unlock_round_id: null,
     marks_pvp_eligible: true,
+  },
+  diamond_pickaxe: {
+    item: 'diamond_pickaxe',
+    label: 'Diamond Pickaxe',
+    base_cost: { iron: 25, gold: 20, diamond: 100, emerald: 10 },
+    unlock_round_id: null,
+    marks_pvp_eligible: false,
   },
 };
 
@@ -116,6 +123,12 @@ export async function craftTeamItem(teamId: string, item: CraftItem, idempotency
     }
     if (message.includes('progression requirement')) {
       return { ok: false as const, status: 422, code: 'PROGRESSION_REQUIRED', message: 'Craft the previous progression item first.' };
+    }
+    if (message.includes('day2 qualification')) {
+      return { ok: false as const, status: 403, code: 'DAY2_NOT_QUALIFIED', message: 'Your team has not qualified for Day 2.' };
+    }
+    if (message.includes('portal repair')) {
+      return { ok: false as const, status: 403, code: 'PORTAL_NOT_REPAIRED', message: 'Your team must repair the Nether Portal first.' };
     }
     throw error;
   }
