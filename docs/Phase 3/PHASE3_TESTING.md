@@ -1,4 +1,8 @@
 # MINEVERSE — Phase 3 Testing Document
+
+> **Partly superseded by [`../REMOVED_SYSTEMS.md`](../REMOVED_SYSTEMS.md) (14 Aug 2026).** Structures,
+> negative world events, and platform-recorded offline games were removed. Where this document
+> describes any of them, it is a record of what was planned, not of what exists.
 ## Day 2 Portal, Final Boss & Winner Certification
 
 **Test stack:** Continue Phase 1/2: Vitest for unit/integration, Playwright for E2E, and k6 for bounded load checks.  

@@ -235,6 +235,410 @@ export type Database = {
           },
         ]
       }
+      day2_champion_certifications: {
+        Row: {
+          certified_at: string
+          certified_by: string
+          evidence: Json
+          reason: string
+          team_id: string
+        }
+        Insert: {
+          certified_at?: string
+          certified_by: string
+          evidence?: Json
+          reason: string
+          team_id: string
+        }
+        Update: {
+          certified_at?: string
+          certified_by?: string
+          evidence?: Json
+          reason?: string
+          team_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "day2_champion_certifications_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: true
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      day2_event_effects: {
+        Row: {
+          applied_at: string
+          applied_by: string
+          delta: Json
+          event_id: string
+          id: string
+          idempotency_key: string
+          ledger_id: string
+          notes: string | null
+          protection: string | null
+          reason: string
+          resolution: string
+          team_id: string
+        }
+        Insert: {
+          applied_at?: string
+          applied_by: string
+          delta?: Json
+          event_id: string
+          id?: string
+          idempotency_key: string
+          ledger_id: string
+          notes?: string | null
+          protection?: string | null
+          reason: string
+          resolution: string
+          team_id: string
+        }
+        Update: {
+          applied_at?: string
+          applied_by?: string
+          delta?: Json
+          event_id?: string
+          id?: string
+          idempotency_key?: string
+          ledger_id?: string
+          notes?: string | null
+          protection?: string | null
+          reason?: string
+          resolution?: string
+          team_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "day2_event_effects_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "day2_event_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "day2_event_effects_ledger_id_fkey"
+            columns: ["ledger_id"]
+            isOneToOne: false
+            referencedRelation: "resource_ledger"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "day2_event_effects_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      day2_event_instances: {
+        Row: {
+          effect: Json
+          ends_at: string | null
+          event_key: string
+          id: string
+          idempotency_key: string
+          notes: string | null
+          reason: string
+          round_id: number
+          scope: string
+          starts_at: string
+          status: string
+          target_team_ids: string[]
+          triggered_at: string
+          triggered_by: string
+        }
+        Insert: {
+          effect?: Json
+          ends_at?: string | null
+          event_key: string
+          id?: string
+          idempotency_key: string
+          notes?: string | null
+          reason: string
+          round_id?: number
+          scope?: string
+          starts_at?: string
+          status?: string
+          target_team_ids?: string[]
+          triggered_at?: string
+          triggered_by: string
+        }
+        Update: {
+          effect?: Json
+          ends_at?: string | null
+          event_key?: string
+          id?: string
+          idempotency_key?: string
+          notes?: string | null
+          reason?: string
+          round_id?: number
+          scope?: string
+          starts_at?: string
+          status?: string
+          target_team_ids?: string[]
+          triggered_at?: string
+          triggered_by?: string
+        }
+        Relationships: []
+      }
+      day2_final_boss_attempts: {
+        Row: {
+          completed_at: string | null
+          cooldown_until: string | null
+          id: string
+          question_payload: Json
+          score_evidence: Json | null
+          started_at: string
+          status: string
+          team_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          cooldown_until?: string | null
+          id?: string
+          question_payload?: Json
+          score_evidence?: Json | null
+          started_at?: string
+          status: string
+          team_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          cooldown_until?: string | null
+          id?: string
+          question_payload?: Json
+          score_evidence?: Json | null
+          started_at?: string
+          status?: string
+          team_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "day2_final_boss_attempts_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      day2_manual_adjustments: {
+        Row: {
+          admin_id: string
+          balance_after: Json
+          balance_before: Json
+          expected_balance_after: Json
+          expected_balance_before: Json
+          id: string
+          idempotency_key: string
+          ledger_id: string
+          notes: string | null
+          reason: string
+          requested_at: string
+          requested_delta: Json
+          status: string
+          team_id: string
+        }
+        Insert: {
+          admin_id: string
+          balance_after: Json
+          balance_before: Json
+          expected_balance_after: Json
+          expected_balance_before: Json
+          id?: string
+          idempotency_key: string
+          ledger_id: string
+          notes?: string | null
+          reason: string
+          requested_at?: string
+          requested_delta: Json
+          status?: string
+          team_id: string
+        }
+        Update: {
+          admin_id?: string
+          balance_after?: Json
+          balance_before?: Json
+          expected_balance_after?: Json
+          expected_balance_before?: Json
+          id?: string
+          idempotency_key?: string
+          ledger_id?: string
+          notes?: string | null
+          reason?: string
+          requested_at?: string
+          requested_delta?: Json
+          status?: string
+          team_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "day2_manual_adjustments_ledger_id_fkey"
+            columns: ["ledger_id"]
+            isOneToOne: false
+            referencedRelation: "resource_ledger"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "day2_manual_adjustments_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      day2_portal_fragments: {
+        Row: {
+          awarded_at: string
+          source: string
+          team_id: string
+        }
+        Insert: {
+          awarded_at?: string
+          source: string
+          team_id: string
+        }
+        Update: {
+          awarded_at?: string
+          source?: string
+          team_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "day2_portal_fragments_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: true
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      day2_portal_repair: {
+        Row: {
+          repaired_at: string
+          team_id: string
+        }
+        Insert: {
+          repaired_at?: string
+          team_id: string
+        }
+        Update: {
+          repaired_at?: string
+          team_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "day2_portal_repair_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: true
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      day2_provisional_winners: {
+        Row: {
+          claimed_at: string
+          status: string
+          team_id: string
+        }
+        Insert: {
+          claimed_at?: string
+          status?: string
+          team_id: string
+        }
+        Update: {
+          claimed_at?: string
+          status?: string
+          team_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "day2_provisional_winners_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: true
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      day2_reconciliations: {
+        Row: {
+          diamond_pickaxe_crafted: boolean
+          discrepancies: Json
+          final_boss_outcome: Json
+          id: string
+          idempotency_key: string
+          latest_ledger_id: string | null
+          operator_notes: string
+          portal_repaired: boolean
+          qualification_snapshot: Json
+          reconciled_at: string
+          reconciled_by: string
+          resource_balance: Json
+          resource_version: number
+          state: string
+          team_id: string
+          unresolved_adjustments: Json
+        }
+        Insert: {
+          diamond_pickaxe_crafted: boolean
+          discrepancies?: Json
+          final_boss_outcome: Json
+          id?: string
+          idempotency_key: string
+          latest_ledger_id?: string | null
+          operator_notes: string
+          portal_repaired: boolean
+          qualification_snapshot: Json
+          reconciled_at?: string
+          reconciled_by: string
+          resource_balance: Json
+          resource_version: number
+          state: string
+          team_id: string
+          unresolved_adjustments?: Json
+        }
+        Update: {
+          diamond_pickaxe_crafted?: boolean
+          discrepancies?: Json
+          final_boss_outcome?: Json
+          id?: string
+          idempotency_key?: string
+          latest_ledger_id?: string | null
+          operator_notes?: string
+          portal_repaired?: boolean
+          qualification_snapshot?: Json
+          reconciled_at?: string
+          reconciled_by?: string
+          resource_balance?: Json
+          resource_version?: number
+          state?: string
+          team_id?: string
+          unresolved_adjustments?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "day2_reconciliations_latest_ledger_id_fkey"
+            columns: ["latest_ledger_id"]
+            isOneToOne: false
+            referencedRelation: "resource_ledger"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "day2_reconciliations_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_logs: {
         Row: {
           created_at: string
@@ -650,70 +1054,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "members_team_id_fkey"
-            columns: ["team_id"]
-            isOneToOne: false
-            referencedRelation: "teams"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      offline_results: {
-        Row: {
-          activity: string
-          award: Json
-          created_at: string
-          id: string
-          idempotency_key: string
-          ledger_id: string | null
-          notes: string | null
-          recorded_by: string
-          round_id: number
-          team_id: string
-          volunteer_name: string | null
-        }
-        Insert: {
-          activity: string
-          award?: Json
-          created_at?: string
-          id?: string
-          idempotency_key: string
-          ledger_id?: string | null
-          notes?: string | null
-          recorded_by: string
-          round_id: number
-          team_id: string
-          volunteer_name?: string | null
-        }
-        Update: {
-          activity?: string
-          award?: Json
-          created_at?: string
-          id?: string
-          idempotency_key?: string
-          ledger_id?: string | null
-          notes?: string | null
-          recorded_by?: string
-          round_id?: number
-          team_id?: string
-          volunteer_name?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "offline_results_ledger_id_fkey"
-            columns: ["ledger_id"]
-            isOneToOne: false
-            referencedRelation: "resource_ledger"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "offline_results_round_id_fkey"
-            columns: ["round_id"]
-            isOneToOne: false
-            referencedRelation: "rounds"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "offline_results_team_id_fkey"
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "teams"
@@ -1156,11 +1496,14 @@ export type Database = {
           hidden_test_cases: Json | null
           id: string
           language_options: string[]
+          logic_puzzle_variant: string | null
           order_index: number
+          pack_version: string | null
           prompt: string
           reward: Json
           round_id: number
           rubric: Json | null
+          runtime_meta: Json | null
           time_limit_seconds: number | null
           type: string
         }
@@ -1173,11 +1516,14 @@ export type Database = {
           hidden_test_cases?: Json | null
           id?: string
           language_options?: string[]
+          logic_puzzle_variant?: string | null
           order_index: number
+          pack_version?: string | null
           prompt: string
           reward?: Json
           round_id: number
           rubric?: Json | null
+          runtime_meta?: Json | null
           time_limit_seconds?: number | null
           type: string
         }
@@ -1190,11 +1536,14 @@ export type Database = {
           hidden_test_cases?: Json | null
           id?: string
           language_options?: string[]
+          logic_puzzle_variant?: string | null
           order_index?: number
+          pack_version?: string | null
           prompt?: string
           reward?: Json
           round_id?: number
           rubric?: Json | null
+          runtime_meta?: Json | null
           time_limit_seconds?: number | null
           type?: string
         }
@@ -1374,86 +1723,6 @@ export type Database = {
         }
         Relationships: []
       }
-      structure_repairs: {
-        Row: {
-          cost_ledger_id: string
-          id: string
-          repaired_at: string
-          structure_id: string
-          team_id: string
-        }
-        Insert: {
-          cost_ledger_id: string
-          id?: string
-          repaired_at?: string
-          structure_id: string
-          team_id: string
-        }
-        Update: {
-          cost_ledger_id?: string
-          id?: string
-          repaired_at?: string
-          structure_id?: string
-          team_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "structure_repairs_structure_id_fkey"
-            columns: ["structure_id"]
-            isOneToOne: false
-            referencedRelation: "structures"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "structure_repairs_team_id_fkey"
-            columns: ["team_id"]
-            isOneToOne: false
-            referencedRelation: "teams"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      structures: {
-        Row: {
-          built_at: string
-          id: string
-          round_id: number
-          state: string
-          team_id: string
-          type: string
-          updated_at: string
-          upgrade_lineage: string[] | null
-        }
-        Insert: {
-          built_at?: string
-          id?: string
-          round_id: number
-          state: string
-          team_id: string
-          type: string
-          updated_at?: string
-          upgrade_lineage?: string[] | null
-        }
-        Update: {
-          built_at?: string
-          id?: string
-          round_id?: number
-          state?: string
-          team_id?: string
-          type?: string
-          updated_at?: string
-          upgrade_lineage?: string[] | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "structures_team_id_fkey"
-            columns: ["team_id"]
-            isOneToOne: false
-            referencedRelation: "teams"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       submissions: {
         Row: {
           answer_text: string | null
@@ -1549,7 +1818,6 @@ export type Database = {
           id: string
           ledger_id: string | null
           modifier: Json
-          protection: string | null
           resolution: string | null
           team_id: string
           world_event_id: string
@@ -1560,7 +1828,6 @@ export type Database = {
           id?: string
           ledger_id?: string | null
           modifier?: Json
-          protection?: string | null
           resolution?: string | null
           team_id: string
           world_event_id: string
@@ -1571,7 +1838,6 @@ export type Database = {
           id?: string
           ledger_id?: string | null
           modifier?: Json
-          protection?: string | null
           resolution?: string | null
           team_id?: string
           world_event_id?: string
@@ -1878,6 +2144,34 @@ export type Database = {
         }
         Returns: Json
       }
+      dev5_apply_day2_manual_adjustment: {
+        Args: {
+          p_admin_id: string
+          p_delta: Json
+          p_expected_balance_after: Json
+          p_expected_balance_before: Json
+          p_idempotency_key: string
+          p_notes?: string
+          p_reason: string
+          p_team_id: string
+        }
+        Returns: Json
+      }
+      dev5_jsonb_has_nonzero_number: {
+        Args: { p_delta: Json }
+        Returns: boolean
+      }
+      dev5_trigger_day2_event: {
+        Args: {
+          p_admin_id: string
+          p_event_key: string
+          p_idempotency_key: string
+          p_notes?: string
+          p_reason: string
+          p_target_team_ids: string[]
+        }
+        Returns: Json
+      }
       generate_team_code: { Args: never; Returns: string }
       mutate_team_resources: {
         Args: {
@@ -1889,19 +2183,6 @@ export type Database = {
           p_source_id?: string
           p_source_type: string
           p_team_id: string
-        }
-        Returns: Json
-      }
-      record_offline_result: {
-        Args: {
-          p_activity: string
-          p_admin_id: string
-          p_award: Json
-          p_idempotency_key: string
-          p_notes?: string
-          p_round_id: number
-          p_team_id: string
-          p_volunteer_name: string
         }
         Returns: Json
       }

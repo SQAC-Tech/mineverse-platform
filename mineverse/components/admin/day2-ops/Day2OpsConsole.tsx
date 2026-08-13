@@ -1,7 +1,7 @@
-'use client';
+﻿'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ClipboardCheck, Dices, Gavel, Plus, RefreshCw, Zap } from 'lucide-react';
+import { AlertTriangle, ClipboardCheck, Gavel, RefreshCw, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Btn,
@@ -18,11 +18,10 @@ import {
   uuid,
 } from '@/components/admin/nether-ui';
 import {
-  ROUND4_AWARDS,
   addDelta,
   day2ResourceKeys,
   type Day2ResourceDelta,
-} from '@/lib/day2/events/offline';
+} from '@/lib/day2/events/resources';
 import { DAY2_EVENTS, type Day2EventKey } from '@/lib/day2/events/catalog';
 
 type TeamRow = {
@@ -30,18 +29,6 @@ type TeamRow = {
   qualified_for_day2: boolean;
   teams?: { id: string; team_code: string; team_name: string } | null;
   resources?: Record<string, number> | null;
-};
-
-type OfflineResult = {
-  id: string;
-  team_id: string;
-  activity_key: string;
-  outcome: string;
-  award: Day2ResourceDelta;
-  portal_fragment_delta: number;
-  volunteer_identity: string;
-  recorded_at: string;
-  teams?: { team_code: string; team_name: string } | null;
 };
 
 type EventRow = {
@@ -100,18 +87,11 @@ function emptyDelta(): Day2ResourceDelta {
 
 export function Day2OpsConsole() {
   const [teams, setTeams] = useState<TeamRow[]>([]);
-  const [offlineResults, setOfflineResults] = useState<OfflineResult[] | null>(null);
   const [events, setEvents] = useState<EventRow[] | null>(null);
   const [run, setRun] = useState<RunRow | null>(null);
   const [review, setReview] = useState<ReviewRow[] | null>(null);
   const [reconciliations, setReconciliations] = useState<ReconciliationRow[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
-
-  const [offlineTeamId, setOfflineTeamId] = useState('');
-  const [awardIndex, setAwardIndex] = useState(0);
-  const [configuredAward, setConfiguredAward] = useState<Day2ResourceDelta>(emptyDelta);
-  const [volunteer, setVolunteer] = useState('');
-  const [offlineNotes, setOfflineNotes] = useState('');
 
   const [eventKey, setEventKey] = useState<Day2EventKey>('chorus_fruit_blessing');
   const [eventTargets, setEventTargets] = useState<string[]>([]);
@@ -125,7 +105,6 @@ export function Day2OpsConsole() {
   const [reconcileState, setReconcileState] = useState<'completed' | 'blocked'>('completed');
   const [reconcileNotes, setReconcileNotes] = useState('');
 
-  const selectedAward = ROUND4_AWARDS[awardIndex] ?? ROUND4_AWARDS[0];
   const selectedAdjustTeam = teams.find((team) => team.team_id === adjustTeamId);
   const beforeBalance = useMemo(() => {
     const resources = selectedAdjustTeam?.resources ?? {};
@@ -137,16 +116,14 @@ export function Day2OpsConsole() {
   const afterBalance = useMemo(() => addDelta(beforeBalance, adjustDelta), [beforeBalance, adjustDelta]);
 
   const load = useCallback(async () => {
-    const [teamRes, offlineRes, eventRes, reviewRes, reconciliationRes] = await Promise.all([
+    const [teamRes, eventRes, reviewRes, reconciliationRes] = await Promise.all([
       apiCall<{ teams: TeamRow[] }>('/api/admin/day2/resources/teams'),
-      apiCall<{ results: OfflineResult[] }>('/api/admin/day2/offline/results'),
       apiCall<{ events: EventRow[] }>('/api/admin/day2/events'),
       apiCall<{ submissions: ReviewRow[] }>('/api/admin/day2/grade/manual-review'),
       apiCall<{ reconciliations: ReconciliationRow[] }>('/api/admin/day2/reconciliation'),
     ]);
 
     if (teamRes.ok) setTeams(teamRes.data.teams ?? []);
-    if (offlineRes.ok) setOfflineResults(offlineRes.data.results ?? []);
     if (eventRes.ok) setEvents(eventRes.data.events ?? []);
     if (reviewRes.ok) setReview(reviewRes.data.submissions ?? []);
     if (reconciliationRes.ok) setReconciliations(reconciliationRes.data.reconciliations ?? []);
@@ -155,34 +132,6 @@ export function Day2OpsConsole() {
   useEffect(() => {
     void load();
   }, [load]);
-
-  const submitOffline = async () => {
-    if (!offlineTeamId || !volunteer.trim()) return;
-    const award = selectedAward.requiresConfiguredAward ? configuredAward : selectedAward.award;
-
-    setBusy('offline');
-    const res = await apiCall('/api/admin/day2/offline/results', {
-      method: 'POST',
-      body: JSON.stringify({
-        team_id: offlineTeamId,
-        activity_key: selectedAward.activityKey,
-        outcome: selectedAward.outcome,
-        configured_award: selectedAward.requiresConfiguredAward ? award : undefined,
-        volunteer_identity: volunteer.trim(),
-        notes: offlineNotes.trim() || undefined,
-        idempotency_key: uuid(),
-      }),
-    });
-    setBusy(null);
-
-    if (res.ok) {
-      toast.success('Round 4 result recorded');
-      setOfflineNotes('');
-      void load();
-    } else {
-      toast.error(res.message);
-    }
-  };
 
   const triggerEvent = async () => {
     if (!eventReason.trim()) return;
@@ -297,47 +246,19 @@ export function Day2OpsConsole() {
     <>
       <PageTitle
         title="Day 2 Ops"
-        subtitle="Round 4 results, Round 5 grading, Day 2 events, adjustments, and reconciliation evidence"
+        subtitle="Round 5 grading, the Chorus Fruit window, adjustments, and reconciliation evidence. Round 4's physical games are credited on the Grant Resources screen."
         actions={<Btn onClick={load}><RefreshCw size={12} /> Refresh</Btn>}
       />
 
       <Grid min={360}>
-        <Panel title="Round 4 Offline Entry" subtitle="Awards are derived from the event brief before recording">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <Field label="Qualified team">
-              <select className="n-select" value={offlineTeamId} onChange={(event) => setOfflineTeamId(event.target.value)}>
-                <option value="">Select team...</option>
-                {teams.map((team) => <option key={team.team_id} value={team.team_id}>{teamLabel(team)}</option>)}
-              </select>
-            </Field>
-            <Field label="Activity / outcome" hint={`${selectedAward.portalFragmentDelta ? 'Includes Portal Fragment x1. ' : ''}${selectedAward.requiresConfiguredAward ? 'Organizer-configured award required.' : deltaText(selectedAward.award)}`}>
-              <select className="n-select" value={awardIndex} onChange={(event) => setAwardIndex(Number(event.target.value))}>
-                {ROUND4_AWARDS.map((award, index) => <option key={`${award.activityKey}-${award.outcome}`} value={index}>{award.label}</option>)}
-              </select>
-            </Field>
-            {selectedAward.requiresConfiguredAward && (
-              <ResourceInputs value={configuredAward} onChange={setConfiguredAward} />
-            )}
-            <Field label="Volunteer">
-              <input className="n-input" value={volunteer} onChange={(event) => setVolunteer(event.target.value)} />
-            </Field>
-            <Field label="Notes">
-              <input className="n-input" value={offlineNotes} onChange={(event) => setOfflineNotes(event.target.value)} />
-            </Field>
-            <Btn variant="primary" disabled={busy === 'offline' || !offlineTeamId || !volunteer.trim()} onClick={submitOffline}>
-              <Dices size={13} /> Record result
-            </Btn>
-          </div>
-        </Panel>
-
-        <Panel title="Round 5 Events" subtitle="End Merchant remains team-choice owned; no operator trigger is exposed here">
+        <Panel title="Round 5 Events" subtitle="Chorus Fruit Blessing opens a five-minute bonus window and costs a team nothing">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <Field label="Event">
               <select className="n-select" value={eventKey} onChange={(event) => setEventKey(event.target.value as Day2EventKey)}>
                 {Object.values(DAY2_EVENTS).map((event) => <option key={event.key} value={event.key}>{event.label}</option>)}
               </select>
             </Field>
-            <Field label="Targets" hint="Leave empty only for Chorus Fruit Blessing to open a qualified-team window.">
+            <Field label="Targets" hint="Leave empty to open the window for every qualified team.">
               <select
                 className="n-select"
                 multiple
@@ -434,16 +355,8 @@ export function Day2OpsConsole() {
         </Panel>
 
         <Panel title="Recent Day 2 Records">
-          {!offlineResults || !events || !reconciliations ? <Loading /> : (
+          {!events || !reconciliations ? <Loading /> : (
             <Table head={['Type', 'Team / event', 'Result', 'When']}>
-              {offlineResults.slice(0, 5).map((row) => (
-                <tr key={row.id}>
-                  <td>Offline</td>
-                  <td>{row.teams?.team_code ?? row.team_id.slice(0, 8)}</td>
-                  <td>{row.activity_key} / {deltaText(row.award)}</td>
-                  <td className="n-panel-sub">{new Date(row.recorded_at).toLocaleTimeString()}</td>
-                </tr>
-              ))}
               {events.slice(0, 5).map((row) => (
                 <tr key={row.id}>
                   <td>Event</td>
@@ -460,7 +373,7 @@ export function Day2OpsConsole() {
                   <td className="n-panel-sub">{new Date(row.reconciled_at).toLocaleTimeString()}</td>
                 </tr>
               ))}
-              {offlineResults.length + events.length + reconciliations.length === 0 && <Empty colSpan={4}>No Day 2 ops records yet</Empty>}
+              {events.length + reconciliations.length === 0 && <Empty colSpan={4}>No Day 2 ops records yet</Empty>}
             </Table>
           )}
         </Panel>

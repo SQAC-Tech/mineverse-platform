@@ -1,4 +1,8 @@
 # MINEVERSE — Phase 2 Database Engineering Document
+
+> **Partly superseded by [`../REMOVED_SYSTEMS.md`](../REMOVED_SYSTEMS.md) (14 Aug 2026).** Structures,
+> negative world events, and platform-recorded offline games were removed. Where this document
+> describes any of them, it is a record of what was planned, not of what exists.
 ## Day 1 Gameplay Schema and Mutation Rules
 
 **Prerequisite:** Phase 1 schema and service-role, deny-all RLS pattern  

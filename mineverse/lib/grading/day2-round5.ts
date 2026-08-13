@@ -1,8 +1,8 @@
-import { z } from 'zod';
+﻿import { z } from 'zod';
 import { supabaseServer } from '@/lib/supabase/server';
 import { checkDeterministicAnswer, hasDeterministicKey } from '@/lib/gameplay/grading/deterministic';
 import { getActiveChorusBonus } from '@/lib/day2/events/service';
-import type { Day2ResourceDelta } from '@/lib/day2/events/offline';
+import type { Day2ResourceDelta } from '@/lib/day2/events/resources';
 
 const db = supabaseServer as any;
 

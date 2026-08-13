@@ -197,16 +197,17 @@ export const HowItWorks = () => {
           MINEVERSE IS A TWO-DAY CODING COMPETITION PLAYED LIKE A MINECRAFT RUN. YOU ENTER AS A TEAM
           OF <span className="text-[#fca311]">TWO OR THREE</span> AND START WITH NOTHING. EVERY
           PROBLEM YOU SOLVE <span className="text-[#7ee05a]">MINES RESOURCES</span>; RESOURCES LET
-          YOU <span className="text-[#fca311]">CRAFT BETTER GEAR</span>, TRADE AT THE MARKETPLACE AND{' '}
-          <span className="text-[#8ec5f0]">BUILD STRUCTURES</span> THAT PROTECT YOUR SCORE.
+          YOU <span className="text-[#fca311]">CRAFT BETTER GEAR</span> AND{' '}
+          <span className="text-[#8ec5f0]">TRADE AT THE MARKETPLACE</span>, ALL THE WAY FROM A WOODEN
+          PICKAXE TO A DIAMOND ONE.
         </p>
 
         <p
           className="mx-auto mt-7 max-w-3xl text-center text-[12px] leading-[2.1] text-[#a5a5a5] drop-shadow-[2px_2px_0_#000] md:text-[13px]"
           style={mc}
         >
-          EACH ROUND HAS A GUARDIAN TO BEAT AND A BIOME TO SURVIVE. DAY 1 IS THREE ROUNDS AND A
-          QUALIFIER — SURVIVE THE LEADERBOARD AND YOU RETURN FOR DAY 2, THE NETHER, AND FINALLY THE
+          EACH ROUND HAS A GUARDIAN TO BEAT AND A BIOME TO CLEAR. DAY 1 IS THREE ROUNDS AND A
+          QUALIFIER — MAKE THE LEADERBOARD AND YOU RETURN FOR DAY 2, THE NETHER, AND FINALLY THE
           END.
         </p>
 

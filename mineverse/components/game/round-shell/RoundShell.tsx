@@ -8,7 +8,6 @@ import { CraftingPanel } from '@/components/game/crafting/CraftingPanel';
 import { PvpPanel } from '@/components/game/pvp/PvpPanel';
 import { QuestionList } from '@/components/game/questions/QuestionList';
 import { GuardianBattle } from '@/components/game/guardian/GuardianBattle';
-import { StructureManager } from '@/components/game/structures/StructureManager';
 import { MarketplaceStore } from '@/components/game/marketplace/MarketplaceStore';
 import { ConsumableInventory } from '@/components/game/marketplace/ConsumableInventory';
 import { ChoicePanel } from '@/components/game/choices/ChoicePanel';
@@ -221,16 +220,13 @@ export function RoundShell({ roundId }: RoundShellProps) {
             <aside style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
               {config.craft && <CraftingPanel onCrafted={refreshAll} refreshToken={refreshToken} />}
 
-              {config.structures.length > 0 && (
-                <StructureManager
-                  roundId={roundId}
-                  availableStructures={config.structures}
-                  onChanged={refreshAll}
-                  refreshToken={refreshToken}
-                />
-              )}
-
-              {config.choice && (
+              {/*
+                ChoicePanel reads the Day 1 CHOICES catalog, which has no
+                end_merchant entry — rendering it for Round 5 produced an empty
+                panel. The End Merchant has its own Day 2 route and still needs
+                a surface of its own.
+              */}
+              {config.choice && config.choice !== 'end_merchant' && (
                 <ChoicePanel choiceKey={config.choice} onDecided={refreshAll} refreshToken={refreshToken} />
               )}
 

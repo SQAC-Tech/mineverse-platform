@@ -1,4 +1,8 @@
 # PROMPT: Developer 4 — Questions, Round Shell, Resources, Crafting & Leaderboard
+
+> **Partly superseded by [`../REMOVED_SYSTEMS.md`](../REMOVED_SYSTEMS.md) (14 Aug 2026).** Structures,
+> negative world events, and platform-recorded offline games were removed. Where this document
+> describes any of them, it is a record of what was planned, not of what exists.
 ## For: Codex / Claude Code / Antigravity
 
 **Context:** Build the team-facing core of MINEVERSE Phase 2 Day 1. Phase 1 remains unchanged: Next.js 16 App Router, React 19, Tailwind v4, Zod 4, service-role server routes, team `session_token`, and scoped `panel_session` cookies. `../event details/Mineverse_Full_Event_Details.md` is the event-rule source of truth.

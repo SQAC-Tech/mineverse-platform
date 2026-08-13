@@ -1,4 +1,8 @@
 # PROMPT: Developer 4 — The End Questions, Resources, Diamond Pickaxe & Final Standings
+
+> **Partly superseded by [`../REMOVED_SYSTEMS.md`](../REMOVED_SYSTEMS.md) (14 Aug 2026).** Structures,
+> negative world events, and platform-recorded offline games were removed. Where this document
+> describes any of them, it is a record of what was planned, not of what exists.
 ## For: Codex / Claude Code / Antigravity
 
 **Context:** Extend your established Phase 2 team-game ownership for MINEVERSE Phase 3 Day 2. Preserve Phase 1/2 contracts: Next.js 16, existing team session, service-role routes, server-only answers/test cases, deny-all RLS, and the append-only resource ledger. The event brief at `../event details/Mineverse_Full_Event_Details.md` is authoritative.

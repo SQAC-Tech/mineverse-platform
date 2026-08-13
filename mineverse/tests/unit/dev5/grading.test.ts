@@ -32,27 +32,31 @@ describe('Dev5 deterministic grading', () => {
 });
 
 describe('Dev5 world event catalog', () => {
-  it('exposes exactly the six canonical keys from the API guide', () => {
-    expect(WORLD_EVENT_KEYS.sort()).toEqual(
-      ['creeper_explosion', 'fertile_marsh', 'ghast_bombardment', 'gold_rush', 'heavy_rain', 'lava_eruption'].sort(),
-    );
+  it('exposes only the three reward modifiers', () => {
+    expect(WORLD_EVENT_KEYS.sort()).toEqual(['fertile_marsh', 'gold_rush', 'heavy_rain']);
     expect(isWorldEventKey('heavy_rain')).toBe(true);
     expect(isWorldEventKey('meteor_strike')).toBe(false);
   });
 
-  it('matches the event brief for round, effect, and protection', () => {
+  it('no longer exposes the removed negative events', () => {
+    for (const key of ['creeper_explosion', 'lava_eruption', 'ghast_bombardment']) {
+      expect(isWorldEventKey(key)).toBe(false);
+    }
+  });
+
+  it('matches the event brief for round and effect', () => {
     expect(WORLD_EVENTS.heavy_rain).toMatchObject({ round_id: 1, modifier: { wood: 2 }, durationSeconds: 300 });
     expect(WORLD_EVENTS.fertile_marsh).toMatchObject({ round_id: 2, modifier: { iron: 2 } });
     expect(WORLD_EVENTS.gold_rush).toMatchObject({ round_id: 3, modifier: { gold: 2 } });
-    // Bat Cave cancels the Creeper resource loss; Bastion cancels Lava Eruption.
-    expect(WORLD_EVENTS.creeper_explosion).toMatchObject({
-      penalty: { wood: -5, stone: -5 },
-      protectedBy: 'bat_cave',
-    });
-    expect(WORLD_EVENTS.lava_eruption).toMatchObject({
-      penalty: { gold: -10, iron: -5 },
-      protectedBy: 'bastion',
-    });
+  });
+
+  it('has no event that can take resources away or damage anything', () => {
+    for (const config of Object.values(WORLD_EVENTS)) {
+      expect(config.kind).toBe('modifier');
+      for (const multiplier of Object.values(config.modifier)) {
+        expect(multiplier).toBeGreaterThan(1);
+      }
+    }
   });
 });
 

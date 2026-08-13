@@ -1,5 +1,4 @@
 import { supabaseServer } from '@/lib/supabase/server';
-import { mutateTeamResource } from '@/lib/gameplay/marketplace/resource-client';
 import { WORLD_EVENTS, WorldEventKey, WorldEventConfig } from '@/lib/gameplay/events/catalog';
 
 const db = supabaseServer as any;
@@ -77,42 +76,6 @@ async function eligibleTeamIds(scope: 'all' | 'targeted', targetTeamIds: string[
   return (data ?? []).map((team: { id: string }) => team.id);
 }
 
-async function structureProtects(teamId: string, protectedBy: string) {
-  const { data, error } = await db
-    .from('structures')
-    .select('id')
-    .eq('team_id', teamId)
-    .eq('type', protectedBy)
-    .in('state', ['active', 'repaired', 'upgraded'])
-    .limit(1);
-
-  if (error) throw error;
-  return (data ?? []).length > 0;
-}
-
-async function damageStructure(teamId: string, mode: 'built' | 'random') {
-  const { data, error } = await db
-    .from('structures')
-    .select('id, type')
-    .eq('team_id', teamId)
-    .in('state', ['active', 'repaired', 'upgraded']);
-
-  if (error) throw error;
-  const candidates = data ?? [];
-  if (candidates.length === 0) return null;
-
-  const target =
-    mode === 'random' ? candidates[Math.floor(Math.random() * candidates.length)] : candidates[0];
-
-  const { error: updateError } = await db
-    .from('structures')
-    .update({ state: 'damaged', updated_at: new Date().toISOString() })
-    .eq('id', target.id);
-
-  if (updateError) throw updateError;
-  return target.type as string;
-}
-
 export interface TriggerWorldEventParams {
   eventKey: WorldEventKey;
   roundId: number;
@@ -122,9 +85,9 @@ export interface TriggerWorldEventParams {
 }
 
 /**
- * Triggers a canonical world event and derives its per-team outcome. Modifier
- * events write an expiring effect row; penalty events apply a one-shot ledger
- * deduction unless the team's protective structure absorbs it.
+ * Triggers a canonical world event and writes one expiring effect row per
+ * eligible team. Every event is a reward modifier, so nothing here moves a
+ * balance — the multiplier is applied when a question is graded.
  */
 export async function triggerWorldEvent(params: TriggerWorldEventParams) {
   const config: WorldEventConfig | undefined = WORLD_EVENTS[params.eventKey];
@@ -155,9 +118,7 @@ export async function triggerWorldEvent(params: TriggerWorldEventParams) {
   const targets = await eligibleTeamIds(scope, params.targetTeamIds ?? []);
 
   const startsAt = new Date();
-  const endsAt = config.durationSeconds
-    ? new Date(startsAt.getTime() + config.durationSeconds * 1000)
-    : null;
+  const endsAt = new Date(startsAt.getTime() + config.durationSeconds * 1000);
 
   const { data: event, error: eventError } = await db
     .from('world_events')
@@ -168,12 +129,11 @@ export async function triggerWorldEvent(params: TriggerWorldEventParams) {
       target_team_ids: scope === 'targeted' ? targets : [],
       effect: {
         kind: config.kind,
-        modifier: config.modifier ?? null,
-        penalty: config.penalty ?? null,
+        modifier: config.modifier,
       },
       status: 'active',
       starts_at: startsAt.toISOString(),
-      ends_at: endsAt?.toISOString() ?? null,
+      ends_at: endsAt.toISOString(),
       triggered_by: params.adminId,
     })
     .select()
@@ -190,55 +150,16 @@ export async function triggerWorldEvent(params: TriggerWorldEventParams) {
     throw eventError;
   }
 
-  let protectedCount = 0;
-  let penalisedCount = 0;
-  const damaged: Array<{ team_id: string; structure: string }> = [];
-
   for (const teamId of targets) {
-    let protection: string | null = null;
-    let resolution = 'applied';
-    let ledgerId: string | null = null;
-
-    if (config.protectedBy && (await structureProtects(teamId, config.protectedBy))) {
-      protection = config.protectedBy;
-      resolution = 'absorbed';
-      protectedCount += 1;
-    }
-
-    if (config.penalty && !protection) {
-      // Idempotency is derived from (event, team), so a retried trigger of the
-      // same event instance can never deduct twice.
-      const res = await mutateTeamResource({
-        teamId,
-        delta: config.penalty,
-        sourceType: 'world_event',
-        sourceId: event.id,
-        idempotencyKey: crypto.randomUUID(),
-        reason: `${config.label} (${config.key})`,
-      });
-
-      if (res.success) {
-        ledgerId = res.ledgerId ?? null;
-        penalisedCount += 1;
-      } else if (res.error === 'INSUFFICIENT_FUNDS') {
-        // A team cannot be driven negative; the shortfall is recorded, not forced.
-        resolution = 'insufficient_balance';
-      }
-    }
-
-    if (config.damagesStructure) {
-      const structureType = await damageStructure(teamId, config.damagesStructure);
-      if (structureType) damaged.push({ team_id: teamId, structure: structureType });
-    }
-
+    // The unique (event, team) index makes a retried trigger inert rather than
+    // handing a team the modifier twice.
     const { error: effectError } = await db.from('team_event_effects').insert({
       world_event_id: event.id,
       team_id: teamId,
-      modifier: config.modifier ?? {},
-      protection,
-      resolution,
-      ledger_id: ledgerId,
-      expires_at: endsAt?.toISOString() ?? null,
+      modifier: config.modifier,
+      resolution: 'applied',
+      ledger_id: null,
+      expires_at: endsAt.toISOString(),
     });
 
     if (effectError && effectError.code !== '23505') throw effectError;
@@ -253,9 +174,6 @@ export async function triggerWorldEvent(params: TriggerWorldEventParams) {
       announcement: config.announcement,
       scope,
       affected_teams: targets.length,
-      protected_teams: protectedCount,
-      penalised_teams: penalisedCount,
-      damaged_structures: damaged,
       starts_at: event.starts_at,
       ends_at: event.ends_at,
     },

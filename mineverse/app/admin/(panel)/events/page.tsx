@@ -2,15 +2,15 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { toast } from 'sonner';
-import { Zap, RefreshCw, CloudRain, Bomb, Coins, Flame, Skull, Sprout } from 'lucide-react';
+import { Zap, RefreshCw, CloudRain, Coins, Sprout } from 'lucide-react';
 import { Panel, Btn, Pill, statusTone, Table, Empty, Loading, PageTitle, apiCall, Field } from '@/components/admin/nether-ui';
 
 type CatalogItem = {
   key: string;
   label: string;
   round_id: number;
-  kind: 'modifier' | 'penalty' | 'structure_damage';
-  duration_seconds: number | null;
+  kind: 'modifier';
+  duration_seconds: number;
 };
 
 type EventRow = {
@@ -29,16 +29,12 @@ type EventRow = {
 const ICONS: Record<string, React.ComponentType<{ size?: number }>> = {
   heavy_rain: CloudRain,
   fertile_marsh: Sprout,
-  creeper_explosion: Bomb,
   gold_rush: Coins,
-  lava_eruption: Flame,
-  ghast_bombardment: Skull,
 };
 
+// Every event is a reward multiplier; nothing here can cost a team anything.
 const KIND_COPY: Record<CatalogItem['kind'], string> = {
   modifier: 'Doubles a reward for its window',
-  penalty: 'One-off resource loss unless a structure absorbs it',
-  structure_damage: 'Damages a structure — repair costs resources',
 };
 
 export default function AdminEventsPage() {
@@ -65,7 +61,7 @@ export default function AdminEventsPage() {
 
   const trigger = async (item: CatalogItem) => {
     setBusy(item.key);
-    const res = await apiCall<{ announcement: string; affected_teams: number; protected_teams: number }>(
+    const res = await apiCall<{ announcement: string; affected_teams: number }>(
       '/api/admin/events/trigger',
       { method: 'POST', body: JSON.stringify({ event_key: item.key, round_id: item.round_id, scope: 'all' }) },
     );
@@ -74,7 +70,7 @@ export default function AdminEventsPage() {
 
     if (res.ok) {
       toast.success(`${item.label} triggered for ${res.data.affected_teams} teams`, {
-        description: res.data.protected_teams > 0 ? `${res.data.protected_teams} protected by a structure` : undefined,
+        description: res.data.announcement,
       });
       void load();
     } else {
@@ -97,7 +93,7 @@ export default function AdminEventsPage() {
     <>
       <PageTitle
         title="World events"
-        subtitle="Only canonical events from the event brief can be triggered — the effect is server-defined, never supplied by this screen"
+        subtitle="Reward windows only — every event doubles a resource for five minutes and none of them can take anything away"
         actions={<Btn onClick={load}><RefreshCw size={12} /> Refresh</Btn>}
       />
 
@@ -181,8 +177,9 @@ export default function AdminEventsPage() {
             <>
               <p style={{ fontSize: 12.5, marginBottom: 8 }}>{KIND_COPY[confirming.kind]}</p>
               <p className="n-panel-sub">
-                This applies to every active, payment-verified team in round {confirming.round_id} and writes a ledger
-                entry for each resource change. It cannot be undone — only expired.
+                This opens the window for every active, payment-verified team in round {confirming.round_id}. It costs
+                a team nothing — the multiplier is applied when their answers are graded. It cannot be undone, only
+                expired early.
               </p>
             </>
           }

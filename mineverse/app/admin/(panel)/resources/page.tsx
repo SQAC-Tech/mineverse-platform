@@ -36,6 +36,8 @@ export default function AdminResourcesPage() {
 
   const [delta, setDelta] = useState<Delta>({});
   const [reason, setReason] = useState('');
+  const [portalFragment, setPortalFragment] = useState(false);
+  const [netherCore, setNetherCore] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -60,7 +62,7 @@ export default function AdminResourcesPage() {
   const apply = async () => {
     if (!teamId) { toast.error('Select a team'); return; }
     if (entries.length === 0) { toast.error('Enter at least one non-zero change'); return; }
-    if (!reason.trim()) { toast.error('A reason is required — every adjustment is audited'); return; }
+    if (!reason.trim()) { toast.error('A reason is required — every grant is audited'); return; }
 
     setBusy(true);
     const res = await apiCall('/api/admin/resources/adjustments', {
@@ -69,15 +71,19 @@ export default function AdminResourcesPage() {
         team_id: teamId,
         delta: Object.fromEntries(entries.map(([k, v]) => [k, Number(v)])),
         reason: reason.trim(),
+        grant_portal_fragment: portalFragment,
+        grant_nether_core: netherCore,
         idempotency_key: uuid(),
       }),
     });
     setBusy(false);
 
     if (res.ok) {
-      toast.success('Adjustment applied and written to the ledger');
+      toast.success('Granted and written to the ledger');
       setDelta({});
       setReason('');
+      setPortalFragment(false);
+      setNetherCore(false);
       void loadTeam(teamId);
     } else {
       toast.error(res.message);
@@ -87,8 +93,8 @@ export default function AdminResourcesPage() {
   return (
     <>
       <PageTitle
-        title="Resources"
-        subtitle="Balance lookup and audited manual adjustment. This screen moves resources only — it cannot change qualification."
+        title="Grant resources"
+        subtitle="The one place resources are handed out by hand — offline game wins, corrections, anything organizers decide off the platform. It moves resources only; it cannot change qualification."
         actions={teamId ? <Btn onClick={() => loadTeam(teamId)}><RefreshCw size={12} /> Refresh</Btn> : undefined}
       />
 
@@ -136,7 +142,7 @@ export default function AdminResourcesPage() {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 12, marginTop: 12 }}>
-            <Panel title="Manual adjustment" subtitle="Use negative numbers to deduct">
+            <Panel title="Grant" subtitle="Use negative numbers to take resources back">
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <div>
                   <span className="n-label">Change</span>
@@ -164,6 +170,21 @@ export default function AdminResourcesPage() {
                   </div>
                 </div>
 
+                <div>
+                  <span className="n-label">Portal artifacts</span>
+                  <div className="n-panel-sub" style={{ marginBottom: 6 }}>
+                    Neither is a resource — the portal repair checks for them separately. Granting one twice is inert.
+                  </div>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, marginBottom: 4 }}>
+                    <input type="checkbox" checked={portalFragment} onChange={(e) => setPortalFragment(e.target.checked)} />
+                    Portal Fragment ×1
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5 }}>
+                    <input type="checkbox" checked={netherCore} onChange={(e) => setNetherCore(e.target.checked)} />
+                    Nether Core ×1 <span className="n-panel-sub">(tops up to one; never takes one away)</span>
+                  </label>
+                </div>
+
                 <Field label="Reason (required)" hint="Stored with the admin, before/after balances and the ledger id">
                   <textarea className="n-textarea" value={reason} onChange={(e) => setReason(e.target.value)} />
                 </Field>
@@ -178,7 +199,7 @@ export default function AdminResourcesPage() {
                 )}
 
                 <Btn variant="primary" disabled={busy || entries.length === 0 || !reason.trim()} onClick={apply}>
-                  <Save size={12} /> {busy ? 'Applying…' : 'Apply adjustment'}
+                  <Save size={12} /> {busy ? 'Granting…' : 'Grant to team'}
                 </Btn>
               </div>
             </Panel>

@@ -40,11 +40,3 @@ export const CRAFT_RECIPES: Record<CraftItem, CraftRecipe> = {
     marks_pvp_eligible: false,
   },
 };
-
-export function discountedCost(baseCost: ResourceDelta, discountPercent: number): ResourceDelta {
-  const actual: ResourceDelta = {};
-  for (const [key, value] of Object.entries(baseCost)) {
-    actual[key as keyof ResourceDelta] = Math.ceil((value ?? 0) * (100 - discountPercent) / 100);
-  }
-  return actual;
-}

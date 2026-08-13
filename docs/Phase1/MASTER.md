@@ -1,4 +1,8 @@
 # MINEVERSE — MASTER.md
+
+> **Partly superseded by [`../REMOVED_SYSTEMS.md`](../REMOVED_SYSTEMS.md) (14 Aug 2026).** Structures,
+> negative world events, and platform-recorded offline games were removed. Where this document
+> describes any of them, it is a record of what was planned, not of what exists.
 ## Phase 1 Implementation Checklist (v2.0)
 
 **Status Legend:**

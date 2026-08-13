@@ -1,5 +1,9 @@
 # MINEVERSE — Landing Page Timeline Section (Spec)
 
+> **Partly superseded by [`../REMOVED_SYSTEMS.md`](../REMOVED_SYSTEMS.md) (14 Aug 2026).** Structures,
+> negative world events, and platform-recorded offline games were removed. Where this document
+> describes any of them, it is a record of what was planned, not of what exists.
+
 Reference format: vertical stepped timeline with left-side time labels, connecting line, and stage markers (as seen in the "Event Timeline" section of the Housie of Fame reference) combined with the compact card-grid density of the Espionage "Operations Schedule" section. Since Mineverse spans 2 days, this spec uses a **day-tabbed vertical timeline**: two toggle tabs (Day 1 / Day 2) above a single connected stepper, so the section doesn't get too long on one scroll.
 
 ---

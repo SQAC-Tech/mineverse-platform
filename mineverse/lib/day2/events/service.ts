@@ -1,6 +1,6 @@
-import { supabaseServer } from '@/lib/supabase/server';
+﻿import { supabaseServer } from '@/lib/supabase/server';
 import { DAY2_EVENTS, type Day2EventKey } from '@/lib/day2/events/catalog';
-import type { Day2ResourceDelta } from '@/lib/day2/events/offline';
+import type { Day2ResourceDelta } from '@/lib/day2/events/resources';
 
 const db = supabaseServer as any;
 

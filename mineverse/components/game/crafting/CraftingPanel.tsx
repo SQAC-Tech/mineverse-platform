@@ -10,8 +10,6 @@ interface Recipe {
   label: string;
   actual_cost: Record<string, number>;
   base_cost?: Record<string, number>;
-  discount_percent: number;
-  discount_source: string | null;
   crafted: boolean;
   /** Present when the API reports the progression gate is unmet. */
   locked?: boolean;
@@ -69,7 +67,7 @@ export function CraftingPanel({ onCrafted, refreshToken }: CraftingPanelProps) {
   return (
     <Panel
       title={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}><Hammer size={13} /> Crafting</span>}
-      subtitle="Forge discounts round each resource cost up"
+      subtitle="Each item is crafted once, and unlocks the next stage"
     >
       {error && (
         <div
@@ -103,15 +101,9 @@ export function CraftingPanel({ onCrafted, refreshToken }: CraftingPanelProps) {
                 {recipe.crafted && <Pill tone="ok"><Check size={10} /> crafted</Pill>}
               </div>
 
-              <div className="n-panel-sub n-mono" style={{ marginBottom: recipe.discount_percent > 0 ? 3 : 9 }}>
+              <div className="n-panel-sub n-mono" style={{ marginBottom: 9 }}>
                 {Object.entries(recipe.actual_cost).map(([k, v]) => `${v} ${k}`).join(' + ')}
               </div>
-
-              {recipe.discount_percent > 0 && (
-                <div className="n-panel-sub" style={{ color: 'var(--accent-primary)', marginBottom: 9 }}>
-                  −{recipe.discount_percent}% from your {recipe.discount_source?.replace('_', ' ')}
-                </div>
-              )}
 
               {!recipe.crafted && (
                 <Btn

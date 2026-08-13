@@ -1,5 +1,4 @@
-import type { GuardianName } from '@/lib/gameplay/guardians/service';
-import type { StructureType } from '@/lib/gameplay/structures/service';
+﻿import type { GuardianName } from '@/lib/gameplay/guardians/service';
 import type { ChoiceKey } from '@/lib/gameplay/choices/service';
 import type { CraftItem } from '@/lib/gameplay/crafting/rules';
 
@@ -19,10 +18,15 @@ export interface RoundConfig {
   craft: CraftItem | null;
   /** Guardian available in this round; `mandatory` gates PvP eligibility. */
   guardian: { name: GuardianName; mandatory: boolean } | null;
-  /** Free base structures a team may pick between (one per round). */
-  structures: StructureType[];
-  /** Choice event that resolves in this round. */
-  choice: ChoiceKey | null;
+  /**
+   * Choice event that resolves in this round.
+   *
+   * `end_merchant` is named separately because it is not in the Day 1 `CHOICES`
+   * catalog — it has its own Day 2 route (`/api/team/choices/end-merchant`) and
+   * the shared `ChoicePanel` cannot serve it. Round 5's panel is unwired today;
+   * see the Phase 3 notes.
+   */
+  choice: ChoiceKey | 'end_merchant' | null;
   marketplace: boolean;
   pvp: boolean;
   /** Shown in the round header so teams know the goal. */
@@ -37,7 +41,6 @@ export const ROUND_CONFIGS: Record<number, RoundConfig> = {
     tagline: 'Gather wood and craft your first pickaxe',
     craft: 'wooden_pickaxe',
     guardian: { name: 'forest_guardian', mandatory: false },
-    structures: [],
     choice: null,
     marketplace: false,
     pvp: false,
@@ -47,10 +50,9 @@ export const ROUND_CONFIGS: Record<number, RoundConfig> = {
     id: 2,
     name: 'Cave Biome',
     biome: 'cave',
-    tagline: 'Mine stone and iron, and pick your first structure',
+    tagline: 'Mine stone and iron, and open up the marketplace',
     craft: 'stone_pickaxe',
     guardian: { name: 'skeleton_archer', mandatory: false },
-    structures: ['bat_cave', 'forge'],
     choice: 'ancient_shrine',
     marketplace: true,
     pvp: false,
@@ -63,7 +65,6 @@ export const ROUND_CONFIGS: Record<number, RoundConfig> = {
     tagline: 'Elimination round — armour up, beat the Blaze, win the duel',
     craft: 'iron_armor',
     guardian: { name: 'blaze_guardian', mandatory: true },
-    structures: ['bastion', 'tnt_storage'],
     choice: 'piglin_merchant',
     marketplace: true,
     pvp: true,
@@ -77,7 +78,6 @@ export const ROUND_CONFIGS: Record<number, RoundConfig> = {
     tagline: 'Day 2 championship',
     craft: null,
     guardian: null,
-    structures: [],
     choice: null,
     marketplace: false,
     pvp: false,
@@ -90,7 +90,6 @@ export const ROUND_CONFIGS: Record<number, RoundConfig> = {
     tagline: 'Craft the Diamond Pickaxe and face the Ender Dragon',
     craft: 'diamond_pickaxe',
     guardian: null,
-    structures: [],
     choice: 'end_merchant',
     marketplace: true,
     pvp: false,

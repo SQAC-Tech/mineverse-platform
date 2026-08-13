@@ -1,5 +1,3 @@
-import { ResourceDelta } from '@/lib/gameplay/marketplace/resource-client';
-
 /**
  * Server-only canonical world-event catalog. The database logs a triggered
  * instance; it never stores a mutable rule template, and an admin request may
@@ -7,16 +5,15 @@ import { ResourceDelta } from '@/lib/gameplay/marketplace/resource-client';
  *
  * Values come from `docs/event details/Mineverse_Full_Event_Details.md`, which
  * the Phase 2 master plan makes authoritative over older Phase 2 copy.
+ *
+ * Every event here is a reward modifier. Negative events — Creeper Explosion,
+ * Lava Eruption, Ghast Bombardment — were removed along with the structures
+ * that used to absorb them; a world event can no longer take resources off a
+ * team or damage anything it owns.
  */
-export type WorldEventKey =
-  | 'heavy_rain'
-  | 'fertile_marsh'
-  | 'creeper_explosion'
-  | 'gold_rush'
-  | 'lava_eruption'
-  | 'ghast_bombardment';
+export type WorldEventKey = 'heavy_rain' | 'fertile_marsh' | 'gold_rush';
 
-export type WorldEventKind = 'modifier' | 'penalty' | 'structure_damage';
+export type WorldEventKind = 'modifier';
 
 export interface WorldEventConfig {
   key: WorldEventKey;
@@ -25,14 +22,8 @@ export interface WorldEventConfig {
   label: string;
   announcement: string;
   /** Reward multipliers applied to question awards while the window is open. */
-  modifier?: Record<string, number>;
-  durationSeconds?: number;
-  /** One-shot resource loss applied at trigger time. */
-  penalty?: ResourceDelta;
-  /** A built structure of this type cancels the resource loss. */
-  protectedBy?: string;
-  /** The event also damages a structure. */
-  damagesStructure?: 'built' | 'random';
+  modifier: Record<string, number>;
+  durationSeconds: number;
 }
 
 export const WORLD_EVENTS: Record<WorldEventKey, WorldEventConfig> = {
@@ -55,17 +46,6 @@ export const WORLD_EVENTS: Record<WorldEventKey, WorldEventConfig> = {
     modifier: { iron: 2 },
     durationSeconds: 300,
   },
-  creeper_explosion: {
-    key: 'creeper_explosion',
-    round_id: 2,
-    kind: 'penalty',
-    label: 'Creeper Explosion',
-    announcement:
-      'A group of Creepers has entered your mining camp! Their explosions have damaged your supplies.',
-    penalty: { wood: -5, stone: -5 },
-    protectedBy: 'bat_cave',
-    damagesStructure: 'built',
-  },
   gold_rush: {
     key: 'gold_rush',
     round_id: 3,
@@ -74,23 +54,6 @@ export const WORLD_EVENTS: Record<WorldEventKey, WorldEventConfig> = {
     announcement: 'A Gold Rush sweeps the mountain — Gold rewards are doubled for the next 5 minutes!',
     modifier: { gold: 2 },
     durationSeconds: 300,
-  },
-  lava_eruption: {
-    key: 'lava_eruption',
-    round_id: 3,
-    kind: 'penalty',
-    label: 'Lava Eruption',
-    announcement: 'Lava erupts through the tunnels, consuming part of your stockpile!',
-    penalty: { gold: -10, iron: -5 },
-    protectedBy: 'bastion',
-  },
-  ghast_bombardment: {
-    key: 'ghast_bombardment',
-    round_id: 3,
-    kind: 'structure_damage',
-    label: 'Ghast Bombardment',
-    announcement: 'Ghasts bombard the mountain! One of your structures has been damaged.',
-    damagesStructure: 'random',
   },
 };
 

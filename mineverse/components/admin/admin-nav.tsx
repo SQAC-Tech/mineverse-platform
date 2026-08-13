@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, CreditCard, Users, Clock, ClipboardCheck,
-  Zap, Dices, Swords, Coins, Trophy, ClipboardList,
+  Zap, Swords, Coins, Trophy, ClipboardList,
 } from 'lucide-react';
 
 /**
@@ -25,7 +25,9 @@ const NAV_GROUPS = [
     items: [
       { name: 'Rounds', href: '/admin/rounds', icon: Clock },
       { name: 'World Events', href: '/admin/events', icon: Zap },
-      { name: 'Offline Games', href: '/admin/offline', icon: Dices },
+      // Offline games are played off the platform now; whatever an organizer
+      // decides a team earned is handed out on the Resources screen.
+      { name: 'Grant Resources', href: '/admin/resources', icon: Coins },
       { name: 'PvP Matches', href: '/admin/pvp', icon: Swords },
       { name: 'Desk Attendance', href: '/admin/staff-attendance', icon: ClipboardList },
     ],
@@ -34,7 +36,6 @@ const NAV_GROUPS = [
     group: 'Results',
     items: [
       { name: 'Grading', href: '/admin/grading', icon: ClipboardCheck },
-      { name: 'Resources', href: '/admin/resources', icon: Coins },
       { name: 'Qualification', href: '/admin/qualification', icon: Trophy },
     ],
   },

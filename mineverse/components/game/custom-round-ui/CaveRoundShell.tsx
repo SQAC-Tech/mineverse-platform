@@ -22,7 +22,6 @@ import {
   X,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { StructureManager } from '@/components/game/structures/StructureManager';
 import { CraftingPanel } from '@/components/game/crafting/CraftingPanel';
 import { MarketplaceStore } from '@/components/game/marketplace/MarketplaceStore';
 import { ConsumableInventory } from '@/components/game/marketplace/ConsumableInventory';
@@ -34,7 +33,7 @@ import './round-ui.css';
 
 type CaveTab = 'aptitudes' | 'debugging' | 'completion' | 'output';
 type ResourceKey = 'wood' | 'stone' | 'iron' | 'gold' | 'diamond' | 'emerald' | 'obsidian';
-type ModalName = 'guardian' | 'structures' | 'crafting' | 'marketplace' | 'shrine' | null;
+type ModalName = 'guardian' | 'crafting' | 'marketplace' | 'shrine' | null;
 
 interface Question {
   id: string;
@@ -78,11 +77,6 @@ const tabs: Array<{ id: CaveTab; label: string; Icon: typeof Brain }> = [
   { id: 'debugging', label: 'Debugging', Icon: Shield },
   { id: 'completion', label: 'Code completion', Icon: ScrollText },
   { id: 'output', label: 'Output prediction', Icon: Pickaxe },
-];
-
-const structureMeta = [
-  { key: 'bat_cave', label: 'Bat Cave', art: '/round2/structure-bat-cave.webp' },
-  { key: 'forge', label: 'Forge', art: '/round2/structure-forge.webp' },
 ];
 
 /** Statuses the server will no longer accept a revision for. */
@@ -533,18 +527,6 @@ export function CaveRoundShell() {
                 </button>
               </section>
 
-              <section className="round-ui__panel round-ui__card">
-                <p className="round-ui__panel-title">Structures</p>
-                <p className="round-ui__card-text">Pick one — the choice is permanent.</p>
-                <div className="round-ui__choices">
-                  {structureMeta.map(({ key, label, art }) => (
-                    <button key={key} type="button" className="round-ui__choice" onClick={() => setModal('structures')}>
-                      <span className="round-ui__art"><img src={art} alt="" /></span>
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </section>
             </aside>
           ) : (
             <button
@@ -648,7 +630,6 @@ export function CaveRoundShell() {
                 onResolved={() => { void refresh(); }}
               />
             )}
-            {modal === 'structures' && <StructureManager roundId={2} availableStructures={['bat_cave', 'forge']} refreshToken={0} onChanged={() => { void refresh(); }} />}
             {modal === 'crafting' && <CraftingPanel refreshToken={0} onCrafted={() => { void refresh(); }} />}
             {modal === 'marketplace' && (
               <>

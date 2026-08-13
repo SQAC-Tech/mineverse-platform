@@ -24,11 +24,23 @@ const adjustmentSchema = z.object({
   delta: deltaSchema,
   reason: z.string().trim().min(1).max(1000),
   idempotency_key: z.string().uuid(),
+  /**
+   * Repairing the Nether Portal needs a Portal Fragment and a Nether Core, and
+   * neither is a resource — they live in `day2_portal_fragments` and
+   * `team_game_state.nether_core_count`. The fragment used to fall out of a
+   * recorded offline-game result; with the offline games off the platform the
+   * same organizer who credits the resources ticks these.
+   */
+  grant_portal_fragment: z.boolean().optional().default(false),
+  grant_nether_core: z.boolean().optional().default(false),
 });
 
 /**
- * Audited manual adjustment. This endpoint moves resources only — it cannot set
- * qualification status (PHASE2_API.md §3.3).
+ * The one screen that hands resources to a team. Everything an organizer decides
+ * off the platform — physical games, corrections, judgement calls — lands here
+ * and is written to the same audited ledger as in-game earnings.
+ *
+ * It moves resources only; it cannot set qualification status (PHASE2_API.md §3.3).
  */
 export async function POST(req: NextRequest) {
   const guard = await requirePanelScope('admin');
@@ -71,7 +83,46 @@ export async function POST(req: NextRequest) {
       throw error;
     }
 
-    return NextResponse.json({ success: true, data });
+    // Artifacts are granted after the ledger write, so a rejected adjustment
+    // never leaves a team holding a fragment it did not earn. Both writes are
+    // idempotent on their own key, so a retry is inert.
+    const artifacts: Record<string, boolean> = {};
+
+    if (parsed.data.grant_portal_fragment) {
+      const { error: fragmentError } = await db
+        .from('day2_portal_fragments')
+        .upsert(
+          { team_id: parsed.data.team_id, source: `admin_grant:${guard.adminId}` },
+          { onConflict: 'team_id', ignoreDuplicates: true },
+        );
+
+      if (fragmentError) throw fragmentError;
+      artifacts.portal_fragment = true;
+    }
+
+    if (parsed.data.grant_nether_core) {
+      // A team can win more than one core in PvP, so this tops up to one rather
+      // than setting the count — granting must never take a core away.
+      const { data: state, error: stateError } = await db
+        .from('team_game_state')
+        .select('nether_core_count')
+        .eq('team_id', parsed.data.team_id)
+        .maybeSingle();
+
+      if (stateError) throw stateError;
+
+      if ((state?.nether_core_count ?? 0) < 1) {
+        const { error: coreError } = await db
+          .from('team_game_state')
+          .upsert({ team_id: parsed.data.team_id, nether_core_count: 1 }, { onConflict: 'team_id' });
+
+        if (coreError) throw coreError;
+      }
+
+      artifacts.nether_core = true;
+    }
+
+    return NextResponse.json({ success: true, data, artifacts });
   } catch (error) {
     console.error('Manual Adjustment Error:', error);
     return NextResponse.json({ success: false, error: { code: 'SERVER_ERROR' } }, { status: 500 });

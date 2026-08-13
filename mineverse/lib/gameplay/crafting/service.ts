@@ -44,43 +44,12 @@ export const CRAFT_RECIPES: Record<CraftItem, CraftRecipe> = {
   },
 };
 
-export function discountedCost(baseCost: ResourceDelta, discountPercent: number): ResourceDelta {
-  const actual: ResourceDelta = {};
-  for (const [key, value] of Object.entries(baseCost)) {
-    actual[key as keyof ResourceDelta] = Math.ceil((value ?? 0) * (100 - discountPercent) / 100);
-  }
-  return actual;
-}
-
-export async function getForgeDiscount(teamId: string) {
-  try {
-    const { data, error } = await db
-      .from('structures')
-      .select('type, state')
-      .eq('team_id', teamId)
-      .eq('type', 'forge')
-      .in('state', ['active', 'repaired', 'upgraded'])
-      .order('built_at', { ascending: false })
-      .limit(1)
-      .single();
-
-    if (error) {
-      if (error.code === 'PGRST116' || error.code === '42P01') return { discount_percent: 0, source: null };
-      throw error;
-    }
-
-    if (!data) return { discount_percent: 0, source: null };
-    return data.state === 'upgraded'
-      ? { discount_percent: 20, source: 'master_forge' }
-      : { discount_percent: 10, source: 'forge' };
-  } catch (error: any) {
-    if (error?.code === '42P01') return { discount_percent: 0, source: null };
-    throw error;
-  }
-}
-
+/**
+ * Base cost is the cost. The Forge and Master Forge structures used to discount
+ * it by 10% and 20%; structures are gone, so nothing modifies a recipe any
+ * more. `actual_cost` is still reported so the API shape holds.
+ */
 export async function listCraftRecipes(teamId: string) {
-  const discount = await getForgeDiscount(teamId);
   const { data: craftedRows, error } = await db
     .from('crafting_log')
     .select('item')
@@ -92,11 +61,8 @@ export async function listCraftRecipes(teamId: string) {
   return {
     recipes: Object.values(CRAFT_RECIPES).map((recipe) => ({
       ...recipe,
-      actual_cost: discountedCost(recipe.base_cost, discount.discount_percent),
-      discount_percent: discount.discount_percent,
-      discount_source: discount.source,
+      actual_cost: recipe.base_cost,
       crafted: crafted.has(recipe.item),
-      rounding_rule: 'round_each_discounted_resource_cost_up',
     })),
     server_time: new Date().toISOString(),
   };

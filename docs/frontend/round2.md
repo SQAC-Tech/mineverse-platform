@@ -1,8 +1,12 @@
 # Round 2 — Cave Biome
 
+> **Partly superseded by [`../REMOVED_SYSTEMS.md`](../REMOVED_SYSTEMS.md) (14 Aug 2026).** Structures,
+> negative world events, and platform-recorded offline games were removed. Where this document
+> describes any of them, it is a record of what was planned, not of what exists.
+
 ## Purpose
 
-Round 2 expands the core loop with technical questions, offline-game rewards, an optional Guardian, the first structure choice, world events, a post-round trade, and Stone Pickaxe crafting. There are no eliminations.
+Round 2 expands the core loop with technical questions, an optional Guardian, a reward window, the marketplace, a post-round trade, and Stone Pickaxe crafting. There are no eliminations.
 
 **Duration:** 60 minutes  
 **Unlock requirement:** Wooden Pickaxe crafted.  
@@ -23,15 +27,9 @@ Questions are submitted during the active round. Technical answers can remain in
 
 ## Offline games
 
-Offline games are not team-submitted platform questions. A volunteer/organizer records the result and the team sees the verified result in its resource history.
+Offline games happen in the room and the platform knows nothing about them — there is no activity list, no award table, and no screen for them. An organizer decides what a team earned and grants it on `/admin/resources`.
 
-| Activity | Availability | Award |
-|---|---|---|
-| Cup Stacking | Conducted offline | 4 Stone + 10 Iron |
-| Dice total prediction | Conducted offline | 4 Stone + 10 Iron |
-| Find the ball under a cup | Only if time permits | 4 Stone + 10 Iron |
-
-The round flow places offline games after Debugging, Code Completion, and Output Prediction; aptitude follows the offline games. The frontend needs to reflect that offline outcomes are recorded by staff, not self-reported by a team.
+The only frontend consequence: the team sees a ledger entry labelled **Organizer grant** with the reason the organizer typed. The round flow still places the offline games after Debugging, Code Completion and Output Prediction, with aptitude following, but that is a scheduling matter, not a UI one.
 
 ## Guardian: Skeleton Archer
 
@@ -43,32 +41,13 @@ The Skeleton Archer is optional and can be challenged during Round 2. It is a Ra
 - Victory reward is claimable once only.
 - Show a server-driven attempt deadline and cooldown; the main round timer does not pause.
 
-## Structures
-
-Structures become available after the first 10 minutes. A team chooses one base structure for free; it cannot select both.
-
-| Structure | Effect | Required frontend information |
-|---|---|---|
-| Bat Cave | Reveals one bonus challenge | Built status, revealed challenge, active/damaged state |
-| Forge | Reduces all future crafting costs by 10% | Built status and discounted recipe costs |
-
-After the round, the selected structure may be upgraded:
-
-| Upgrade | Cost | New effect |
-|---|---|---|
-| Echo Bat Cave | 10 Stone + 10 Iron | Reveals 2 bonus challenges instead of 1 |
-| Master Forge | 15 Iron + 10 Stone | Reduces future crafting costs by 20% |
-
-If a Forge exists, every relevant recipe must display the same server-calculated discounted cost that will be charged. Each discounted resource cost is rounded up.
-
 ## World events
 
 | Event | Effect | Special handling |
 |---|---|---|
 | Fertile Marsh | For 5 minutes, coding-question Iron rewards are doubled | Show event window and remaining server time |
-| Creeper Explosion | −5 Wood and −5 Stone; the built structure is damaged | Bat Cave protects its team: no resource loss |
 
-A damaged structure must visibly show that its ability is inactive until repaired. Creeper-damaged structures cost 8 Stone to repair.
+No event in this round costs a team anything, so there is no "damaged", "protected" or "absorbed" state to render.
 
 ## Trader choice event: Ancient Shrine
 
@@ -89,4 +68,3 @@ The choice must present all consequences before confirmation and show the commit
 | Stone Pickaxe | 10 Wood + 45 Stone + 25 Iron | Unlocks Round 3 / Mountain Biome |
 
 Also include the shared inventory, auditable resource history, Marketplace access, active round timer, and lock/error states. Marketplace purchases and consumable use are separate actions.
-
