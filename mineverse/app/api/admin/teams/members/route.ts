@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase/server';
 import { requirePanelScope } from '@/lib/panel/require-admin';
+import { REGISTRATION_NO } from '@/lib/validation/schemas';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,6 +33,7 @@ export async function POST(req: Request) {
   const phone = str(body.phone);
   const department = str(body.department);
   const section = str(body.section);
+  const registrationNo = str(body.registration_no).toUpperCase();
 
   if (!teamId) {
     return NextResponse.json({ success: false, error: 'Missing team' }, { status: 400 });
@@ -50,6 +52,14 @@ export async function POST(req: Request) {
   }
   if (!department) {
     return NextResponse.json({ success: false, error: 'Enter the department' }, { status: 400 });
+  }
+  // Optional here — if the organizer does not have it to hand, the attendance
+  // desk prompts for it on the member's first check-in.
+  if (registrationNo && !REGISTRATION_NO.test(registrationNo)) {
+    return NextResponse.json(
+      { success: false, error: 'Registration number must look like RA2211003011234' },
+      { status: 400 },
+    );
   }
 
   const { data: team, error: teamErr } = await supabaseServer
@@ -80,6 +90,7 @@ export async function POST(req: Request) {
       phone,
       department,
       section: section || null,
+      registration_no: registrationNo || null,
       is_team_lead: false,
       // No OTP was sent for this one — an organizer vouched for them instead.
       email_verified: false,
@@ -91,16 +102,13 @@ export async function POST(req: Request) {
     // 23505 is a unique violation: college_email is unique platform-wide and
     // (team_id, email) is unique per team.
     if (insertErr.code === '23505') {
-      const onCollege = insertErr.message?.includes('college_email');
-      return NextResponse.json(
-        {
-          success: false,
-          error: onCollege
-            ? 'That college email is already registered to a team'
-            : 'That personal email is already on this team',
-        },
-        { status: 409 },
-      );
+      const detail = insertErr.message ?? '';
+      const reason = detail.includes('registration_no')
+        ? 'That registration number is already on file for someone else'
+        : detail.includes('college_email')
+          ? 'That college email is already registered to a team'
+          : 'That personal email is already on this team';
+      return NextResponse.json({ success: false, error: reason }, { status: 409 });
     }
     console.error('Admin add member failed:', insertErr);
     return NextResponse.json({ success: false, error: 'Could not add the member' }, { status: 500 });

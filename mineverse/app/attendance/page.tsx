@@ -7,10 +7,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
+import {
+  registrationYears, splitRegistrationNo, joinRegistrationNo,
+  REG_NO_SUFFIX_LENGTH, REGISTRATION_NO,
+} from '@/lib/registration-no';
 
 const CHECKPOINT_KEY = 'mnv.attendance.checkpoint';
+const YEARS = registrationYears();
 
-type Member = { id: string; name: string; is_team_lead: boolean };
+type Member = {
+  id: string;
+  name: string;
+  is_team_lead: boolean;
+  /** Null for anyone who registered before the field existed — ask them here. */
+  registration_no: string | null;
+};
 
 type ResolvedTeam = {
   id: string;
@@ -30,6 +41,8 @@ export default function AttendancePanel() {
   const [present, setPresent] = useState<string[]>([]);
   const [manualCode, setManualCode] = useState('');
   const [busy, setBusy] = useState(false);
+  /** Registration numbers typed at the desk, keyed by member id. */
+  const [regNos, setRegNos] = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetch('/api/attendance/checkpoints')
@@ -70,6 +83,7 @@ export default function AttendancePanel() {
         setMethod(via);
         // Re-marking restores the previous ticks; a fresh mark assumes everyone showed up.
         setPresent(resolved.existing?.member_ids ?? resolved.members.map((m) => m.id));
+        setRegNos({});
         setManualCode('');
       } catch {
         toast.error('Network error — try again');
@@ -83,8 +97,27 @@ export default function AttendancePanel() {
   const toggleMember = (id: string) =>
     setPresent((prev) => (prev.includes(id) ? prev.filter((m) => m !== id) : [...prev, id]));
 
+  /**
+   * A member only needs asking if they are being marked present and have
+   * nothing on file. Absentees are left alone — chasing a number for someone
+   * who did not turn up just holds up the queue.
+   */
+  const needsRegNo = (member: Member) => present.includes(member.id) && !member.registration_no;
+
   const mark = async () => {
     if (!team) return;
+
+    // Checks the whole 15-character value, so "year picked but no digits typed"
+    // is caught here rather than bouncing off the server.
+    const incomplete = team.members.filter(
+      (m) => needsRegNo(m) && !REGISTRATION_NO.test(regNos[m.id] ?? ''),
+    );
+    if (incomplete.length > 0) {
+      return toast.error(
+        `Complete the registration number for ${incomplete.map((m) => m.name).join(', ')}`,
+      );
+    }
+
     setBusy(true);
     try {
       const res = await fetch('/api/attendance/mark', {
@@ -95,6 +128,7 @@ export default function AttendancePanel() {
           checkpoint_id: Number(checkpoint),
           member_ids: present,
           method,
+          registration_numbers: regNos,
         }),
       });
       const json = await res.json();
@@ -105,6 +139,7 @@ export default function AttendancePanel() {
       );
       setTeam(null);
       setPresent([]);
+      setRegNos({});
     } catch {
       toast.error('Failed to mark attendance');
     } finally {
@@ -164,19 +199,71 @@ export default function AttendancePanel() {
               <div className="space-y-2">
                 <p className="text-xs uppercase tracking-wide text-slate-500">Who is present?</p>
                 {team.members.map((member) => (
-                  <label
+                  <div
                     key={member.id}
-                    className="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-800 bg-slate-950 p-3 active:bg-slate-800"
+                    className="rounded-lg border border-slate-800 bg-slate-950 overflow-hidden"
                   >
-                    <input
-                      type="checkbox"
-                      checked={present.includes(member.id)}
-                      onChange={() => toggleMember(member.id)}
-                      className="h-5 w-5 shrink-0 accent-cyan-500"
-                    />
-                    <span className="min-w-0 flex-1 truncate text-sm">{member.name}</span>
-                    {member.is_team_lead && <span className="shrink-0 text-xs text-slate-500">Lead</span>}
-                  </label>
+                    <label className="flex cursor-pointer items-center gap-3 p-3 active:bg-slate-800">
+                      <input
+                        type="checkbox"
+                        checked={present.includes(member.id)}
+                        onChange={() => toggleMember(member.id)}
+                        className="h-5 w-5 shrink-0 accent-cyan-500"
+                      />
+                      <span className="min-w-0 flex-1 truncate text-sm">{member.name}</span>
+                      {member.is_team_lead && <span className="shrink-0 text-xs text-slate-500">Lead</span>}
+                    </label>
+
+                    {needsRegNo(member) && (
+                      <div className="border-t border-slate-800 bg-amber-500/5 px-3 pb-3 pt-2">
+                        <p className="mb-1.5 text-xs text-amber-400">Registration number needed</p>
+                        <div className="flex gap-2">
+                          {/*
+                            Native select, not the shadcn one: a volunteer on a
+                            phone gets the OS picker, which is faster than a
+                            popover and works with one thumb.
+                          */}
+                          <select
+                            value={splitRegistrationNo(regNos[member.id] ?? '').prefix}
+                            onChange={(e) =>
+                              setRegNos((prev) => ({
+                                ...prev,
+                                [member.id]: joinRegistrationNo(
+                                  e.target.value,
+                                  splitRegistrationNo(prev[member.id] ?? '').suffix,
+                                ),
+                              }))
+                            }
+                            aria-label={`Year of study for ${member.name}`}
+                            className="h-11 shrink-0 rounded-md border border-slate-700 bg-slate-900 px-2 text-base text-white"
+                          >
+                            <option value="">Year</option>
+                            {YEARS.map((y) => (
+                              <option key={y.prefix} value={y.prefix}>{y.prefix}</option>
+                            ))}
+                          </select>
+                          <Input
+                            value={splitRegistrationNo(regNos[member.id] ?? '').suffix}
+                            onChange={(e) =>
+                              setRegNos((prev) => ({
+                                ...prev,
+                                [member.id]: joinRegistrationNo(
+                                  splitRegistrationNo(prev[member.id] ?? '').prefix,
+                                  e.target.value,
+                                ),
+                              }))
+                            }
+                            placeholder="11003011234"
+                            maxLength={REG_NO_SUFFIX_LENGTH}
+                            inputMode="numeric"
+                            autoComplete="off"
+                            aria-label={`Registration number digits for ${member.name}`}
+                            className="h-11 flex-1 border-slate-700 bg-slate-900 font-mono text-base text-white"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
 

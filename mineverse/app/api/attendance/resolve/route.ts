@@ -34,7 +34,9 @@ export async function POST(req: Request) {
 
   const { data: team } = await supabaseServer
     .from('teams')
-    .select('id, team_code, team_name, team_size, is_payment_verified, members(id, name, is_team_lead)')
+    // registration_no comes back so the panel knows who still needs to be asked
+    // for one — teams registered before the field existed have none.
+    .select('id, team_code, team_name, team_size, is_payment_verified, members(id, name, is_team_lead, registration_no)')
     .eq('team_code', code)
     .single();
 

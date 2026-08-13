@@ -8,7 +8,13 @@ import { Panel, Btn, Pill, statusTone, Table, Empty, Loading, PageTitle, apiCall
 /** Mirrors `teams_team_size_check` in the database. */
 const MAX_TEAM_SIZE = 3;
 
-type Member = { id: string; name: string; email: string; phone?: string };
+type Member = {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  registration_no?: string | null;
+};
 type TeamRow = {
   id: string;
   team_code: string;
@@ -22,7 +28,10 @@ type TeamRow = {
   attendance_records?: { checkpoint_id: number; members_present: number }[];
 };
 
-const EMPTY_MEMBER = { name: '', email: '', college_email: '', phone: '', department: '', section: '' };
+const EMPTY_MEMBER = {
+  name: '', email: '', college_email: '', phone: '',
+  department: '', section: '', registration_no: '',
+};
 
 /**
  * Desk override for adding someone the registration form missed. State is kept
@@ -86,13 +95,24 @@ function AddMemberForm({ teamId, onAdded }: { teamId: string; onAdded: () => voi
         <Field label="Department">
           <input className="n-input" value={form.department} onChange={set('department')} placeholder="e.g. CSE" />
         </Field>
+        <Field label="Registration no. (optional)">
+          <input
+            className="n-input"
+            style={{ textTransform: 'uppercase' }}
+            value={form.registration_no}
+            onChange={set('registration_no')}
+            placeholder="RA2211003011234"
+            maxLength={15}
+          />
+        </Field>
         <Field label="Section (optional)">
           <input className="n-input" value={form.section} onChange={set('section')} placeholder="e.g. B" />
         </Field>
       </div>
 
       <div className="n-panel-sub" style={{ marginTop: 10 }}>
-        No OTP is sent and the fee is not recalculated — collect any difference at the desk.
+        No OTP is sent and the fee is not recalculated — collect any difference at the desk. Leave
+        the registration number blank and the attendance desk will ask for it at check-in.
       </div>
 
       <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
@@ -203,7 +223,10 @@ export default function AdminTeamsPage() {
     !needle ||
     t.team_code?.toLowerCase().includes(needle) ||
     t.team_name?.toLowerCase().includes(needle) ||
-    t.members?.some((m) => m.name?.toLowerCase().includes(needle) || m.email?.toLowerCase().includes(needle)),
+    t.members?.some((m) =>
+      m.name?.toLowerCase().includes(needle) ||
+      m.email?.toLowerCase().includes(needle) ||
+      m.registration_no?.toLowerCase().includes(needle)),
   );
 
   const verified = teams.filter((t) => t.is_payment_verified).length;
@@ -234,7 +257,7 @@ export default function AdminTeamsPage() {
               <input
                 className="n-input"
                 style={{ paddingLeft: 24, width: 210 }}
-                placeholder="Team, code or member"
+                placeholder="Team, code, member or RA no."
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
@@ -290,6 +313,13 @@ export default function AdminTeamsPage() {
                                 <div style={{ fontSize: 12.5 }}>{m.name}</div>
                                 <div className="n-panel-sub n-mono" style={{ marginTop: 3 }}>{m.email}</div>
                                 {m.phone && <div className="n-panel-sub n-mono">{m.phone}</div>}
+                                {m.registration_no ? (
+                                  <div className="n-mono" style={{ marginTop: 3, fontSize: 12 }}>{m.registration_no}</div>
+                                ) : (
+                                  <div className="n-panel-sub" style={{ marginTop: 3, color: 'var(--warn)' }}>
+                                    No registration no.
+                                  </div>
+                                )}
                               </div>
                             ))}
                           </div>

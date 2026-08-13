@@ -6,6 +6,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import Link from 'next/link';
 import { RegistrationForm } from './registration-form';
 import { Footer } from '@/components/Footer';
+import { EVENT_ROUNDS, ROUND_PROGRESSION, type EventRound } from '@/lib/event-rounds';
 
 // ═══════════════════════════════════════════════════════════
 //  SCROLL STATE
@@ -1189,8 +1190,113 @@ function CavernContent({ config }: { config: any }) {
           <McPanel style={{ flex: '1 1 180px', minWidth: 0, maxWidth: '260px', padding: '20px 16px', textAlign: 'center', boxSizing: 'border-box', overflowWrap: 'break-word' }}>
             <div style={{ fontSize: '1.5rem', marginBottom: '8px' }}>🎮</div>
             <h3 style={{ fontFamily: 'system-ui, sans-serif', fontSize: 'clamp(0.5rem, 1.5vw, 0.6rem)', color: '#fca311', textShadow: '1px 1px 0 #000', marginBottom: '6px' }}>WHO CAN JOIN</h3>
-            <p style={{ fontFamily: 'system-ui, sans-serif', fontSize: 'clamp(0.8rem, 2.5vw, 1rem)', color: '#e5e5e5', textShadow: '1px 1px 0 #000', lineHeight: '1.6', wordBreak: 'break-word' }}>OPEN FOR ALL<br/>CODERS!</p>
+            <p style={{ fontFamily: 'system-ui, sans-serif', fontSize: 'clamp(0.8rem, 2.5vw, 1rem)', color: '#e5e5e5', textShadow: '1px 1px 0 #000', lineHeight: '1.6', wordBreak: 'break-word' }}>1ST &amp; 2ND YEARS<br/>TEAMS OF 2 OR 3</p>
           </McPanel>
+
+          <McPanel style={{ flex: '1 1 180px', minWidth: 0, maxWidth: '260px', padding: '20px 16px', textAlign: 'center', boxSizing: 'border-box', overflowWrap: 'break-word' }}>
+            <div style={{ fontSize: '1.5rem', marginBottom: '8px' }}>💰</div>
+            <h3 style={{ fontFamily: 'system-ui, sans-serif', fontSize: 'clamp(0.5rem, 1.5vw, 0.6rem)', color: '#fca311', textShadow: '1px 1px 0 #000', marginBottom: '6px' }}>ENTRY FEE</h3>
+            <p style={{ fontFamily: 'system-ui, sans-serif', fontSize: 'clamp(0.8rem, 2.5vw, 1rem)', color: '#e5e5e5', textShadow: '1px 1px 0 #000', lineHeight: '1.6', wordBreak: 'break-word' }}>
+              ₹{config?.fees?.duo ?? 150} DUO<br/>₹{config?.fees?.trio ?? 200} TRIO
+            </p>
+          </McPanel>
+        </div>
+      </div>
+
+      {/* Divider */}
+      <div style={{
+        width: '80%', maxWidth: '600px', height: '4px', margin: '20px auto 0',
+        background: 'repeating-linear-gradient(90deg, #4a3a28 0px, #4a3a28 8px, transparent 8px, transparent 16px)',
+        imageRendering: 'pixelated' as any,
+      }} />
+
+      {/* ═══════ HOW IT WORKS ═══════ */}
+      <div style={{ padding: '40px 20px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '28px' }}>
+          <h2 style={{
+            ...mc,
+            fontSize: 'clamp(1.2rem, 3vw, 2rem)',
+            color: '#fde047',
+            textShadow: '0 2px 0 #b8860b, 3px 4px 8px rgba(0,0,0,0.8)',
+            letterSpacing: '0.15em',
+            marginBottom: '18px',
+          }}>
+            📖 HOW IT WORKS
+          </h2>
+
+          <p style={{
+            fontFamily: 'system-ui, sans-serif',
+            fontSize: 'clamp(0.9rem, 2.2vw, 1.05rem)',
+            color: '#d5d5d5',
+            textShadow: '1px 1px 0 #000',
+            lineHeight: 1.75,
+            maxWidth: '760px',
+            margin: '0 auto',
+          }}>
+            MINEVERSE is a two-day coding competition played like a Minecraft run. You enter as a team
+            of two or three and start with nothing. Every problem you solve <strong style={{ color: '#4ade80' }}>mines
+            resources</strong>; resources let you <strong style={{ color: '#fca311' }}>craft better pickaxes</strong>,
+            trade at the marketplace and <strong style={{ color: '#5a8aba' }}>build structures</strong> that protect your
+            score. Each round has a guardian to beat and a biome to survive, and the tools you carry out of one round
+            are the tools you take into the next.
+          </p>
+
+          <p style={{
+            fontFamily: 'system-ui, sans-serif',
+            fontSize: 'clamp(0.85rem, 2vw, 0.95rem)',
+            color: '#999999',
+            textShadow: '1px 1px 0 #000',
+            lineHeight: 1.7,
+            maxWidth: '760px',
+            margin: '14px auto 0',
+          }}>
+            Day 1 is three rounds and a qualifier. Survive the leaderboard and you come back for Day 2 —
+            the Nether and, finally, the End.
+          </p>
+        </div>
+
+        {/* Biome progression strip */}
+        <div style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: '8px',
+          justifyContent: 'center',
+          alignItems: 'center',
+          marginBottom: '30px',
+        }}>
+          {ROUND_PROGRESSION.map((biome, i) => (
+            <div key={biome} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{
+                ...mc,
+                fontSize: 'clamp(0.5rem, 1.6vw, 0.62rem)',
+                color: BIOME_COLORS[biome].accent,
+                background: BIOME_COLORS[biome].bg,
+                border: `2px solid ${BIOME_COLORS[biome].border}`,
+                padding: '7px 12px',
+                letterSpacing: '0.12em',
+                whiteSpace: 'nowrap',
+              }}>
+                {biome.toUpperCase()}
+              </span>
+              {i < ROUND_PROGRESSION.length - 1 && (
+                <span style={{ color: '#5a4a38', fontSize: '0.9rem' }}>▸</span>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Round cards */}
+        <div style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: '16px',
+          justifyContent: 'center',
+          maxWidth: '1100px',
+          margin: '0 auto',
+        }}>
+          {EVENT_ROUNDS.map((round, i) => (
+            <RoundCard key={round.label} round={round} delay={i * 0.08} />
+          ))}
         </div>
       </div>
 
@@ -1416,6 +1522,79 @@ function ExpectCard({ icon, title, desc, delay }: { icon: string; title: string;
         }}>
           {desc}
         </p>
+      </McPanel>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
+//  ROUND CARD — one stop on the progression
+// ═══════════════════════════════════════════════════════════
+function RoundCard({ round, delay }: { round: EventRound; delay: number }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+  const colors = BIOME_COLORS[round.biome];
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { setVisible(true); obs.disconnect(); } },
+      { threshold: 0.2 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
+  const mc = { fontFamily: 'var(--font-minecraft)' };
+  const sans = { fontFamily: 'system-ui, sans-serif' };
+
+  return (
+    <div
+      ref={ref}
+      style={{
+        flex: '1 1 280px',
+        maxWidth: '340px',
+        opacity: visible ? 1 : 0,
+        transform: visible ? 'translateY(0)' : 'translateY(24px)',
+        transition: `opacity 0.5s ease ${delay}s, transform 0.5s ease ${delay}s`,
+      }}
+    >
+      <McPanel style={{ padding: 0, height: '100%', display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
+        {/* Biome-coloured header so the progression reads at a glance */}
+        <div style={{
+          background: colors.bg,
+          borderBottom: `3px solid ${colors.border}`,
+          padding: '12px 14px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+        }}>
+          <span style={{ fontSize: '1.5rem', lineHeight: 1 }}>{round.icon}</span>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ ...mc, fontSize: '0.55rem', color: colors.accent, letterSpacing: '0.15em' }}>
+              {round.label} · {round.day}
+            </div>
+            <div style={{ ...sans, fontSize: '0.95rem', fontWeight: 700, color: '#ffffff', textShadow: '1px 1px 0 #000' }}>
+              {round.name}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ padding: '14px', flex: 1, display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <p style={{ ...sans, fontSize: '0.85rem', color: '#cccccc', lineHeight: 1.6, margin: 0 }}>
+            {round.desc}
+          </p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: 'auto' }}>
+            <div style={{ ...sans, fontSize: '0.75rem', color: '#999999' }}>
+              <span style={{ color: '#ff6b6b' }}>⚔ Boss</span> &nbsp;{round.boss}
+            </div>
+            <div style={{ ...sans, fontSize: '0.75rem', color: '#999999' }}>
+              <span style={{ color: '#4ade80' }}>✦ Unlocks</span> &nbsp;{round.unlock}
+            </div>
+          </div>
+        </div>
       </McPanel>
     </div>
   );
