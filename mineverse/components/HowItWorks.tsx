@@ -14,9 +14,9 @@ import { EVENT_ROUNDS, ROUND_PROGRESSION, type EventRound } from '@/lib/event-ro
  * different surface from the wooden sign boards the timeline and contact
  * sections already use.
  *
- * The rounds sit in one vertically scrolling column rather than a grid — the
- * order is the whole point, and a snapping column reads as a sequence in a way
- * a wrapped grid does not.
+ * The rounds stack in one column rather than a grid — the order is the whole
+ * point, and a single column reads as a sequence in a way a wrapped grid does
+ * not. They scroll with the page; no nested scroll area.
  */
 
 /** Classic Minecraft GUI edge: lit from the top-left, shadowed bottom-right. */
@@ -96,7 +96,7 @@ function RoundCard({ round }: { round: EventRound }) {
 
   return (
     <article
-      className="mv-round flex w-full snap-start flex-col"
+      className="mv-round flex w-full flex-col"
       style={{
         background: STONE.face,
         ...bevel(STONE.light, STONE.dark, 5),
@@ -177,26 +177,8 @@ export const HowItWorks = () => {
           .mv-round:hover .mv-slot-box { transform: translateX(3px); }
         }
 
-        /* Minecraft-style chunky scrollbar on the column. */
-        .mv-scroll { scrollbar-color: #6e6e6e #1c1c1c; scrollbar-width: auto; }
-        .mv-scroll::-webkit-scrollbar { width: 16px; }
-        .mv-scroll::-webkit-scrollbar-track {
-          background: #1c1c1c;
-          border-left: 3px solid #0d0d0d;
-          border-right: 3px solid #3a3a3a;
-        }
-        .mv-scroll::-webkit-scrollbar-thumb {
-          background: #6e6e6e;
-          border-top: 3px solid #9a9a9a;
-          border-left: 3px solid #9a9a9a;
-          border-bottom: 3px solid #2a2a2a;
-          border-right: 3px solid #2a2a2a;
-        }
-        .mv-scroll::-webkit-scrollbar-thumb:hover { background: #838383; }
-
         @media (prefers-reduced-motion: reduce) {
           .mv-round, .mv-icon, .mv-band, .mv-slot-box { transition: none; }
-          .mv-scroll { scroll-behavior: auto; }
         }
       `}</style>
 
@@ -276,27 +258,8 @@ export const HowItWorks = () => {
           ))}
         </div>
 
-        {/* Scroll hint */}
-        <p
-          className="mt-12 text-center text-[9px] leading-none tracking-[0.2em] text-[#7d7d7d]"
-          style={mc}
-        >
-          ▲ SCROLL THROUGH THE ROUNDS ▼
-        </p>
-
-        {/*
-          A capped, snapping column. Holding the rounds in their own scroll area
-          keeps the section a fixed height on the page instead of adding six
-          full-width cards to the page scroll, and the cut-off card at the
-          bottom edge is what signals there is more below.
-        */}
-        <div
-          className="mv-scroll mt-5 flex snap-y snap-mandatory flex-col gap-6 overflow-y-auto scroll-smooth pr-3"
-          style={{ maxHeight: 'min(720px, 80vh)', scrollPaddingTop: '0.25rem' }}
-          role="region"
-          aria-label="Round-by-round breakdown"
-          tabIndex={0}
-        >
+        {/* Plain column — the rounds scroll with the page, no nested scrollbox. */}
+        <div className="mt-12 flex flex-col gap-6">
           {EVENT_ROUNDS.map((round) => (
             <RoundCard key={round.label} round={round} />
           ))}
