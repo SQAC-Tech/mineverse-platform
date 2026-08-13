@@ -6,6 +6,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import Link from 'next/link';
 import { RegistrationForm } from './registration-form';
 import { Footer } from '@/components/Footer';
+import { EVENT_ROUNDS, ROUND_PROGRESSION, type EventRound } from '@/lib/event-rounds';
 
 // ═══════════════════════════════════════════════════════════
 //  SCROLL STATE
@@ -590,51 +591,6 @@ const DAY2_TIMELINE = [
   { time: '1:45 – 2:15 PM', activity: 'Final Result Compilation', icon: '📊', desc: 'Final scoring and winner confirmation. Fun activities during this time!', biome: 'End' },
   { time: '2:15 – 3:00 PM', activity: 'Prize Distribution & Closing', icon: '🏆', desc: 'Winners announcement, certificates, special awards, vote of thanks, group photo', biome: 'End' },
   { time: '3:00 – 3:30 PM', activity: 'OC Debriefing', icon: '📝', desc: 'Organizing committee debriefing and wrap-up', biome: 'End' },
-];
-
-// ═══════════════════════════════════════════════════════════
-//  ROUND PROGRESSION — what actually happens, in order
-// ═══════════════════════════════════════════════════════════
-
-const PROGRESSION = ['Forest', 'Cave', 'Mountain', 'Nether', 'End'];
-
-const ROUNDS = [
-  {
-    label: 'ROUND 1', name: 'Forest & Grasslands', biome: 'Forest', icon: '🌲', day: 'DAY 1',
-    desc: 'Warm-up coding problems. Every solve mines resources into your team inventory.',
-    boss: 'Forest Guardian',
-    unlock: 'Wooden Pickaxe',
-  },
-  {
-    label: 'ROUND 2', name: 'Cave Biome', biome: 'Cave', icon: '⛏️', day: 'DAY 1',
-    desc: 'Harder problems, plus the marketplace and structure building open up. A world event shakes things up mid-round.',
-    boss: 'Skeleton Archer',
-    unlock: 'Stone Pickaxe',
-  },
-  {
-    label: 'ROUND 3', name: 'Mountain Biome', biome: 'Mountain', icon: '🏔️', day: 'DAY 1',
-    desc: 'The last Day 1 climb. Spend, trade and upgrade wisely — this is what your qualification is scored on.',
-    boss: 'Ice Golem',
-    unlock: 'Iron Pickaxe',
-  },
-  {
-    label: 'QUALIFIER', name: 'PvP Battle', biome: 'Nether', icon: '⚔️', day: 'DAY 1',
-    desc: 'Scores and resources are verified, teams go head to head, and the leaderboard decides who returns for Day 2.',
-    boss: 'Rival teams',
-    unlock: 'A seat in the Nether',
-  },
-  {
-    label: 'ROUND 4', name: 'Pre-Final', biome: 'Nether', icon: '🏃', day: 'DAY 2',
-    desc: 'Away from the keyboard — physical games and challenges that earn the resources you carry into the finale.',
-    boss: 'Your own team',
-    unlock: 'Finale resources',
-  },
-  {
-    label: 'ROUND 5', name: 'The End', biome: 'End', icon: '🐉', day: 'DAY 2',
-    desc: 'Pure code, hardest problems, everything on the line. Whoever stands tallest here takes the crown.',
-    boss: 'Ender Dragon',
-    unlock: 'Victory',
-  },
 ];
 
 const BIOME_COLORS: Record<string, { bg: string; border: string; glow: string; accent: string }> = {
@@ -1308,7 +1264,7 @@ function CavernContent({ config }: { config: any }) {
           alignItems: 'center',
           marginBottom: '30px',
         }}>
-          {PROGRESSION.map((biome, i) => (
+          {ROUND_PROGRESSION.map((biome, i) => (
             <div key={biome} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{
                 ...mc,
@@ -1322,7 +1278,7 @@ function CavernContent({ config }: { config: any }) {
               }}>
                 {biome.toUpperCase()}
               </span>
-              {i < PROGRESSION.length - 1 && (
+              {i < ROUND_PROGRESSION.length - 1 && (
                 <span style={{ color: '#5a4a38', fontSize: '0.9rem' }}>▸</span>
               )}
             </div>
@@ -1338,7 +1294,7 @@ function CavernContent({ config }: { config: any }) {
           maxWidth: '1100px',
           margin: '0 auto',
         }}>
-          {ROUNDS.map((round, i) => (
+          {EVENT_ROUNDS.map((round, i) => (
             <RoundCard key={round.label} round={round} delay={i * 0.08} />
           ))}
         </div>
@@ -1574,7 +1530,7 @@ function ExpectCard({ icon, title, desc, delay }: { icon: string; title: string;
 // ═══════════════════════════════════════════════════════════
 //  ROUND CARD — one stop on the progression
 // ═══════════════════════════════════════════════════════════
-function RoundCard({ round, delay }: { round: typeof ROUNDS[0]; delay: number }) {
+function RoundCard({ round, delay }: { round: EventRound; delay: number }) {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
   const colors = BIOME_COLORS[round.biome];

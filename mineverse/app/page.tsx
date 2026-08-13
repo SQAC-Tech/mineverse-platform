@@ -1,5 +1,6 @@
 import React from 'react';
 import { HeroSection } from '@/components/HeroSection';
+import { HowItWorks } from '@/components/HowItWorks';
 import { TimelineSection } from '@/components/TimelineSection';
 import { Footer } from '@/components/Footer';
 import { MinecraftBoard } from '@/components/MinecraftBoard';
@@ -20,6 +21,8 @@ export default function MainPage() {
       >
         <div className="absolute inset-0 bg-black/75 z-0"></div>
         <div className="relative z-10">
+          {/* What the event is, before the timeline says when it happens. */}
+          <HowItWorks />
           <TimelineSection />
           
           {/* Contact Section */}
