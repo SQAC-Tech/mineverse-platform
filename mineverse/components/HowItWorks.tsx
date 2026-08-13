@@ -14,9 +14,9 @@ import { EVENT_ROUNDS, ROUND_PROGRESSION, type EventRound } from '@/lib/event-ro
  * different surface from the wooden sign boards the timeline and contact
  * sections already use.
  *
- * The rounds sit in one horizontal scroll strip rather than a grid — the order
- * is the whole point, and a snapping strip reads as a sequence in a way a
- * wrapped grid does not.
+ * The rounds sit in one vertically scrolling column rather than a grid — the
+ * order is the whole point, and a snapping column reads as a sequence in a way
+ * a wrapped grid does not.
  */
 
 /** Classic Minecraft GUI edge: lit from the top-left, shadowed bottom-right. */
@@ -96,9 +96,8 @@ function RoundCard({ round }: { round: EventRound }) {
 
   return (
     <article
-      className="mv-round flex shrink-0 snap-start flex-col"
+      className="mv-round flex w-full snap-start flex-col"
       style={{
-        width: 'clamp(290px, 84vw, 400px)',
         background: STONE.face,
         ...bevel(STONE.light, STONE.dark, 5),
         boxShadow: '8px 8px 0 rgba(0,0,0,0.55)',
@@ -178,13 +177,13 @@ export const HowItWorks = () => {
           .mv-round:hover .mv-slot-box { transform: translateX(3px); }
         }
 
-        /* Minecraft-style chunky scrollbar on the strip. */
+        /* Minecraft-style chunky scrollbar on the column. */
         .mv-scroll { scrollbar-color: #6e6e6e #1c1c1c; scrollbar-width: auto; }
-        .mv-scroll::-webkit-scrollbar { height: 16px; }
+        .mv-scroll::-webkit-scrollbar { width: 16px; }
         .mv-scroll::-webkit-scrollbar-track {
           background: #1c1c1c;
-          border-top: 3px solid #0d0d0d;
-          border-bottom: 3px solid #3a3a3a;
+          border-left: 3px solid #0d0d0d;
+          border-right: 3px solid #3a3a3a;
         }
         .mv-scroll::-webkit-scrollbar-thumb {
           background: #6e6e6e;
@@ -276,37 +275,32 @@ export const HowItWorks = () => {
             </React.Fragment>
           ))}
         </div>
-      </div>
 
-      {/* Scroll hint */}
-      <p
-        className="mt-12 px-4 text-center text-[9px] leading-none tracking-[0.2em] text-[#7d7d7d]"
-        style={mc}
-      >
-        ◀ SCROLL THROUGH THE ROUNDS ▶
-      </p>
+        {/* Scroll hint */}
+        <p
+          className="mt-12 text-center text-[9px] leading-none tracking-[0.2em] text-[#7d7d7d]"
+          style={mc}
+        >
+          ▲ SCROLL THROUGH THE ROUNDS ▼
+        </p>
 
-      {/*
-        Full-bleed strip: the padding puts the first card in line with the text
-        above while still letting cards run to the screen edge as you scroll.
-      */}
-      <div
-        className="mv-scroll mt-5 flex snap-x snap-mandatory gap-6 overflow-x-auto scroll-smooth px-4 pb-5 md:px-8"
-        style={{ scrollPaddingLeft: '1rem' }}
-        role="region"
-        aria-label="Round-by-round breakdown"
-        tabIndex={0}
-      >
         {/*
-          Lines the first card up with the paragraph above on wide screens
-          (max-w-5xl = 64rem) without capping the strip, so later cards still
-          run to the screen edge.
+          A capped, snapping column. Holding the rounds in their own scroll area
+          keeps the section a fixed height on the page instead of adding six
+          full-width cards to the page scroll, and the cut-off card at the
+          bottom edge is what signals there is more below.
         */}
-        <div className="hidden shrink-0 lg:block" style={{ width: 'max(0px, calc((100vw - 64rem) / 2))' }} />
-        {EVENT_ROUNDS.map((round) => (
-          <RoundCard key={round.label} round={round} />
-        ))}
-        <div className="shrink-0" style={{ width: '1px' }} />
+        <div
+          className="mv-scroll mt-5 flex snap-y snap-mandatory flex-col gap-6 overflow-y-auto scroll-smooth pr-3"
+          style={{ maxHeight: 'min(720px, 80vh)', scrollPaddingTop: '0.25rem' }}
+          role="region"
+          aria-label="Round-by-round breakdown"
+          tabIndex={0}
+        >
+          {EVENT_ROUNDS.map((round) => (
+            <RoundCard key={round.label} round={round} />
+          ))}
+        </div>
       </div>
     </section>
   );
