@@ -9,9 +9,17 @@ interface LeaderboardRow {
   score: number;
 }
 
+interface CertifiedChampion {
+  team_name: string;
+  team_code: string;
+  certified_at: string;
+}
+
 interface LeaderboardData {
   rows: LeaderboardRow[];
   note: string;
+  is_provisional: boolean;
+  certified_champion: CertifiedChampion | null;
   last_updated: string;
 }
 
@@ -46,11 +54,34 @@ export default function LeaderboardPage() {
         <header className="mb-6 flex flex-col gap-3 border-b border-zinc-800 pb-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="text-xs uppercase tracking-wide text-emerald-300">Mineverse</p>
-            <h1 className="text-3xl font-semibold text-white">Leaderboard</h1>
-            <p className="mt-2 max-w-2xl text-sm text-zinc-400">{data?.note ?? 'Leaderboard is informational and does not determine Day 2 qualification.'}</p>
+            <h1 className="text-3xl font-semibold text-white">Final Standings</h1>
+            <p className="mt-2 max-w-2xl text-sm text-zinc-400">{data?.note ?? 'Results are provisional until the organizer certifies a champion.'}</p>
           </div>
           <div className="text-sm text-zinc-500">Last updated: {data ? new Date(data.last_updated).toLocaleTimeString() : '--'}</div>
         </header>
+
+        {/* Provisional / Certified banner */}
+        {data && (
+          <div
+            className="mb-4 rounded border p-4"
+            style={{
+              borderColor: data.is_provisional ? '#92400e' : '#065f46',
+              backgroundColor: data.is_provisional ? 'rgba(120, 53, 15, 0.2)' : 'rgba(6, 78, 59, 0.2)',
+            }}
+          >
+            {data.is_provisional ? (
+              <p className="text-sm text-amber-200">
+                ⏳ <strong>Provisional Results</strong> — These standings have not been certified by the organizers yet.
+                The final champion will be announced after verification.
+              </p>
+            ) : data.certified_champion ? (
+              <p className="text-sm text-emerald-200">
+                🏆 <strong>Champion Certified:</strong> {data.certified_champion.team_name} ({data.certified_champion.team_code})
+                — Certified at {new Date(data.certified_champion.certified_at).toLocaleTimeString()}
+              </p>
+            ) : null}
+          </div>
+        )}
 
         {error ? <div className="rounded border border-red-900 bg-red-950/40 p-4 text-red-100">{error}</div> : null}
 
@@ -66,9 +97,22 @@ export default function LeaderboardPage() {
             </thead>
             <tbody>
               {(data?.rows ?? []).map((row) => (
-                <tr key={row.team_code} className="border-t border-zinc-800">
+                <tr
+                  key={row.team_code}
+                  className="border-t border-zinc-800"
+                  style={
+                    data?.certified_champion?.team_code === row.team_code
+                      ? { background: 'rgba(6, 78, 59, 0.15)' }
+                      : undefined
+                  }
+                >
                   <td className="px-4 py-3 font-mono text-amber-200">#{row.rank}</td>
-                  <td className="px-4 py-3 text-white">{row.team_name}</td>
+                  <td className="px-4 py-3 text-white">
+                    {row.team_name}
+                    {data?.certified_champion?.team_code === row.team_code && (
+                      <span className="ml-2 text-xs text-emerald-300">🏆 Champion</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-zinc-400">{row.team_code}</td>
                   <td className="px-4 py-3 text-right font-semibold text-emerald-200">{row.score}</td>
                 </tr>
@@ -88,4 +132,4 @@ export default function LeaderboardPage() {
       </div>
     </main>
   );
-}
+}
