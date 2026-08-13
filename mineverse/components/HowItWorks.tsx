@@ -8,11 +8,15 @@ import { EVENT_ROUNDS, ROUND_PROGRESSION, type EventRound } from '@/lib/event-ro
  * straight from the hero to a schedule, which tells a visitor when things
  * happen but never what they are.
  *
- * Styled as Minecraft GUI panels rather than generic cards: hard 4px bevels
- * (light top-left, dark bottom-right), no rounded corners, no soft shadows, and
- * the boss/unlock lines sit in pressed-in inventory slots. Stone rather than
- * wood, so the cards read as a different surface from the wooden sign boards
- * the timeline and contact sections already use.
+ * Styled as Minecraft GUI panels: hard 4px bevels (light top-left, dark
+ * bottom-right), square corners, solid offset shadows, and boss/unlock lines in
+ * pressed-in inventory slots. Stone rather than wood, so the cards read as a
+ * different surface from the wooden sign boards the timeline and contact
+ * sections already use.
+ *
+ * The rounds sit in one horizontal scroll strip rather than a grid — the order
+ * is the whole point, and a snapping strip reads as a sequence in a way a
+ * wrapped grid does not.
  */
 
 /** Classic Minecraft GUI edge: lit from the top-left, shadowed bottom-right. */
@@ -54,26 +58,34 @@ const BIOME: Record<EventRound['biome'], { bg: string; light: string; dark: stri
 };
 
 const FACTS = [
-  { icon: '👥', label: 'TEAM SIZE', value: '2 or 3 members' },
-  { icon: '🎓', label: 'ELIGIBILITY', value: '1st & 2nd years' },
-  { icon: '🗓️', label: 'FORMAT', value: '2 days · 5 rounds' },
+  { icon: '👥', label: 'TEAM SIZE', value: '2 OR 3' },
+  { icon: '🎓', label: 'ELIGIBILITY', value: '1ST & 2ND YR' },
+  { icon: '🗓️', label: 'FORMAT', value: '2 DAYS · 5 ROUNDS' },
 ];
 
+/**
+ * Press Start 2P is wide and has no lowercase rhythm to lean on, so every size
+ * here is paired with a line-height near 2 — the usual 1.5 makes pixel type
+ * clot together.
+ */
 const mc = { fontFamily: 'var(--font-minecraft)' } as const;
 
 function Slot({ glyph, label, value, tint }: { glyph: string; label: string; value: string; tint: string }) {
   return (
-    <div className="flex items-center gap-2.5">
-      {/* Inventory slot holding the icon */}
+    <div className="mv-slot flex items-center gap-3">
       <div
-        className="flex h-8 w-8 shrink-0 items-center justify-center text-sm"
+        className="mv-slot-box flex h-11 w-11 shrink-0 items-center justify-center text-lg"
         style={{ background: STONE.slot, ...inset(STONE.slotLight, STONE.slotDark), color: tint }}
       >
         {glyph}
       </div>
-      <div className="min-w-0">
-        <div className="text-[7px] tracking-[0.2em] text-[#7d7d7d]" style={mc}>{label}</div>
-        <div className="truncate text-[13px] text-[#e0e0e0]">{value}</div>
+      <div className="min-w-0 flex-1">
+        <div className="text-[9px] leading-[1.8] tracking-[0.16em] text-[#8a8a8a]" style={mc}>
+          {label}
+        </div>
+        <div className="text-[11px] leading-[1.7] text-[#eaeaea]" style={mc}>
+          {value}
+        </div>
       </div>
     </div>
   );
@@ -84,41 +96,57 @@ function RoundCard({ round }: { round: EventRound }) {
 
   return (
     <article
-      className="mv-round flex flex-col"
+      className="mv-round flex shrink-0 snap-start flex-col"
       style={{
+        width: 'clamp(290px, 84vw, 400px)',
         background: STONE.face,
-        ...bevel(STONE.light, STONE.dark),
-        boxShadow: '6px 6px 0 rgba(0,0,0,0.55)',
+        ...bevel(STONE.light, STONE.dark, 5),
+        boxShadow: '8px 8px 0 rgba(0,0,0,0.55)',
         imageRendering: 'pixelated',
       }}
     >
       {/* Biome band — the colour is what makes the progression legible at a glance */}
       <div
-        className="flex items-center gap-3 px-3.5 py-3"
+        className="mv-band flex items-center gap-4 px-5 py-5"
         style={{
           background: biome.bg,
-          borderBottom: `4px solid ${biome.dark}`,
+          borderBottom: `5px solid ${biome.dark}`,
           backgroundImage:
-            'repeating-linear-gradient(45deg, rgba(255,255,255,0.045) 0 4px, transparent 4px 8px)',
+            'repeating-linear-gradient(45deg, rgba(255,255,255,0.05) 0 5px, transparent 5px 10px)',
         }}
       >
-        <span className="shrink-0 text-2xl leading-none drop-shadow-[2px_2px_0_rgba(0,0,0,0.6)]">
+        <span className="mv-icon shrink-0 text-[2.4rem] leading-none drop-shadow-[3px_3px_0_rgba(0,0,0,0.65)]">
           {round.icon}
         </span>
         <div className="min-w-0">
-          <div className="text-[8px] tracking-[0.18em]" style={{ ...mc, color: biome.accent }}>
-            {round.label} · {round.day}
+          <div
+            className="text-[10px] leading-[1.9] tracking-[0.16em]"
+            style={{ ...mc, color: biome.accent }}
+          >
+            {round.label}
           </div>
-          <div className="truncate text-[15px] font-bold text-white drop-shadow-[2px_2px_0_rgba(0,0,0,0.85)]">
-            {round.name}
+          <div
+            className="text-[9px] leading-[1.9] tracking-[0.16em] text-white/55"
+            style={mc}
+          >
+            {round.day}
           </div>
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col gap-3.5 p-3.5">
-        <p className="text-[13px] leading-relaxed text-[#c2c2c2]">{round.desc}</p>
+      <div className="flex flex-1 flex-col gap-5 p-5">
+        <h3
+          className="text-[15px] leading-[1.7] text-white drop-shadow-[2px_2px_0_rgba(0,0,0,0.9)]"
+          style={mc}
+        >
+          {round.name}
+        </h3>
 
-        <div className="mt-auto flex flex-col gap-2">
+        <p className="text-[11px] leading-[2] text-[#bdbdbd]" style={mc}>
+          {round.desc}
+        </p>
+
+        <div className="mt-auto flex flex-col gap-3 pt-1">
           <Slot glyph="⚔" label="BOSS" value={round.boss} tint="#ff7b6b" />
           <Slot glyph="✦" label="UNLOCKS" value={round.unlock} tint="#7ee05a" />
         </div>
@@ -129,95 +157,156 @@ function RoundCard({ round }: { round: EventRound }) {
 
 export const HowItWorks = () => {
   return (
-    <section className="relative z-20 px-4 py-16 md:px-8 text-white">
-      {/* Hover lift, keyboard-safe and disabled for reduced-motion users. */}
+    <section className="relative z-20 py-16 text-white">
       <style>{`
-        .mv-round { transition: transform 0.12s steps(2), box-shadow 0.12s steps(2), filter 0.12s; }
+        /* Blocky, stepped motion rather than smooth easing. */
+        .mv-round {
+          transition: transform 0.12s steps(3), box-shadow 0.12s steps(3), filter 0.12s;
+        }
+        .mv-icon { transition: transform 0.15s steps(3); display: inline-block; }
+        .mv-band { transition: filter 0.15s; }
+        .mv-slot-box { transition: transform 0.15s steps(2), box-shadow 0.15s; }
+
         @media (hover: hover) {
           .mv-round:hover {
-            transform: translate(-2px, -2px);
-            box-shadow: 8px 8px 0 rgba(0,0,0,0.6);
-            filter: brightness(1.08);
+            transform: translate(-4px, -6px);
+            box-shadow: 12px 14px 0 rgba(0,0,0,0.6);
+            filter: brightness(1.1);
           }
+          .mv-round:hover .mv-icon { transform: translateY(-4px) scale(1.15); }
+          .mv-round:hover .mv-band { filter: brightness(1.18) saturate(1.15); }
+          .mv-round:hover .mv-slot-box { transform: translateX(3px); }
         }
-        @media (prefers-reduced-motion: reduce) { .mv-round { transition: none; } }
+
+        /* Minecraft-style chunky scrollbar on the strip. */
+        .mv-scroll { scrollbar-color: #6e6e6e #1c1c1c; scrollbar-width: auto; }
+        .mv-scroll::-webkit-scrollbar { height: 16px; }
+        .mv-scroll::-webkit-scrollbar-track {
+          background: #1c1c1c;
+          border-top: 3px solid #0d0d0d;
+          border-bottom: 3px solid #3a3a3a;
+        }
+        .mv-scroll::-webkit-scrollbar-thumb {
+          background: #6e6e6e;
+          border-top: 3px solid #9a9a9a;
+          border-left: 3px solid #9a9a9a;
+          border-bottom: 3px solid #2a2a2a;
+          border-right: 3px solid #2a2a2a;
+        }
+        .mv-scroll::-webkit-scrollbar-thumb:hover { background: #838383; }
+
+        @media (prefers-reduced-motion: reduce) {
+          .mv-round, .mv-icon, .mv-band, .mv-slot-box { transition: none; }
+          .mv-scroll { scroll-behavior: auto; }
+        }
       `}</style>
 
-      <div className="mx-auto w-full max-w-5xl">
+      <div className="mx-auto w-full max-w-5xl px-4 md:px-8">
         <h2
-          className="mb-8 text-center text-3xl tracking-widest text-[#fca311] drop-shadow-[4px_4px_0_rgba(0,0,0,1)] md:text-4xl"
+          className="mb-10 text-center text-3xl tracking-widest text-[#fca311] drop-shadow-[4px_4px_0_rgba(0,0,0,1)] md:text-4xl"
           style={mc}
         >
           HOW IT WORKS
         </h2>
 
-        <p className="mx-auto max-w-3xl text-center text-base leading-relaxed text-[#d5d5d5] drop-shadow-[1px_1px_0_#000] md:text-lg">
-          MINEVERSE is a two-day coding competition played like a Minecraft run. You enter as a team
-          of two or three and start with nothing. Every problem you solve{' '}
-          <strong className="text-[#7ee05a]">mines resources</strong>; resources let you{' '}
-          <strong className="text-[#fca311]">craft better gear</strong>, trade at the marketplace and{' '}
-          <strong className="text-[#8ec5f0]">build structures</strong> that protect your score. Each
-          round has a guardian to beat and a biome to survive, and whatever you carry out of one
-          round is what you take into the next.
+        <p
+          className="mx-auto max-w-3xl text-center text-[12px] leading-[2.1] text-[#d5d5d5] drop-shadow-[2px_2px_0_#000] md:text-[13px]"
+          style={mc}
+        >
+          MINEVERSE IS A TWO-DAY CODING COMPETITION PLAYED LIKE A MINECRAFT RUN. YOU ENTER AS A TEAM
+          OF <span className="text-[#fca311]">TWO OR THREE</span> AND START WITH NOTHING. EVERY
+          PROBLEM YOU SOLVE <span className="text-[#7ee05a]">MINES RESOURCES</span>; RESOURCES LET
+          YOU <span className="text-[#fca311]">CRAFT BETTER GEAR</span>, TRADE AT THE MARKETPLACE AND{' '}
+          <span className="text-[#8ec5f0]">BUILD STRUCTURES</span> THAT PROTECT YOUR SCORE.
         </p>
 
-        <p className="mx-auto mt-4 max-w-3xl text-center text-sm leading-relaxed text-[#9a9a9a] drop-shadow-[1px_1px_0_#000]">
-          Day 1 is three rounds and a qualifier. Survive the leaderboard and you come back for
-          Day 2 — the Nether, and finally the End.
+        <p
+          className="mx-auto mt-6 max-w-3xl text-center text-[10px] leading-[2.1] text-[#9a9a9a] drop-shadow-[2px_2px_0_#000] md:text-[11px]"
+          style={mc}
+        >
+          EACH ROUND HAS A GUARDIAN TO BEAT AND A BIOME TO SURVIVE. DAY 1 IS THREE ROUNDS AND A
+          QUALIFIER — SURVIVE THE LEADERBOARD AND YOU RETURN FOR DAY 2, THE NETHER, AND FINALLY THE
+          END.
         </p>
 
         {/* Quick facts, as small GUI panels */}
-        <div className="mt-10 flex flex-wrap justify-center gap-3">
+        <div className="mt-10 flex flex-wrap justify-center gap-4">
           {FACTS.map((fact) => (
             <div
               key={fact.label}
-              className="flex items-center gap-3 px-4 py-2.5"
+              className="flex items-center gap-3 px-5 py-3.5"
               style={{
                 background: STONE.face,
-                ...bevel(STONE.light, STONE.dark, 3),
-                boxShadow: '4px 4px 0 rgba(0,0,0,0.5)',
+                ...bevel(STONE.light, STONE.dark, 4),
+                boxShadow: '5px 5px 0 rgba(0,0,0,0.5)',
               }}
             >
-              <span className="text-lg leading-none">{fact.icon}</span>
+              <span className="text-2xl leading-none">{fact.icon}</span>
               <div>
-                <div className="text-[7px] tracking-[0.2em] text-[#fca311]" style={mc}>
+                <div className="text-[8px] leading-[1.9] tracking-[0.18em] text-[#fca311]" style={mc}>
                   {fact.label}
                 </div>
-                <div className="text-[13px] text-[#e5e5e5]">{fact.value}</div>
+                <div className="text-[11px] leading-[1.8] text-[#e5e5e5]" style={mc}>
+                  {fact.value}
+                </div>
               </div>
             </div>
           ))}
         </div>
 
         {/* Biome progression */}
-        <div className="mt-10 flex flex-wrap items-center justify-center gap-2">
+        <div className="mt-10 flex flex-wrap items-center justify-center gap-2.5">
           {ROUND_PROGRESSION.map((name, i) => (
             <React.Fragment key={name}>
               <span
-                className="px-3 py-2 text-[9px] tracking-[0.15em] whitespace-nowrap"
+                className="px-4 py-2.5 text-[10px] leading-none tracking-[0.14em] whitespace-nowrap"
                 style={{
                   ...mc,
                   background: BIOME[name].bg,
                   color: BIOME[name].accent,
                   ...bevel(BIOME[name].light, BIOME[name].dark, 3),
-                  boxShadow: '3px 3px 0 rgba(0,0,0,0.5)',
+                  boxShadow: '4px 4px 0 rgba(0,0,0,0.5)',
                 }}
               >
                 {name.toUpperCase()}
               </span>
               {i < ROUND_PROGRESSION.length - 1 && (
-                <span className="text-sm text-[#6b5a44]">▸</span>
+                <span className="text-base text-[#6b5a44]">▸</span>
               )}
             </React.Fragment>
           ))}
         </div>
+      </div>
 
-        {/* Round cards */}
-        <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {EVENT_ROUNDS.map((round) => (
-            <RoundCard key={round.label} round={round} />
-          ))}
-        </div>
+      {/* Scroll hint */}
+      <p
+        className="mt-12 px-4 text-center text-[9px] leading-none tracking-[0.2em] text-[#7d7d7d]"
+        style={mc}
+      >
+        ◀ SCROLL THROUGH THE ROUNDS ▶
+      </p>
+
+      {/*
+        Full-bleed strip: the padding puts the first card in line with the text
+        above while still letting cards run to the screen edge as you scroll.
+      */}
+      <div
+        className="mv-scroll mt-5 flex snap-x snap-mandatory gap-6 overflow-x-auto scroll-smooth px-4 pb-5 md:px-8"
+        style={{ scrollPaddingLeft: '1rem' }}
+        role="region"
+        aria-label="Round-by-round breakdown"
+        tabIndex={0}
+      >
+        {/*
+          Lines the first card up with the paragraph above on wide screens
+          (max-w-5xl = 64rem) without capping the strip, so later cards still
+          run to the screen edge.
+        */}
+        <div className="hidden shrink-0 lg:block" style={{ width: 'max(0px, calc((100vw - 64rem) / 2))' }} />
+        {EVENT_ROUNDS.map((round) => (
+          <RoundCard key={round.label} round={round} />
+        ))}
+        <div className="shrink-0" style={{ width: '1px' }} />
       </div>
     </section>
   );
