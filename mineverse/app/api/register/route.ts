@@ -91,7 +91,28 @@ export async function POST(req: Request) {
     team_id: team.id,
     email_verified: m.is_team_lead,
   }));
-  await supabaseServer.from('members').insert(membersToInsert);
+  const { error: membersErr } = await supabaseServer.from('members').insert(membersToInsert);
+
+  if (membersErr) {
+    // This error used to be discarded, so a rejected insert still produced a
+    // team, a payment row and a confirmation email — a paying team with nobody
+    // on it, which then cannot log in at all ("Team lead not found"). Roll the
+    // team back instead so the user can retry cleanly.
+    await supabaseServer.from('teams').delete().eq('id', team.id);
+
+    if (membersErr.code === '23505') {
+      const detail = membersErr.message ?? '';
+      const reason = detail.includes('registration_no')
+        ? 'A registration number is already registered to someone else'
+        : detail.includes('college_email')
+          ? 'One or more college emails are already registered'
+          : 'Each member needs their own personal email';
+      return NextResponse.json({ success: false, error: reason }, { status: 409 });
+    }
+
+    console.error('Registration member insert failed:', membersErr);
+    return NextResponse.json({ success: false, error: 'Error saving team members' }, { status: 500 });
+  }
 
   // Insert Payment — payment happened before submit; txn details await admin verification
   const { error: paymentErr } = await supabaseServer.from('payments').insert({
@@ -119,7 +140,10 @@ export async function POST(req: Request) {
   const { data: rounds } = await supabaseServer.from('rounds').select('id');
   if (rounds && rounds.length > 0) {
     const accessRows = rounds.map(r => ({ team_id: team.id, round_id: r.id, is_locked: true }));
-    await supabaseServer.from('team_round_access').insert(accessRows);
+    const { error: accessErr } = await supabaseServer.from('team_round_access').insert(accessRows);
+    // Payment is already recorded, so rolling the team back here would be worse
+    // than the gap. Log it loudly instead — access can be repaired from the panel.
+    if (accessErr) console.error('Round access insert failed for team', teamCode, accessErr);
   }
 
   // Delete consumed OTP challenge
