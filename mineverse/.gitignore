@@ -50,3 +50,12 @@ next-env.d.ts
 
 # local scratch space (cursor previews, throwaway scripts)
 /scratch
+
+# question bank — these files hold every answer key. The README explains the
+# workflow and has no answers in it, so it stays tracked.
+/supabase/seed/*.json
+!/supabase/seed/README.md
+# ...and any archive of them made to hand the bank to someone out of band.
+/supabase/seed.zip
+/supabase/seed*.zip
+/supabase/seed*.tar.gz

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth/session';
-import { getGuardianStatus, GuardianName } from '@/lib/gameplay/guardians/service';
+import { countGuardianQuestions, getGuardianStatus, GuardianName } from '@/lib/gameplay/guardians/service';
 import { verifyTeamRoundAccess } from '@/lib/gameplay/utils/access';
 
 export async function GET(req: NextRequest) {
@@ -23,8 +23,14 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const status = await getGuardianStatus(session.team_id, guardian_name);
-    return NextResponse.json({ success: true, data: status });
+    // Include the sealed pack so a reload mid-battle can carry on answering.
+    const [status, pack_size] = await Promise.all([
+      getGuardianStatus(session.team_id, guardian_name, { includeQuestions: true }),
+      countGuardianQuestions(guardian_name, round_id),
+    ]);
+    // `pack_size` rides alongside `data` rather than inside it: `data` is null when
+    // a team has never attempted the guardian, and callers rely on that.
+    return NextResponse.json({ success: true, data: status, pack_size });
   } catch (error: any) {
     console.error('Get Guardian Status Error:', error);
     return NextResponse.json({ success: false, error: { code: 'SERVER_ERROR' } }, { status: 500 });

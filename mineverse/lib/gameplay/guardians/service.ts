@@ -1,51 +1,21 @@
 import { supabaseServer } from '@/lib/supabase/server';
 import { mutateTeamResource } from '@/lib/gameplay/marketplace/resource-client';
 import { checkDeterministicAnswer } from '@/lib/gameplay/grading/deterministic';
+import { questionTitle } from '@/lib/gameplay/questions/contracts';
 import { Dev3GuardianBattle, Dev3ItemUse } from '@/lib/gameplay/types';
 
-export type GuardianName = 'forest_guardian' | 'skeleton_archer' | 'blaze_guardian';
+// The rules themselves are plain data in `./config`, so a client component can read
+// the reward numbers without importing this file and its database client.
+export { GUARDIANS } from './config';
+export type { GuardianName, GuardianConfig } from './config';
 
-export interface GuardianConfig {
-  name: GuardianName;
-  round_id: number;
-  victoryReward: { wood?: number; stone?: number; iron?: number; gold?: number; emerald?: number };
-  defeatPenalty: { wood?: number; stone?: number; iron?: number; gold?: number };
-  /**
-   * Server-enforced battle window. The event brief fixes 5 min for the Skeleton
-   * Archer and 7 min for the Blaze Guardian but states none for the Forest
-   * Guardian, so that one is left to the round timer rather than inventing a value.
-   */
-  timeLimitSeconds: number | null;
-}
-
-export const GUARDIANS: Record<GuardianName, GuardianConfig> = {
-  forest_guardian: {
-    name: 'forest_guardian',
-    round_id: 1,
-    victoryReward: { wood: 25, stone: 10, emerald: 3 },
-    defeatPenalty: { wood: -8, stone: -3 },
-    timeLimitSeconds: null,
-  },
-  skeleton_archer: {
-    name: 'skeleton_archer',
-    round_id: 2,
-    victoryReward: { iron: 20, stone: 15, emerald: 3 },
-    defeatPenalty: { iron: -10, stone: -10 },
-    timeLimitSeconds: 300,
-  },
-  blaze_guardian: {
-    name: 'blaze_guardian',
-    round_id: 3,
-    victoryReward: { iron: 12, gold: 10, emerald: 2 },
-    defeatPenalty: { iron: -8, gold: -5 },
-    timeLimitSeconds: 420,
-  },
-};
+import { GUARDIANS, type GuardianName } from './config';
 
 export interface GuardianQuestion {
   id: string;
   order_index: number;
   type: string;
+  title: string;
   prompt: string;
   content: unknown;
   language_options: string[];
@@ -58,6 +28,9 @@ function serializeGuardianQuestion(question: any): GuardianQuestion {
     id: question.id,
     order_index: question.order_index,
     type: question.type,
+    // Guardian packs are numbered from 101 up so they never collide with the
+    // round's own questions, but the arena should show them as Q1, Q2, Q3.
+    title: questionTitle(question),
     prompt: question.prompt,
     content: question.content ?? {},
     language_options: question.language_options ?? [],
@@ -79,6 +52,23 @@ async function loadGuardianQuestions(guardianName: GuardianName, roundId: number
 
   if (error) throw error;
   return (data ?? []) as any[];
+}
+
+/**
+ * How many questions the pack holds, without revealing any of them. A team facing
+ * a 7-minute all-or-nothing fight should know whether it is 3 questions or 8
+ * before deciding to start, and `total_questions` only exists once an attempt has
+ * been made.
+ */
+export async function countGuardianQuestions(guardianName: GuardianName, roundId: number) {
+  const { count, error } = await supabaseServer
+    .from('questions')
+    .select('id', { count: 'exact', head: true })
+    .eq('guardian_name', guardianName)
+    .eq('round_id', roundId);
+
+  if (error) throw error;
+  return count ?? 0;
 }
 
 async function findActiveItemUse(teamId: string, itemType: string): Promise<Dev3ItemUse | null> {
@@ -109,7 +99,11 @@ async function consumeItemUse(itemUseId: string, guardianBattleId: string) {
   if (error) throw error;
 }
 
-export async function getGuardianStatus(teamId: string, guardianName: GuardianName) {
+export async function getGuardianStatus(
+  teamId: string,
+  guardianName: GuardianName,
+  options: { includeQuestions?: boolean } = {},
+) {
   const { data, error } = await supabaseServer
     .from('guardian_battles')
     .select('*')
@@ -122,7 +116,20 @@ export async function getGuardianStatus(teamId: string, guardianName: GuardianNa
   if (error && error.code !== 'PGRST116') {
     throw error;
   }
-  return (data as unknown as Dev3GuardianBattle) || null;
+
+  const battle = (data as unknown as Dev3GuardianBattle) || null;
+
+  // Reload during a live battle used to lose the pack: only `start` ever returned
+  // the questions, so a refresh or a dropped connection left the team staring at a
+  // running clock with nothing to answer, and the attempt could only be thrown
+  // away. The pack is already revealed to this team, and expected answers are
+  // still never selected, so returning it here reveals nothing new.
+  if (options.includeQuestions && battle?.status === 'started') {
+    const questions = await loadGuardianQuestions(guardianName, battle.round_id, false);
+    return { ...battle, questions: questions.map(serializeGuardianQuestion) };
+  }
+
+  return battle;
 }
 
 export async function startGuardianBattle(teamId: string, guardianName: GuardianName, roundId: number) {

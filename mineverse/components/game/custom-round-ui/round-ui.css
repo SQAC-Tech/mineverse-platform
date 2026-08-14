@@ -90,6 +90,55 @@
   --rd-glass-edge: rgba(110, 168, 194, 0.32);
 }
 
+/* Round 3. No Round 3 frame or guardian art exists yet, so it borrows the stone
+   board and renders its panels without artwork rather than showing Round 1's. */
+.round-ui--mountain {
+  --rd-void: #100c08;
+  --rd-panel: linear-gradient(155deg, #261c14 0%, #120c08 100%);
+  --rd-edge: #4a3826;
+  --rd-edge-lit: #7d5c39;
+  --rd-accent: #f0a03c;
+  --rd-accent-deep: #5c3410;
+  --rd-accent-ink: #1a0f04;
+  --rd-scene: url('/round3/round 3 bg image.webp');
+  --rd-scene-shade: linear-gradient(180deg, rgba(12, 7, 3, 0.4), rgba(12, 7, 3, 0.18) 38%, rgba(8, 5, 2, 0.8));
+  --rd-frame: url('/round2/stone-board-texture.svg');
+  --rd-frame-edge: #5b4a38;
+  --rd-board: linear-gradient(180deg, #e6d5bd 0%, #d4c0a3 55%, #c2ac8b 100%);
+  --rd-board-ink: #2a1f12;
+  --rd-board-dim: #5a4630;
+  --rd-board-line: #a4855c;
+  --rd-board-tile: rgba(253, 245, 231, 0.5);
+  --rd-board-tile-edge: #a98c62;
+  --rd-board-sunk: rgba(60, 44, 26, 0.16);
+  --rd-glass: rgba(16, 10, 5, 0.46);
+  --rd-glass-edge: rgba(214, 152, 74, 0.3);
+}
+
+/* Round 4 is the portal repair only — the rest of that hour runs off-platform. */
+.round-ui--nether {
+  --rd-void: #14070a;
+  --rd-panel: linear-gradient(155deg, #2a1013 0%, #140708 100%);
+  --rd-edge: #522026;
+  --rd-edge-lit: #8a3a3a;
+  --rd-accent: #ff6b4a;
+  --rd-accent-deep: #66190f;
+  --rd-accent-ink: #1c0604;
+  --rd-scene: url('/cinematic_minecraft_bg.webp');
+  --rd-scene-shade: linear-gradient(180deg, rgba(14, 4, 5, 0.46), rgba(14, 4, 5, 0.2) 38%, rgba(10, 3, 4, 0.82));
+  --rd-frame: url('/round2/stone-board-texture.svg');
+  --rd-frame-edge: #5c3330;
+  --rd-board: linear-gradient(180deg, #e8d3cb 0%, #d5bab0 55%, #c3a396 100%);
+  --rd-board-ink: #2b1512;
+  --rd-board-dim: #5c342c;
+  --rd-board-line: #a97a68;
+  --rd-board-tile: rgba(253, 242, 238, 0.5);
+  --rd-board-tile-edge: #ab7e6d;
+  --rd-board-sunk: rgba(60, 30, 24, 0.16);
+  --rd-glass: rgba(20, 6, 8, 0.46);
+  --rd-glass-edge: rgba(255, 122, 90, 0.28);
+}
+
 /* ── Scene ───────────────────────────────────────────────────── */
 
 .round-ui__backdrop,
@@ -640,12 +689,104 @@
 }
 
 .round-ui__prompt {
-  margin-bottom: 12px;
-  font-family: var(--rd-font-mono);
+  font-family: var(--rd-font-body);
   font-size: clamp(13px, 1.05vw, 15px);
   line-height: 1.6;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+/* A question is prose plus, usually, a code listing. Splitting them means the
+   prose reads as prose and the code keeps its indentation in a real block. */
+.round-ui__prompt-blocks {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.round-ui__code {
+  margin: 0;
+  padding: 10px 12px;
+  background: var(--rd-board-sunk);
+  border: 1px solid var(--rd-board-tile-edge);
+  border-left: 3px solid var(--rd-board-dim);
+  border-radius: 3px;
+  font-family: var(--rd-font-mono);
+  font-size: clamp(12px, 0.95vw, 14px);
+  line-height: 1.55;
+  /* Long lines scroll inside the block instead of stretching the board. */
+  overflow-x: auto;
+  white-space: pre;
+  tab-size: 4;
+}
+
+.round-ui__code code {
+  font: inherit;
+}
+
+.round-ui__question-title {
+  margin-bottom: 8px;
+  font-family: var(--rd-font-display);
+  font-size: clamp(12px, 1vw, 14px);
+  line-height: 1.4;
+  color: var(--rd-board-ink);
+}
+
+.round-ui__type-badge {
+  margin-left: 8px;
+  padding: 2px 7px;
+  border: 1px solid var(--rd-board-tile-edge);
+  border-radius: 999px;
+  background: var(--rd-board-tile);
+  color: var(--rd-board-dim);
+  font-family: var(--rd-font-body);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.round-ui__section-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Ends the round for the team, so it reads as the terminal action — brighter than
+   "Submit section" and always present, including after the timer has run out. */
+.round-ui__btn--finish {
+  border-color: var(--rd-gold);
+  background: linear-gradient(180deg, rgb(from var(--rd-gold) r g b / 26%), rgb(from var(--rd-gold) r g b / 10%));
+  color: var(--rd-gold);
+  font-weight: 700;
+}
+
+.round-ui__btn--finish:hover:not(:disabled) {
+  background: linear-gradient(180deg, rgb(from var(--rd-gold) r g b / 40%), rgb(from var(--rd-gold) r g b / 18%));
+}
+
+.round-ui__notice {
+  margin-bottom: var(--rd-gap);
+}
+
+.round-ui__notice-text {
+  font-family: var(--rd-font-body);
+  font-size: clamp(12px, 1vw, 14px);
+  line-height: 1.6;
+  color: var(--rd-board-ink);
+}
+
+.round-ui__craft-cost {
+  display: block;
+  margin-top: 5px;
+  color: var(--rd-ink-dim);
+  font-family: var(--rd-font-mono);
+  font-size: 10px;
+  text-align: center;
 }
 
 .round-ui__field-label {
@@ -1675,36 +1816,94 @@
   overflow: hidden;
 }
 
-.gd__head {
+/* Banner: the guardian gets a face before it gets a form. */
+.gd__banner {
+  position: relative;
   display: flex;
-  align-items: flex-start;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 12px;
+  min-height: 92px;
   padding: 14px 16px;
   border-bottom: 2px solid var(--rd-edge);
+  background: linear-gradient(160deg, rgba(0, 0, 0, 0.32), rgba(0, 0, 0, 0.62));
+  overflow: hidden;
 }
 
-.gd__head .round-ui__panel-title {
+.gd__banner--art { min-height: 168px; }
+
+.gd__banner-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 32%;
+  /* Slow drift so the guardian feels present rather than pasted on. */
+  animation: gd-drift 24s ease-in-out infinite alternate;
+}
+
+.gd__banner-scrim {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(120% 90% at 20% 0%, transparent 10%, rgba(0, 0, 0, 0.5) 78%),
+    linear-gradient(0deg, rgba(0, 0, 0, 0.9) 4%, rgba(0, 0, 0, 0.42) 52%, rgba(0, 0, 0, 0.18) 100%);
+}
+
+.gd__banner-text { position: relative; min-width: 0; }
+
+.gd__eyebrow {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  color: var(--rd-accent);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
 }
 
-.gd__sub {
-  margin-top: 6px;
+.gd__req {
+  margin-left: 4px;
+  padding: 1px 6px;
+  border: 1px solid var(--rd-bad);
+  border-radius: 999px;
+  color: var(--rd-bad);
+  font-size: 9px;
+  letter-spacing: 0.8px;
+}
+
+.gd__name {
+  margin-top: 5px;
+  color: var(--rd-ink);
+  font-family: var(--rd-font-display);
+  font-size: clamp(15px, 1.9vw, 21px);
+  line-height: 1.2;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.75);
+}
+
+.gd__rules {
+  margin-top: 7px;
   color: var(--rd-ink-dim);
   font-size: 11px;
 }
 
+.gd__rules i { margin: 0 6px; font-style: normal; opacity: 0.55; }
+
 .gd__badge {
+  position: relative;
   flex: 0 0 auto;
+  align-self: flex-start;
   padding: 4px 9px;
   border: 1px solid var(--rd-edge-lit);
-  background: rgba(0, 0, 0, 0.4);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
   color: var(--rd-ink-dim);
   font-size: 10px;
   letter-spacing: 0.5px;
   text-transform: uppercase;
+  backdrop-filter: blur(3px);
 }
 
 .gd__badge--won { border-color: var(--rd-good); color: var(--rd-good); }
@@ -1731,6 +1930,7 @@
   gap: 8px;
   padding: 10px;
   border: 1px solid var(--rd-bad);
+  border-radius: 3px;
   background: rgba(160, 40, 30, 0.28);
   color: #ffc3ba;
   font-size: 12px;
@@ -1739,21 +1939,52 @@
 
 .gd__error svg { flex: 0 0 auto; margin-top: 1px; }
 
-.gd__result {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 18px 8px;
-  color: var(--rd-good);
-  text-align: center;
+/* ── Stakes ── */
+
+.gd__stakes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
 }
 
-.gd__result-title {
-  color: var(--rd-ink);
-  font-family: var(--rd-font-display);
-  font-size: 13px;
+.gd__stake {
+  padding: 11px;
+  border: 2px solid var(--rd-edge);
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.3);
 }
+
+.gd__stake--win { border-left: 3px solid var(--rd-good); }
+.gd__stake--loss { border-left: 3px solid var(--rd-bad); }
+
+.gd__stake dt {
+  color: var(--rd-ink-dim);
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.gd__stake dd { margin-top: 8px; }
+
+.gd__chips { display: flex; flex-wrap: wrap; gap: 5px; }
+
+.gd__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 7px;
+  border: 1px solid var(--rd-edge-lit);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.42);
+  font-family: var(--rd-font-mono);
+  font-size: 11.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.gd__chip img { width: 13px; height: 13px; image-rendering: pixelated; }
+.gd__chip--win { border-color: rgb(from var(--rd-good) r g b / 55%); color: var(--rd-good); }
+.gd__chip--loss { border-color: rgb(from var(--rd-bad) r g b / 55%); color: var(--rd-bad); }
 
 .gd__idle,
 .gd__battle {
@@ -1762,91 +1993,148 @@
   gap: 12px;
 }
 
-.gd__art {
-  height: 160px;
-  min-height: 0;
-}
+.gd__go { justify-content: center; }
 
-.gd__stakes {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
+/* ── Battle HUD ── */
 
-.gd__stakes div {
-  padding: 10px;
-  border: 2px solid var(--rd-edge);
-  background: rgba(0, 0, 0, 0.3);
-}
-
-.gd__stakes dt {
-  color: var(--rd-ink-dim);
-  font-size: 10px;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-}
-
-.gd__stakes dd {
-  margin-top: 6px;
-  font-size: 12px;
-  line-height: 1.4;
-}
-
-.gd__win { color: var(--rd-good); }
-.gd__loss { color: var(--rd-bad); }
-
-.gd__battle-bar {
+.gd__hud {
+  position: sticky;
+  top: -16px;
+  z-index: 2;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  color: var(--rd-ink-dim);
-  font-size: 11px;
+  margin: -16px -16px 0;
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--rd-edge);
+  background: rgba(0, 0, 0, 0.82);
+  backdrop-filter: blur(6px);
 }
 
-.gd__timer {
+.gd__hud-left { display: flex; align-items: center; gap: 10px; }
+
+.gd__attempt {
+  color: var(--rd-ink-dim);
+  font-size: 10px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+/* One pip per question — progress readable at a glance under time pressure. */
+.gd__pips { display: flex; gap: 4px; }
+
+.gd__pip {
+  width: 20px;
+  height: 5px;
+  border: 1px solid var(--rd-edge-lit);
+  background: rgba(0, 0, 0, 0.5);
+  transition: background 140ms ease, border-color 140ms ease;
+}
+
+.gd__pip--on {
+  border-color: var(--rd-accent);
+  background: var(--rd-accent);
+  box-shadow: 0 0 7px rgb(from var(--rd-accent) r g b / 60%);
+}
+
+.gd__clock {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 9px;
-  border: 1px solid var(--rd-gold);
+  gap: 7px;
+  padding: 6px 11px;
+  border: 2px solid var(--rd-gold);
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.6);
   color: var(--rd-gold);
-  font-family: var(--rd-font-display);
-  font-size: 12px;
+  overflow: hidden;
 }
 
-.gd__timer--low {
+.gd__clock b {
+  font-family: var(--rd-font-display);
+  font-size: 15px;
+  letter-spacing: 1px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Drains left-to-right so the remaining window is visible, not just the number. */
+.gd__clock-fill {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 3px;
+  width: var(--gd-time, 100%);
+  background: currentColor;
+  opacity: 0.75;
+  transition: width 1s linear;
+}
+
+.gd__clock--urgent {
   border-color: var(--rd-bad);
   color: var(--rd-bad);
+  animation: gd-pulse 1s steps(2, end) infinite;
 }
+
+.gd__clock--out {
+  border-color: var(--rd-bad);
+  color: var(--rd-bad);
+  animation: none;
+  opacity: 0.8;
+}
+
+/* ── Questions ── */
 
 .gd__question {
   display: flex;
   flex-direction: column;
-  gap: 7px;
-  padding: 11px;
+  gap: 8px;
+  padding: 12px;
   border: 2px solid var(--rd-edge);
+  border-left: 3px solid var(--rd-edge-lit);
+  border-radius: 3px;
   background: rgba(0, 0, 0, 0.28);
+  transition: border-color 160ms ease, background 160ms ease;
 }
 
-.gd__question label {
-  color: var(--rd-ink);
-  font-size: 12px;
-  line-height: 1.5;
+.gd__question--done {
+  border-left-color: var(--rd-good);
+  background: rgb(from var(--rd-good) r g b / 7%);
 }
 
-.gd__question b {
-  margin-right: 6px;
+.gd__q-head { display: flex; align-items: center; gap: 9px; }
+
+.gd__q-no {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--rd-accent);
+  border-radius: 50%;
   color: var(--rd-accent);
   font-family: var(--rd-font-display);
-  font-size: 11px;
+  font-size: 10px;
 }
+
+.gd__question--done .gd__q-no { border-color: var(--rd-good); color: var(--rd-good); }
+
+.gd__q-head label {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--rd-ink);
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.gd__q-check { flex: 0 0 auto; color: var(--rd-good); }
 
 .gd__input {
   width: 100%;
-  padding: 9px 10px;
+  padding: 10px 11px;
   border: 2px solid var(--rd-edge-lit);
+  border-radius: 3px;
   background: rgba(0, 0, 0, 0.5);
   color: var(--rd-ink);
   font-family: var(--rd-font-mono);
@@ -1856,12 +2144,134 @@
 .gd__input:focus {
   border-color: var(--rd-accent);
   outline: none;
+  box-shadow: 0 0 0 3px rgb(from var(--rd-accent) r g b / 22%);
 }
 
-.gd__input:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
+.gd__question--done .gd__input { border-color: rgb(from var(--rd-good) r g b / 60%); }
+
+.gd__input:disabled { cursor: not-allowed; opacity: 0.55; }
+
+.gd__footer {
+  position: sticky;
+  bottom: -16px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 -16px -16px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--rd-edge);
+  background: rgba(0, 0, 0, 0.82);
+  backdrop-filter: blur(6px);
 }
+
+.gd__footer-note { color: var(--rd-ink-dim); font-size: 11px; }
+
+/* ── Outcomes ── */
+
+.gd__victory {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 11px;
+  padding: 20px 8px;
+  text-align: center;
+}
+
+.gd__victory-medal {
+  display: grid;
+  place-items: center;
+  width: 68px;
+  height: 68px;
+  border: 2px solid var(--rd-good);
+  border-radius: 50%;
+  background: rgb(from var(--rd-good) r g b / 12%);
+  color: var(--rd-good);
+  animation: gd-rise 420ms cubic-bezier(0.2, 0.9, 0.3, 1.4) both;
+}
+
+.gd__victory-title {
+  color: var(--rd-ink);
+  font-family: var(--rd-font-display);
+  font-size: 14px;
+}
+
+.gd__defeat {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px;
+  border: 1px solid var(--rd-bad);
+  border-radius: 3px;
+  background: rgba(160, 40, 30, 0.22);
+  color: #ffc3ba;
+  font-size: 12px;
+}
+
+.gd__defeat svg { flex: 0 0 auto; }
+.gd__score { display: block; margin-top: 3px; color: var(--rd-ink-dim); font-size: 11px; }
+
+.gd__cooldown {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 2px solid var(--rd-edge);
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.gd__cooldown-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--rd-ink-dim);
+  font-size: 11px;
+}
+
+.gd__cooldown-head span { display: inline-flex; align-items: center; gap: 6px; }
+
+.gd__cooldown-head b {
+  color: var(--rd-gold);
+  font-family: var(--rd-font-display);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.gd__cooldown-track {
+  height: 6px;
+  border: 1px solid var(--rd-edge-lit);
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.gd__cooldown-fill {
+  display: block;
+  height: 100%;
+  background: var(--rd-gold);
+  transition: width 1s linear;
+}
+
+@keyframes gd-drift {
+  from { transform: scale(1.04) translate3d(0, 0, 0); }
+  to { transform: scale(1.12) translate3d(0, -2%, 0); }
+}
+
+@keyframes gd-pulse {
+  50% { opacity: 0.45; }
+}
+
+@keyframes gd-rise {
+  from { opacity: 0; transform: translateY(10px) scale(0.85); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gd__banner-art,
+  .gd__clock--urgent,
+  .gd__victory-medal { animation: none; }
+}
+
 
 /* ── World event ─────────────────────────────────────────────── */
 

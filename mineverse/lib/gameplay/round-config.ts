@@ -1,4 +1,4 @@
-﻿import type { GuardianName } from '@/lib/gameplay/guardians/service';
+﻿import type { GuardianName } from '@/lib/gameplay/guardians/config';
 import type { ChoiceKey } from '@/lib/gameplay/choices/service';
 import type { CraftItem } from '@/lib/gameplay/crafting/rules';
 
