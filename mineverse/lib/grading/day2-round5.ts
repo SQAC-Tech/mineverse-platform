@@ -70,34 +70,92 @@ async function parkManualReview(params: {
   await db.from('submissions').update({ status: 'manual_review' }).eq('id', params.submission.id);
 }
 
+/**
+ * Piston's own language names, and the file name each runtime needs. The seed
+ * files use short ids like `cpp`; the compiled runtimes also need a real filename,
+ * Java most of all — it compiles `Main.java` and then runs the `Main` class.
+ */
+const PISTON_RUNTIMES: Record<string, { language: string; file: string }> = {
+  python: { language: 'python', file: 'main.py' },
+  py: { language: 'python', file: 'main.py' },
+  python3: { language: 'python', file: 'main.py' },
+  cpp: { language: 'c++', file: 'main.cpp' },
+  'c++': { language: 'c++', file: 'main.cpp' },
+  c: { language: 'c', file: 'main.c' },
+  java: { language: 'java', file: 'Main.java' },
+};
+
+/** Line endings and trailing spaces differ per runtime; the answer does not. */
+function normalizeOutput(value: unknown) {
+  return String(value ?? '')
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .map((line) => line.trimEnd())
+    .join('\n')
+    .trim();
+}
+
 async function gradeWithPiston(submission: any, question: any) {
   const endpoint = process.env.PISTON_API_URL;
   if (!endpoint) return { ok: false as const, error: 'PISTON_UNCONFIGURED' };
   if (!submission.code || !submission.language) return { ok: false as const, error: 'CODE_OR_LANGUAGE_MISSING' };
 
+  const runtime = PISTON_RUNTIMES[String(submission.language).trim().toLowerCase()];
+  if (!runtime) return { ok: false as const, error: `PISTON_LANGUAGE_UNSUPPORTED: ${submission.language}` };
+
   const cases = Array.isArray(question.hidden_test_cases) ? question.hidden_test_cases : [];
   if (cases.length === 0) return { ok: false as const, error: 'TEST_CASES_MISSING' };
 
-  try {
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        language: submission.language,
-        version: question.runtime_meta?.piston_version ?? '*',
-        files: [{ content: submission.code }],
-        stdin: cases.map((testCase: any) => testCase.stdin ?? '').join('\n'),
-      }),
-    });
+  const apiKey = process.env.PISTON_API_KEY;
 
-    if (!response.ok) return { ok: false as const, error: `PISTON_${response.status}` };
-    const payload = await response.json();
-    const stdout = String(payload?.run?.stdout ?? '').trim();
-    const expected = cases.map((testCase: any) => String(testCase.stdout ?? '').trim()).join('\n').trim();
-    return { ok: true as const, correct: stdout === expected, providerMetadata: { provider: 'piston', status: response.status } };
-  } catch (error) {
-    return { ok: false as const, error: `PISTON_FAILURE: ${String(error)}` };
+  // One run per test case. Joining every stdin into a single run let a program
+  // that reads a fixed number of lines look correct for the cases it never read.
+  for (const [index, testCase] of cases.entries()) {
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          // The emkc instance went whitelist-only in Feb 2026 and takes the token
+          // raw, with no `Bearer ` prefix — with the prefix it answers 401.
+          ...(apiKey ? { Authorization: apiKey } : {}),
+        },
+        body: JSON.stringify({
+          language: runtime.language,
+          version: question.runtime_meta?.piston_version ?? '*',
+          files: [{ name: runtime.file, content: submission.code }],
+          stdin: (testCase as any).stdin ?? '',
+          compile_timeout: 10_000,
+          run_timeout: 5_000,
+        }),
+      });
+
+      // A transport or quota failure is not a wrong answer — it goes to manual review.
+      if (!response.ok) return { ok: false as const, error: `PISTON_${response.status}` };
+      const payload = await response.json();
+
+      // Code that does not compile or crashes IS a wrong answer, not a provider fault.
+      if (payload?.compile?.code) {
+        return {
+          ok: true as const,
+          correct: false,
+          providerMetadata: { provider: 'piston', failed_case: index, reason: 'compile_error' },
+        };
+      }
+
+      if (normalizeOutput(payload?.run?.stdout) !== normalizeOutput((testCase as any).stdout)) {
+        return {
+          ok: true as const,
+          correct: false,
+          providerMetadata: { provider: 'piston', failed_case: index, exit_code: payload?.run?.code ?? null },
+        };
+      }
+    } catch (error) {
+      return { ok: false as const, error: `PISTON_FAILURE: ${String(error)}` };
+    }
   }
+
+  return { ok: true as const, correct: true, providerMetadata: { provider: 'piston', cases: cases.length } };
 }
 
 async function gradeWithGroq(submission: any, question: any) {
@@ -109,8 +167,10 @@ async function gradeWithGroq(submission: any, question: any) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
-        model: process.env.GROQ_MODEL ?? 'llama-3.1-8b-instant',
+        model: process.env.GROQ_MODEL ?? 'llama-3.3-70b-versatile',
         response_format: { type: 'json_object' },
+        // Two graders running the same answer must not disagree.
+        temperature: 0,
         messages: [
           {
             role: 'system',
@@ -248,6 +308,8 @@ export async function processDay2Round5Batch(runId: string, adminId: string) {
       let path: 'deterministic' | 'rubric' = 'deterministic';
       let providerMetadata: Record<string, unknown> | null = null;
       let manualError: string | null = null;
+      // Only the rubric path produces a partial score; every other path is 0 or 1.
+      let rubricScored = false;
 
       if (question.type === 'coding') {
         const piston = await gradeWithPiston(submission, question);
@@ -257,18 +319,22 @@ export async function processDay2Round5Batch(runId: string, adminId: string) {
         } else {
           manualError = piston.error;
         }
+      } else if (hasDeterministicKey(question.expected_answer)) {
+        // A seeded answer key wins over the language model. The logic puzzles ask
+        // for a single number, and sending "15" to an LLM to be told it is 15 only
+        // adds a way for it to be wrong.
+        correct = checkDeterministicAnswer(submission.answer_text ?? submission.code, question.expected_answer);
       } else if (question.type === 'logic_puzzle' || question.rubric) {
         path = 'rubric';
         const groq = await gradeWithGroq(submission, question);
         if (groq.ok) {
           correct = groq.result.correct;
           score = groq.result.score;
+          rubricScored = true;
           providerMetadata = groq.providerMetadata;
         } else {
           manualError = groq.error;
         }
-      } else if (hasDeterministicKey(question.expected_answer)) {
-        correct = checkDeterministicAnswer(submission.answer_text ?? submission.code, question.expected_answer);
       } else {
         path = 'rubric';
         manualError = 'NO_DETERMINISTIC_KEY';
@@ -287,7 +353,7 @@ export async function processDay2Round5Batch(runId: string, adminId: string) {
         continue;
       }
 
-      if (question.type !== 'logic_puzzle') score = correct ? 1 : 0;
+      if (!rubricScored) score = correct ? 1 : 0;
 
       const { data: item, error: itemError } = await db
         .from('grading_items')
