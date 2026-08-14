@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Brain,
   ChevronLeft,
@@ -9,6 +10,7 @@ import {
   PanelRightOpen,
   Clock3,
   CloudRain,
+  Flag,
   Hammer,
   Home,
   LockKeyhole,
@@ -29,6 +31,7 @@ import { ChoicePanel } from '@/components/game/choices/ChoicePanel';
 import { GuardianArena } from './GuardianArena';
 import { NotificationTray, type LedgerEntry } from './NotificationTray';
 import { WorldEvent } from './WorldEvent';
+import { payoutList, promptBlocks, questionTypeLabel, roundGuardian } from './round-presentation';
 import './round-ui.css';
 
 type CaveTab = 'aptitudes' | 'debugging' | 'completion' | 'output';
@@ -38,11 +41,14 @@ type ModalName = 'guardian' | 'crafting' | 'marketplace' | 'shrine' | null;
 interface Question {
   id: string;
   type: string;
+  title?: string;
   prompt: string;
   content: unknown;
   order_index: number;
   submission_status: string | null;
   language_options?: string[];
+  /** What a correct answer pays, straight from the question row. */
+  pays?: Record<string, number>;
 }
 
 interface ResourcesData {
@@ -100,12 +106,6 @@ function tabFor(question: Question): CaveTab {
   return 'aptitudes';
 }
 
-function rewardFor(tab: CaveTab) {
-  return tab === 'aptitudes'
-    ? [{ key: 'stone' as const, value: 8 }, { key: 'iron' as const, value: 2 }]
-    : [{ key: 'stone' as const, value: 6 }, { key: 'iron' as const, value: 5 }];
-}
-
 function statusLabel(status: string | null) {
   if (!status) return 'Not started';
   if (status === 'submitted') return 'Saved';
@@ -117,13 +117,31 @@ function questionBody(question: Question) {
   return typeof question.content === 'string' && question.content.trim() ? question.content : question.prompt;
 }
 
+/** Prose stays prose; code goes into a real code block. */
+function QuestionPrompt({ question }: { question: Question }) {
+  return (
+    <div className="round-ui__prompt-blocks">
+      {promptBlocks(questionBody(question)).map((block, index) =>
+        block.kind === 'code' ? (
+          <pre key={index} className="round-ui__code"><code>{block.body}</code></pre>
+        ) : (
+          <p key={index} className="round-ui__prompt">{block.body}</p>
+        ),
+      )}
+    </div>
+  );
+}
+
 function initials(name: string | null | undefined) {
   if (!name) return 'MV';
   const words = name.trim().split(/\s+/).slice(0, 2);
   return words.map((word) => word[0]?.toUpperCase() ?? '').join('') || 'MV';
 }
 
+const caveGuardian = roundGuardian(2);
+
 export function CaveRoundShell() {
+  const router = useRouter();
   const [questions, setQuestions] = useState<Question[]>([]);
   const [resourceData, setResourceData] = useState<ResourcesData | null>(null);
   const [team, setTeam] = useState<TeamInfo | null>(null);
@@ -135,6 +153,8 @@ export function CaveRoundShell() {
   const [saving, setSaving] = useState(false);
   const [lockingSection, setLockingSection] = useState(false);
   const [confirmSection, setConfirmSection] = useState<CaveTab | null>(null);
+  const [confirmFinish, setConfirmFinish] = useState(false);
+  const [finishing, setFinishing] = useState(false);
   const [modal, setModal] = useState<ModalName>(null);
   const [railOpen, setRailOpen] = useState(true);
   const [slot, setSlot] = useState(1);
@@ -256,6 +276,40 @@ export function CaveRoundShell() {
     const saved = await saveAnswer(question);
     if (saved && currentIndex < activeQuestions.length - 1) {
       setActiveIndexes((state) => ({ ...state, [activeTab]: currentIndex + 1 }));
+    }
+  };
+
+  const answeredIds = questions.filter((question) => Boolean(question.submission_status)).map((question) => question.id);
+  const unansweredCount = questions.length - answeredIds.length;
+
+  /**
+   * Ends the round for this team: locks every answer they saved, then drops them
+   * back on the dashboard. Only answered questions are sent — the section endpoint
+   * rejects a list containing an unanswered one, and a team that ran out of time
+   * still needs a way to hand in what they did finish.
+   */
+  const finishRound = async () => {
+    setFinishing(true);
+    try {
+      if (answeredIds.length > 0) {
+        const response = await fetch('/api/submissions/section', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ round_id: 2, question_ids: answeredIds }),
+        });
+        const json = await response.json();
+        if (!json.success) {
+          toast.error(json.error?.message ?? 'Could not submit the round.');
+          return;
+        }
+      }
+      toast.success('Round submitted — your answers are final.');
+      setConfirmFinish(false);
+      router.push('/dashboard');
+    } catch {
+      toast.error('Could not reach the server. Nothing was submitted.');
+    } finally {
+      setFinishing(false);
     }
   };
 
@@ -412,7 +466,7 @@ export function CaveRoundShell() {
                     >
                       <b className="round-ui__qitem-no">{index + 1}</b>
                       <span className="round-ui__qitem-text">
-                        <strong>{item.prompt || `Question ${index + 1}`}</strong>
+                        <strong>{item.title || `Question ${index + 1}`}</strong>
                         <small>{statusLabel(item.submission_status)}</small>
                       </span>
                       {itemLocked
@@ -426,8 +480,12 @@ export function CaveRoundShell() {
               <section className="round-ui__tile round-ui__answer">
                 {question ? (
                   <>
-                    <p className="round-ui__tile-title">Question {currentIndex + 1}</p>
-                    <p className="round-ui__prompt">{questionBody(question)}</p>
+                    <p className="round-ui__tile-title">
+                      Question {currentIndex + 1}
+                      <span className="round-ui__type-badge">{questionTypeLabel(question.type)}</span>
+                    </p>
+                    {question.title && <p className="round-ui__question-title">{question.title}</p>}
+                    <QuestionPrompt question={question} />
                     <label className="round-ui__field-label" htmlFor={`cave-answer-${question.id}`}>Your answer</label>
                     <textarea
                       id={`cave-answer-${question.id}`}
@@ -468,18 +526,15 @@ export function CaveRoundShell() {
 
               <aside className="round-ui__tile round-ui__rewards-tile">
                 <p className="round-ui__tile-title">Rewards</p>
-                {question ? (
+                {question && payoutList(question.pays).length > 0 ? (
                   <div className="round-ui__rewards">
-                    {rewardFor(activeTab).map(({ key, value }) => {
-                      const item = resources.find((resource) => resource.key === key)!;
-                      return (
-                        <div key={key} className="round-ui__reward">
-                          <img src={item.icon} alt="" />
-                          <b>+{value}</b>
-                          <span>{item.label}</span>
-                        </div>
-                      );
-                    })}
+                    {payoutList(question.pays).map(({ key, icon, label, amount }) => (
+                      <div key={key} className="round-ui__reward">
+                        <img src={icon} alt="" />
+                        <b>+{amount}</b>
+                        <span>{label}</span>
+                      </div>
+                    ))}
                   </div>
                 ) : <p className="round-ui__empty">Question rewards appear here.</p>}
                 <p className="round-ui__reward-note">Awarded by the server once your answer is graded.</p>
@@ -493,17 +548,28 @@ export function CaveRoundShell() {
                   : roundLocked ? 'Round closed — answers are read-only.'
                   : <><b>{answeredInSection}</b> of <b>{activeQuestions.length}</b> saved in this section</>}
               </span>
-              {!sectionLocked && !roundLocked && (
+              <div className="round-ui__section-actions">
+                {!sectionLocked && !roundLocked && (
+                  <button
+                    type="button"
+                    className="round-ui__btn round-ui__btn--lock"
+                    disabled={!sectionReady || lockingSection}
+                    onClick={() => setConfirmSection(activeTab)}
+                    title={sectionReady ? 'Submit this section' : 'Save every answer in this section first'}
+                  >
+                    <LockKeyhole size={14} /> Submit section
+                  </button>
+                )}
                 <button
                   type="button"
-                  className="round-ui__btn round-ui__btn--lock"
-                  disabled={!sectionReady || lockingSection}
-                  onClick={() => setConfirmSection(activeTab)}
-                  title={sectionReady ? 'Submit this section' : 'Save every answer in this section first'}
+                  className="round-ui__btn round-ui__btn--finish"
+                  disabled={finishing}
+                  onClick={() => setConfirmFinish(true)}
+                  title="Submit the whole round and go back to the dashboard"
                 >
-                  <LockKeyhole size={14} /> Submit section
+                  <Flag size={14} /> {finishing ? 'Submitting…' : 'Finish round'}
                 </button>
-              )}
+              </div>
             </div>
           </section>
 
@@ -614,6 +680,28 @@ export function CaveRoundShell() {
         </div>
       )}
 
+      {confirmFinish && (
+        <div className="round-ui__modal" role="dialog" aria-modal="true" aria-label="Confirm finish round">
+          <div className="round-ui__panel round-ui__confirm">
+            <h2>Finish Cave Biome?</h2>
+            <p>
+              Your {answeredIds.length} saved {answeredIds.length === 1 ? 'answer' : 'answers'} are sent for grading and
+              can no longer be changed.
+              {unansweredCount > 0 && ` ${unansweredCount} question${unansweredCount === 1 ? '' : 's'} left unanswered will score nothing.`}
+              {' '}You will be taken back to the dashboard.
+            </p>
+            <div className="round-ui__confirm-actions">
+              <button type="button" className="round-ui__btn round-ui__btn--ghost" onClick={() => setConfirmFinish(false)} disabled={finishing}>
+                Keep playing
+              </button>
+              <button type="button" className="round-ui__btn round-ui__btn--finish" onClick={() => void finishRound()} disabled={finishing}>
+                {finishing ? 'Submitting…' : 'Submit and leave'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {modal && (
         <div className="round-ui__modal" role="dialog" aria-modal="true">
           <div className="round-ui__modal-card biome">
@@ -625,8 +713,12 @@ export function CaveRoundShell() {
                 guardianName="skeleton_archer"
                 roundId={2}
                 art="/round2/guardian-skeleton-archer.webp"
-                reward="+20 Iron, +15 Stone, +3 Emerald"
-                penalty="−10 Iron, −10 Stone"
+                // Straight from the guardian catalog the server pays from, so the
+                // numbers here cannot drift out of step with the reward it applies.
+                reward={caveGuardian?.reward ?? {}}
+                penalty={caveGuardian?.penalty ?? {}}
+                mandatory={caveGuardian?.mandatory}
+                timeLimitSeconds={caveGuardian?.timeLimitSeconds}
                 onResolved={() => { void refresh(); }}
               />
             )}

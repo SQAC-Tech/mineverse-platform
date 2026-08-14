@@ -12,6 +12,26 @@ export interface QuestionRow {
   order_index: number;
   language_options: string[] | null;
   time_limit_seconds: number | null;
+  /**
+   * What a correct answer pays. Public information — the event brief prints the
+   * whole table, and the round UI has always shown it. It is the answer key that
+   * is secret, not the price.
+   */
+  reward?: Record<string, number> | null;
+}
+
+/**
+ * A short label for lists and tabs. Seeded questions carry `content.title`; the
+ * prompt itself is usually a code block, so it makes a poor list item.
+ */
+export function questionTitle(question: Pick<QuestionRow, 'content' | 'prompt' | 'order_index'>): string {
+  const content = question.content as { title?: unknown } | null;
+  if (content && typeof content === 'object' && typeof content.title === 'string' && content.title.trim()) {
+    return content.title.trim();
+  }
+  const firstLine = String(question.prompt ?? '').split('\n').find((line) => line.trim().length > 0);
+  if (!firstLine) return `Question ${question.order_index}`;
+  return firstLine.length > 60 ? `${firstLine.slice(0, 57).trimEnd()}…` : firstLine;
 }
 
 export interface SubmissionRow {
@@ -44,11 +64,15 @@ export function serializeSafeQuestion(question: QuestionRow, submission?: Pick<S
   return {
     id: question.id,
     type: question.type,
+    title: questionTitle(question),
     prompt: question.prompt,
     content: question.content ?? {},
     order_index: question.order_index,
     language_options: question.language_options ?? [],
     time_limit_seconds: question.time_limit_seconds,
+    // Named `pays` rather than `reward` so a future `...question` spread cannot
+    // quietly leak the whole row through a key the client already expects.
+    pays: (question.reward ?? {}) as Record<string, number>,
     submission_status: submission?.status ?? null,
     submission_revision: submission?.revision ?? null,
     graded: submission?.final_score !== null && submission?.final_score !== undefined,

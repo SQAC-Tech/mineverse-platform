@@ -1,0 +1,236 @@
+import {
+  BookOpen, Brain, Bug, Code2, Flame, Mountain, Pickaxe, Puzzle,
+  ScrollText, Sparkles, Terminal, TreePine, type LucideIcon,
+} from 'lucide-react';
+import { ROUND_CONFIGS } from '@/lib/gameplay/round-config';
+import { GUARDIANS, type GuardianName } from '@/lib/gameplay/guardians/config';
+import { CRAFT_RECIPES } from '@/lib/gameplay/crafting/rules';
+
+/**
+ * Everything the round shells used to hardcode to Round 1.
+ *
+ * `CustomRoundShell` takes a `roundId` but drew the Forest biome, the Forest
+ * Guardian's rewards, the Wooden Pickaxe recipe and a fixed Crossword/Aptitude/
+ * Output tab strip no matter which round it was rendering — so Round 3 showed
+ * Round 1's economy over Round 3's questions. Everything here is derived from the
+ * same catalogs the server grades against.
+ */
+
+export type ResourceKey = 'wood' | 'stone' | 'iron' | 'gold' | 'diamond' | 'emerald' | 'obsidian';
+
+export const RESOURCE_META: Array<{ key: ResourceKey; label: string; icon: string }> = [
+  { key: 'wood', label: 'Wood', icon: '/wood.svg' },
+  { key: 'stone', label: 'Stone', icon: '/stone.svg' },
+  { key: 'iron', label: 'Iron', icon: '/iron.svg' },
+  { key: 'gold', label: 'Gold', icon: '/gold.svg' },
+  { key: 'diamond', label: 'Diamond', icon: '/diamond.svg' },
+  { key: 'emerald', label: 'Emerald', icon: '/emerald.svg' },
+  { key: 'obsidian', label: 'Obsidian', icon: '/obsidian.svg' },
+];
+
+const RESOURCE_BY_KEY = new Map(RESOURCE_META.map((meta) => [meta.key, meta]));
+
+/** `pays` as the UI renders it, in the fixed inventory order rather than key order. */
+export function payoutList(pays: Record<string, number> | null | undefined) {
+  if (!pays) return [];
+  return RESOURCE_META
+    .filter((meta) => Number(pays[meta.key] ?? 0) !== 0)
+    .map((meta) => ({ ...meta, amount: Number(pays[meta.key]) }));
+}
+
+export function payoutText(pays: Record<string, number> | null | undefined) {
+  const parts = payoutList(pays).map(({ amount, label }) => `${amount > 0 ? '+' : ''}${amount} ${label}`);
+  return parts.length > 0 ? parts.join(', ') : null;
+}
+
+/** Reward/penalty objects from the guardian catalog use the same shape. */
+export function deltaList(delta: Record<string, number | undefined>) {
+  return RESOURCE_META
+    .filter((meta) => Number(delta[meta.key] ?? 0) !== 0)
+    .map((meta) => ({ ...meta, amount: Number(delta[meta.key]) }));
+}
+
+export function deltaText(delta: Record<string, number | undefined>) {
+  return deltaList(delta)
+    .map(({ amount, label }) => `${amount > 0 ? '+' : '−'}${Math.abs(amount)} ${label}`)
+    .join(', ');
+}
+
+export function resourceMeta(key: string) {
+  return RESOURCE_BY_KEY.get(key as ResourceKey);
+}
+
+// ------------------------------------------------------------------ questions
+
+export interface ShellQuestion {
+  id: string;
+  type: string;
+  title?: string;
+  prompt: string;
+  content: unknown;
+  order_index: number;
+  submission_status: string | null;
+  submission_revision?: number | null;
+  language_options?: string[];
+  pays?: Record<string, number>;
+}
+
+const QUESTION_TYPE_META: Record<string, { label: string; Icon: LucideIcon }> = {
+  crossword: { label: 'Crosswords', Icon: BookOpen },
+  aptitude: { label: 'Aptitude', Icon: Brain },
+  output: { label: 'Output prediction', Icon: Terminal },
+  debugging: { label: 'Debugging', Icon: Bug },
+  code_completion: { label: 'Code completion', Icon: ScrollText },
+  coding: { label: 'Coding', Icon: Code2 },
+  logic_puzzle: { label: 'Logic puzzles', Icon: Puzzle },
+  debug_output: { label: 'Debug & output', Icon: Bug },
+};
+
+export function questionTypeLabel(type: string) {
+  return QUESTION_TYPE_META[type]?.label ?? type.replace(/_/g, ' ');
+}
+
+export interface QuestionTab {
+  id: string;
+  label: string;
+  Icon: LucideIcon;
+  questions: ShellQuestion[];
+}
+
+/**
+ * One tab per question type actually present, ordered by where that type first
+ * appears in the round. A round with no questions gets no tabs, which is what
+ * Round 4 needs — its hour is entirely off-platform.
+ */
+export function buildQuestionTabs(questions: ShellQuestion[]): QuestionTab[] {
+  const byType = new Map<string, ShellQuestion[]>();
+  for (const question of [...questions].sort((a, b) => a.order_index - b.order_index)) {
+    const bucket = byType.get(question.type);
+    if (bucket) bucket.push(question);
+    else byType.set(question.type, [question]);
+  }
+
+  return [...byType.entries()].map(([type, group]) => ({
+    id: type,
+    label: QUESTION_TYPE_META[type]?.label ?? questionTypeLabel(type),
+    Icon: QUESTION_TYPE_META[type]?.Icon ?? BookOpen,
+    questions: group,
+  }));
+}
+
+/** A code block needs a monospace block of its own; prose does not. */
+export function isCodeLine(line: string) {
+  return /^\s{2,}|[{};]\s*$|^\s*(?:\d+\s{2,}|[#/]{2}|def |class |for |while |if |int |print\(|cout|return |import |public |values? =|\w+ = )/.test(line);
+}
+
+/**
+ * Splits a prompt into prose and code blocks so the UI can render code in a real
+ * code block instead of one undifferentiated wall of monospace text.
+ */
+export function promptBlocks(prompt: string): Array<{ kind: 'text' | 'code'; body: string }> {
+  const lines = String(prompt ?? '').split('\n');
+  const blocks: Array<{ kind: 'text' | 'code'; body: string[] }> = [];
+
+  for (const line of lines) {
+    const kind: 'text' | 'code' = isCodeLine(line) ? 'code' : 'text';
+    const last = blocks[blocks.length - 1];
+    // A blank line inside a block belongs to that block, not to a new one.
+    if (last && (last.kind === kind || line.trim() === '')) last.body.push(line);
+    else blocks.push({ kind, body: [line] });
+  }
+
+  return blocks
+    .map((block) => ({ kind: block.kind, body: block.body.join('\n').replace(/^\n+|\n+$/g, '') }))
+    .filter((block) => block.body.trim().length > 0);
+}
+
+// --------------------------------------------------------------- round chrome
+
+interface RoundChrome {
+  name: string;
+  eyebrow: string;
+  day: string;
+  mode: string;
+  Icon: LucideIcon;
+  themeClass: string;
+  guardianArt: string | null;
+  eventArt: string | null;
+  eventIdleText: string;
+}
+
+const CHROME: Record<number, Omit<RoundChrome, 'name'>> = {
+  1: {
+    eyebrow: 'ROUND 1', day: 'Day 1', mode: 'Online', Icon: TreePine, themeClass: 'round-ui--forest',
+    guardianArt: '/round1/guardian-forest.webp', eventArt: '/round1/event-heavy-rain.webp',
+    eventIdleText: 'The forest is calm. Organizers announce world events.',
+  },
+  2: {
+    eyebrow: 'ROUND 2', day: 'Day 1', mode: 'Online', Icon: Pickaxe, themeClass: 'round-ui--cave',
+    guardianArt: '/round2/guardian-skeleton-archer.webp', eventArt: '/round2/event-fertile-marsh.webp',
+    eventIdleText: 'The cave is quiet. Organizers announce world events.',
+  },
+  3: {
+    eyebrow: 'ROUND 3', day: 'Day 1', mode: 'Elimination', Icon: Mountain, themeClass: 'round-ui--mountain',
+    // No Round 3 art has been produced yet, so the panels fall back to icons
+    // rather than showing another round's guardian.
+    guardianArt: null, eventArt: null,
+    eventIdleText: 'The peaks are still. Organizers announce world events.',
+  },
+  4: {
+    eyebrow: 'ROUND 4', day: 'Day 2', mode: 'Off-platform', Icon: Flame, themeClass: 'round-ui--nether',
+    guardianArt: null, eventArt: null,
+    eventIdleText: 'This round is run by the volunteers in the hall.',
+  },
+  5: {
+    eyebrow: 'ROUND 5', day: 'Day 2', mode: 'Final', Icon: Sparkles, themeClass: 'round-ui--end',
+    guardianArt: null, eventArt: null,
+    eventIdleText: 'The End is silent. Organizers announce world events.',
+  },
+};
+
+export function roundChrome(roundId: number): RoundChrome {
+  const config = ROUND_CONFIGS[roundId];
+  const chrome = CHROME[roundId] ?? CHROME[1];
+  return { name: config?.name ?? `Round ${roundId}`, ...chrome };
+}
+
+export function roundObjective(roundId: number) {
+  return ROUND_CONFIGS[roundId]?.objective ?? null;
+}
+
+/** The guardian for this round, with its real rewards — or null if it has none. */
+export function roundGuardian(roundId: number) {
+  const entry = ROUND_CONFIGS[roundId]?.guardian;
+  if (!entry) return null;
+
+  const config = GUARDIANS[entry.name as GuardianName];
+  const label = entry.name.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
+  return {
+    name: entry.name as GuardianName,
+    label,
+    mandatory: entry.mandatory,
+    reward: config.victoryReward as Record<string, number>,
+    penalty: config.defeatPenalty as Record<string, number>,
+    rewardText: deltaText(config.victoryReward),
+    penaltyText: deltaText(config.defeatPenalty),
+    timeLimitSeconds: config.timeLimitSeconds,
+  };
+}
+
+/** The progression item craftable in this round, with its real recipe. */
+export function roundCraft(roundId: number) {
+  const item = ROUND_CONFIGS[roundId]?.craft;
+  if (!item) return null;
+
+  const recipe = CRAFT_RECIPES[item];
+  return {
+    item: recipe.item,
+    label: recipe.label,
+    cost: recipe.base_cost as Record<string, number>,
+    costText: Object.entries(recipe.base_cost)
+      .map(([key, value]) => `${value} ${resourceMeta(key)?.label ?? key}`)
+      .join(' + '),
+    unlockRoundId: recipe.unlock_round_id,
+  };
+}

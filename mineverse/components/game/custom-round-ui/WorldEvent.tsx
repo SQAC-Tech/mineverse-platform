@@ -15,7 +15,8 @@ interface WorldEventProps {
   event: ActiveModifier | undefined;
   /** Seconds remaining, or null when the server gave no expiry. */
   remaining: number | null;
-  art: string;
+  /** Optional: rounds without their own artwork render the panel without it. */
+  art?: string;
   /** Copy shown when nothing is running, e.g. "The forest is calm." */
   idleText: string;
   /** Full duration of this round's event window, used for the meter. */
@@ -69,7 +70,7 @@ export function WorldEvent({ event, remaining, art, idleText, windowSeconds = 30
 
       <div className="round-ui__event">
         <div className={isActive ? 'round-ui__art we-art we-art--live' : 'round-ui__art we-art'}>
-          <img src={art} alt="" />
+          {art && <img src={art} alt="" />}
         </div>
         <div>
           <strong className="round-ui__event-name">

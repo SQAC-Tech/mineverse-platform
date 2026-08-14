@@ -64,7 +64,7 @@ describe('Dev4 Phase 3 — debug_output submission validation', () => {
 });
 
 describe('Dev4 Phase 3 — Round 5 question safety contract', () => {
-  it('never exposes expected_answer, rubric, hidden_test_cases, or reward for any type', () => {
+  it('never exposes expected_answer, rubric or hidden_test_cases for any type', () => {
     const types: Array<QuestionRow['type']> = ['coding', 'logic_puzzle', 'debug_output'];
 
     for (const type of types) {
@@ -84,8 +84,36 @@ describe('Dev4 Phase 3 — Round 5 question safety contract', () => {
       expect(raw).not.toContain('hidden_test_cases');
       expect(raw).not.toContain('rubric');
       expect(raw).not.toContain('secret');
-      expect(raw).not.toContain('reward');
+      expect(raw).not.toContain('criteria');
+      expect(raw).not.toContain('"x"');
     }
+  });
+
+  // Payouts used to be excluded here and hardcoded in the round UI instead, which
+  // meant Round 3 showed Round 1's Wood rewards. They are public — the event brief
+  // prints the whole table — so the UI now reads them from the row that pays them.
+  it('exposes the payout as `pays`, not as the raw column name', () => {
+    const safe = serializeSafeQuestion(
+      { ...question({ type: 'coding' }), reward: { diamond: 12 } },
+      null,
+    );
+
+    expect(safe.pays).toEqual({ diamond: 12 });
+    expect(Object.keys(safe)).not.toContain('reward');
+  });
+
+  it('falls back to a trimmed prompt line when a question has no title', () => {
+    const withTitle = serializeSafeQuestion(
+      { ...question(), content: { title: 'The Empty Chest' } },
+      null,
+    );
+    expect(withTitle.title).toBe('The Empty Chest');
+
+    const withoutTitle = serializeSafeQuestion(
+      { ...question(), content: {}, prompt: 'values = [5, 3, 8, 1]\nbest = values[0]' },
+      null,
+    );
+    expect(withoutTitle.title).toBe('values = [5, 3, 8, 1]');
   });
 
   it('handles null submission gracefully', () => {

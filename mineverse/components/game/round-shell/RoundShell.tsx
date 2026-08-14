@@ -2,12 +2,12 @@
 
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, RefreshCw, Clock, WifiOff, Target } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { ArrowLeft, RefreshCw, Clock, WifiOff, Target, Flag } from 'lucide-react';
 import { ResourcesBar } from '@/components/game/resources/ResourcesBar';
 import { CraftingPanel } from '@/components/game/crafting/CraftingPanel';
 import { PvpPanel } from '@/components/game/pvp/PvpPanel';
 import { QuestionList } from '@/components/game/questions/QuestionList';
-import { GuardianBattle } from '@/components/game/guardian/GuardianBattle';
 import { MarketplaceStore } from '@/components/game/marketplace/MarketplaceStore';
 import { ConsumableInventory } from '@/components/game/marketplace/ConsumableInventory';
 import { ChoicePanel } from '@/components/game/choices/ChoicePanel';
@@ -19,6 +19,7 @@ interface RoundShellProps { roundId: number }
 interface RoundQuestion {
   id: string;
   type: string;
+  title?: string;
   prompt: string;
   content: unknown;
   order_index: number;
@@ -26,6 +27,8 @@ interface RoundQuestion {
   time_limit_seconds: number | null;
   submission_status: string | null;
   submission_revision: number | null;
+  /** What a correct answer pays, straight from the question row. */
+  pays?: Record<string, number>;
 }
 
 interface RoundData {
@@ -44,6 +47,7 @@ function formatRemaining(ms: number) {
 }
 
 export function RoundShell({ roundId }: RoundShellProps) {
+  const router = useRouter();
   const config = getRoundConfig(roundId);
 
   const [round, setRound] = useState<RoundData | null>(null);
@@ -57,6 +61,8 @@ export function RoundShell({ roundId }: RoundShellProps) {
    */
   const [refreshToken, setRefreshToken] = useState(0);
   const [now, setNow] = useState(() => Date.now());
+  const [confirmFinish, setConfirmFinish] = useState(false);
+  const [finishing, setFinishing] = useState(false);
 
   const refreshAll = useCallback(() => setRefreshToken((v) => v + 1), []);
 
@@ -93,6 +99,38 @@ export function RoundShell({ roundId }: RoundShellProps) {
     const tick = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(tick);
   }, []);
+
+  const answeredIds = (round?.questions ?? []).filter((q) => Boolean(q.submission_status)).map((q) => q.id);
+  const unansweredCount = (round?.questions.length ?? 0) - answeredIds.length;
+
+  /**
+   * Ends the round for this team: locks every answer they saved, then returns them
+   * to the dashboard. Only answered questions are sent — the section endpoint
+   * rejects a list containing an unanswered one, and a team that ran out of time
+   * still needs a way to hand in what they did finish.
+   */
+  const finishRound = useCallback(async () => {
+    setFinishing(true);
+    try {
+      if (answeredIds.length > 0) {
+        const res = await fetch('/api/submissions/section', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ round_id: roundId, question_ids: answeredIds }),
+        });
+        const json = await res.json();
+        if (!json.success) {
+          setError({ code: json.error?.code ?? 'SUBMIT_FAILED', message: json.error?.message ?? 'Could not submit the round.' });
+          return;
+        }
+      }
+      router.push('/dashboard');
+    } catch {
+      setError({ code: 'NETWORK', message: 'Could not reach the server. Nothing was submitted.' });
+    } finally {
+      setFinishing(false);
+    }
+  }, [answeredIds, roundId, router]);
 
   const remaining = useMemo(() => {
     if (!round?.ends_at) return null;
@@ -204,17 +242,34 @@ export function RoundShell({ roundId }: RoundShellProps) {
                 locked={timeUp}
               />
 
-              {config.guardian && (
-                <GuardianBattle
-                  guardianName={config.guardian.name}
-                  roundId={roundId}
-                  mandatory={config.guardian.mandatory}
-                  onResolved={refreshAll}
-                  refreshToken={refreshToken}
-                />
-              )}
+              {/* No guardian panel here on purpose. This shell only serves Round 5,
+                  which has no guardian, and the second guardian component that used
+                  to sit here was never rendered — so it never got the fixes the real
+                  one did. Rounds 1-3 use GuardianArena in the custom round shells.
+                  If a guardian is ever needed here, render GuardianArena inside a
+                  `.round-ui .round-ui--end` wrapper so its palette tokens resolve. */}
 
               {config.pvp && <PvpPanel />}
+
+              <Panel title="Finish the round">
+                <p style={{ fontSize: 11.5, marginBottom: 10 }}>
+                  Hand in your {answeredIds.length} saved {answeredIds.length === 1 ? 'answer' : 'answers'} and return
+                  to the dashboard. Submitted answers are final.
+                  {unansweredCount > 0 && ` ${unansweredCount} question${unansweredCount === 1 ? '' : 's'} left unanswered will score nothing.`}
+                </p>
+                {confirmFinish ? (
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <Btn onClick={() => setConfirmFinish(false)} disabled={finishing}>Keep playing</Btn>
+                    <Btn variant="primary" onClick={() => void finishRound()} disabled={finishing}>
+                      <Flag size={12} /> {finishing ? 'Submitting…' : 'Submit and leave'}
+                    </Btn>
+                  </div>
+                ) : (
+                  <Btn variant="primary" onClick={() => setConfirmFinish(true)}>
+                    <Flag size={12} /> Finish round
+                  </Btn>
+                )}
+              </Panel>
             </div>
 
             <aside style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>

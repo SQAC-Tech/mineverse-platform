@@ -4,10 +4,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { Send, Check, AlertTriangle, Save } from 'lucide-react';
 import { Panel, Btn, Pill, statusTone } from '@/components/admin/nether-ui';
+import { payoutList, promptBlocks, questionTypeLabel } from '@/components/game/custom-round-ui/round-presentation';
 
 interface Question {
   id: string;
   type: string;
+  title?: string;
   prompt: string;
   content: unknown;
   order_index: number;
@@ -15,6 +17,8 @@ interface Question {
   time_limit_seconds: number | null;
   submission_status: string | null;
   submission_revision: number | null;
+  /** What a correct answer pays, straight from the question row. */
+  pays?: Record<string, number>;
 }
 
 interface QuestionListProps {
@@ -29,21 +33,48 @@ function draftKey(roundId: number, questionId: string) {
   return `mineverse:round:${roundId}:question:${questionId}:draft`;
 }
 
+function languageKey(roundId: number, questionId: string) {
+  return `mineverse:round:${roundId}:question:${questionId}:language`;
+}
+
 const FINAL_STATUSES = ['locked', 'graded', 'manual_review'];
+
+const LANGUAGE_LABELS: Record<string, string> = {
+  python: 'Python', py: 'Python', python3: 'Python',
+  cpp: 'C++', 'c++': 'C++', c: 'C', java: 'Java',
+};
+
+function languageLabel(id: string) {
+  return LANGUAGE_LABELS[id.toLowerCase()] ?? id;
+}
 
 export function QuestionList({ roundId, questions, onSubmitted, locked }: QuestionListProps) {
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  // The grader runs the code in whatever language is submitted, so this has to be
+  // the team's choice — sending the first option always ran C++ code as Python.
+  const [languages, setLanguages] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Drafts survive a reload or an accidental navigation mid-round.
   useEffect(() => {
     const loaded: Record<string, string> = {};
+    const loadedLanguages: Record<string, string> = {};
     for (const question of questions) {
       loaded[question.id] = window.localStorage.getItem(draftKey(roundId, question.id)) ?? '';
+      const savedLanguage = window.localStorage.getItem(languageKey(roundId, question.id));
+      if (savedLanguage && question.language_options.includes(savedLanguage)) {
+        loadedLanguages[question.id] = savedLanguage;
+      }
     }
     setDrafts(loaded);
+    setLanguages(loadedLanguages);
   }, [roundId, questions]);
+
+  const setLanguage = (questionId: string, value: string) => {
+    setLanguages((current) => ({ ...current, [questionId]: value }));
+    window.localStorage.setItem(languageKey(roundId, questionId), value);
+  };
 
   const ordered = useMemo(() => [...questions].sort((a, b) => a.order_index - b.order_index), [questions]);
 
@@ -59,7 +90,11 @@ export function QuestionList({ roundId, questions, onSubmitted, locked }: Questi
       const draft = drafts[question.id] ?? '';
       const isCode = question.type === 'coding' || question.type === 'code_completion';
       const body = isCode
-        ? { question_id: question.id, code: draft, language: question.language_options[0] ?? null }
+        ? {
+            question_id: question.id,
+            code: draft,
+            language: languages[question.id] ?? question.language_options[0] ?? null,
+          }
         : { question_id: question.id, answer_text: draft };
 
       const res = await fetch('/api/submissions', {
@@ -120,7 +155,7 @@ export function QuestionList({ roundId, questions, onSubmitted, locked }: Questi
         return (
           <Panel
             key={question.id}
-            title={`Q${question.order_index} · ${question.type.replace('_', ' ')}`}
+            title={`Q${question.order_index} · ${question.title ?? questionTypeLabel(question.type)}`}
             actions={
               question.submission_status
                 ? <Pill tone={statusTone(question.submission_status)}>
@@ -129,7 +164,59 @@ export function QuestionList({ roundId, questions, onSubmitted, locked }: Questi
                 : <Pill tone="idle">unanswered</Pill>
             }
           >
-            <p style={{ fontSize: 12, marginBottom: 10, whiteSpace: 'pre-wrap' }}>{question.prompt}</p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10, alignItems: 'center' }}>
+              <Pill tone="idle">{questionTypeLabel(question.type)}</Pill>
+              {payoutList(question.pays).map(({ key, icon, label, amount }) => (
+                <span
+                  key={key}
+                  title={`${label} on a correct answer`}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px',
+                    border: '1px solid var(--border)', borderRadius: 999, fontSize: 10.5,
+                  }}
+                >
+                  <img src={icon} alt="" width={11} height={11} /> +{amount} {label}
+                </span>
+              ))}
+            </div>
+
+            {/* A prompt is prose plus, usually, a code listing. Rendering the whole
+                thing in one proportional block threw the code's alignment away. */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
+              {promptBlocks(question.prompt).map((block, index) =>
+                block.kind === 'code' ? (
+                  <pre
+                    key={index}
+                    style={{
+                      margin: 0, padding: '9px 11px', fontSize: 11.5, lineHeight: 1.55,
+                      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+                      background: 'rgb(from var(--bg-raised) r g b / 70%)',
+                      border: '1px solid var(--border)', borderLeft: '3px solid var(--accent-primary)',
+                      overflowX: 'auto', whiteSpace: 'pre', tabSize: 4,
+                    }}
+                  ><code>{block.body}</code></pre>
+                ) : (
+                  <p key={index} style={{ fontSize: 12, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{block.body}</p>
+                ),
+              )}
+            </div>
+
+            {isCode && question.language_options.length > 0 && (
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 9 }}>
+                <span className="n-panel-sub">Language</span>
+                <select
+                  className="n-select"
+                  style={{ maxWidth: 170 }}
+                  value={languages[question.id] ?? question.language_options[0]}
+                  disabled={disabled}
+                  onChange={(e) => setLanguage(question.id, e.target.value)}
+                >
+                  {question.language_options.map((option) => (
+                    <option key={option} value={option}>{languageLabel(option)}</option>
+                  ))}
+                </select>
+              </label>
+            )}
 
             <textarea
               className="n-textarea"
