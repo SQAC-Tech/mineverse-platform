@@ -55,6 +55,11 @@ export const registrationSchema = z.object({
       { message: 'First member must be the team lead' })
     .refine((m) => new Set(m.map(x => x.college_email.toLowerCase())).size === m.length,
       { message: 'Duplicate college emails within team' })
+    // `members` is UNIQUE (team_id, email), so a shared personal email is a
+    // database error waiting to happen — catch it here where the message is
+    // useful instead of letting the insert blow up mid-registration.
+    .refine((m) => new Set(m.map(x => x.email.toLowerCase())).size === m.length,
+      { message: 'Each member needs their own personal email' })
     .refine((m) => new Set(m.map(x => x.registration_no)).size === m.length,
       { message: 'Duplicate registration numbers within team' }),
 });
