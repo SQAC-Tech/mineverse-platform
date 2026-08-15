@@ -73,6 +73,10 @@ export function classifyShortcut(event: KeyboardEvent): ShortcutDecision {
   // Ctrl/Cmd is otherwise left alone so select-all, undo and arrow-word
   // navigation still work while answering. Copy and paste are caught by their
   // own clipboard listeners, which fire for right-click and menu use too.
+
+  // NEW: Ctrl+Shift+Esc opens Task Manager on Windows. Block and count it.
+  if (mod && event.shiftKey && key === 'escape') return stop('task-manager');
+
   return ALLOW;
 }
 

@@ -80,7 +80,7 @@ const DEFAULT_RULES: ProctorRules = {
   keyViolationBudget: 6,
   enforceFullscreen: true,
   blockClipboard: true,
-  autoSubmitOnExhaustion: false,
+  autoSubmitOnExhaustion: true,
 };
 
 /**

@@ -343,6 +343,16 @@ export function CaveRoundShell() {
     }
   };
 
+  // Auto-submit when the proctor flags this team for budget exhaustion.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (proctor?.exhausted) {
+      toast.error('Warning limit reached — your answers are being submitted automatically.');
+      void finishRound();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [proctor?.exhausted]);
+
   return (
     <main className="round-ui round-ui--cave">
       <div className="round-ui__backdrop" aria-hidden="true" />

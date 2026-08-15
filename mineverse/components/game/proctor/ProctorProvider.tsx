@@ -34,6 +34,12 @@ interface ProctorProviderProps {
   /** Round name shown on the gate. */
   roundName?: string;
   eyebrow?: string;
+  /**
+   * Called once when the warning/violation budget is exhausted and
+   * `autoSubmitOnExhaustion` is true. The shell should call its own
+   * finish-round flow here.
+   */
+  onExhausted?: () => void;
   children: ReactNode;
 }
 
@@ -42,9 +48,10 @@ export function ProctorProvider({
   themeClass,
   roundName,
   eyebrow,
+  onExhausted,
   children,
 }: ProctorProviderProps) {
-  const proctor = useProctor(roundId);
+  const proctor = useProctor(roundId, { onExhausted });
 
   // Kill switch: render the round untouched, with no gate and no listeners.
   if (!proctor.enabled) {

@@ -380,6 +380,17 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
     setQuestionIndex((current) => ({ ...current, [tab]: 0 }));
   };
 
+  // Auto-submit when the proctor flags this team for budget exhaustion.
+  useEffect(() => {
+    if (proctor?.exhausted) {
+      toast.error('Warning limit reached — your answers are being submitted automatically.');
+      void finishRound();
+    }
+    // finishRound is stable within a render; proctor identity is stable too.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [proctor?.exhausted]);
+
+
   return (
     <main className={`round-ui ${chrome.themeClass}`}>
       <div className="round-ui__backdrop" aria-hidden="true" />

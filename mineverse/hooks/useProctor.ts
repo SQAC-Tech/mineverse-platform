@@ -62,6 +62,8 @@ export interface UseProctorResult {
   warnings: number;
   keyViolations: number;
   flagged: boolean;
+  /** True once a budget ran out and autoSubmitOnExhaustion fired. */
+  exhausted: boolean;
   rules: ProctorRules;
   /** Most recent thing worth telling the participant about. */
   warning: ProctorWarning | null;
@@ -81,9 +83,14 @@ const MESSAGES: Partial<Record<ProctorEventKind, string>> = {
   reload_attempt: 'Reloading was recorded. Your saved answers are kept.',
 };
 
-export function useProctor(roundId: number, options: { enabled?: boolean } = {}): UseProctorResult {
+export function useProctor(
+  roundId: number,
+  options: { enabled?: boolean; onExhausted?: () => void } = {},
+): UseProctorResult {
   const enabled = (options.enabled ?? true) && PROCTOR_ENABLED;
   const rules = useMemo(() => proctorRules(roundId), [roundId]);
+  const onExhaustedRef = useRef(options.onExhausted);
+  onExhaustedRef.current = options.onExhausted;
 
   const [started, setStarted] = useState(false);
   const [starting, setStarting] = useState(false);
@@ -91,8 +98,12 @@ export function useProctor(roundId: number, options: { enabled?: boolean } = {})
   const [warnings, setWarnings] = useState(0);
   const [keyViolations, setKeyViolations] = useState(0);
   const [flagged, setFlagged] = useState(false);
+  const [exhausted, setExhausted] = useState(false);
   const [warning, setWarning] = useState<ProctorWarning | null>(null);
   const [startError, setStartError] = useState<string | null>(null);
+  // Tracks the last fullscreen_exit time to deduplicate the Escape key event
+  // (pressing Escape fires both fullscreen_exit AND a keydown for 'Escape').
+  const lastFullscreenExitRef = useRef<number>(0);
 
   const sessionIdRef = useRef<string | null>(null);
   const startedRef = useRef(false);
@@ -247,6 +258,7 @@ export function useProctor(roundId: number, options: { enabled?: boolean } = {})
         record('fullscreen_restored', away ? { away_ms: Date.now() - away } : {});
       } else {
         leftFullscreenAtRef.current = Date.now();
+        lastFullscreenExitRef.current = Date.now();
         setNeedsFullscreen(true);
         record('fullscreen_exit', {}, 'warning');
       }
@@ -268,6 +280,9 @@ export function useProctor(roundId: number, options: { enabled?: boolean } = {})
       if (!decision.blocked) return;
       event.preventDefault();
       event.stopPropagation();
+      // Escape exits fullscreen, which fires its own fullscreen_exit warning.
+      // Skip counting it again as a blocked_key within 500ms of that exit.
+      if (event.key === 'Escape' && Date.now() - lastFullscreenExitRef.current < 500) return;
       record(
         'blocked_key',
         { key: event.key, reason: decision.reason ?? 'blocked' },
@@ -321,11 +336,18 @@ export function useProctor(roundId: number, options: { enabled?: boolean } = {})
         // Reconcile the optimistic counts against the server's.
         setWarnings(result.warning_count);
         setKeyViolations(result.key_violation_count);
-        setFlagged(result.status === 'flagged');
+        const nowFlagged = result.status === 'flagged';
+        setFlagged(nowFlagged);
+        // Auto-submit: if the server says the team is flagged (budget exhausted)
+        // and the round rules call for it, trigger the caller's finish handler.
+        if (nowFlagged && rules.autoSubmitOnExhaustion && !exhausted) {
+          setExhausted(true);
+          onExhaustedRef.current?.();
+        }
       }
     }, FLUSH_INTERVAL_MS);
     return () => window.clearInterval(timer);
-  }, [enabled, started]);
+  }, [enabled, started, rules.autoSubmitOnExhaustion, exhausted]);
 
   useEffect(() => {
     if (!enabled || !started) return;
@@ -351,6 +373,7 @@ export function useProctor(roundId: number, options: { enabled?: boolean } = {})
     warnings,
     keyViolations,
     flagged,
+    exhausted,
     rules,
     warning,
     dismissWarning,
