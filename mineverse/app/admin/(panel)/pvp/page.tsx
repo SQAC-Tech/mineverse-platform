@@ -30,7 +30,7 @@ type MatchDetail = MatchRow & {
   }>;
 };
 
-type TeamOption = { id: string; team_code: string; team_name: string; eligibility: { hasIronArmor: boolean; hasBlazeGuardian: boolean; hasPvPWin: boolean; isEligible: boolean } };
+type TeamOption = { id: string; team_code: string; team_name: string; year?: string; eligibility: { hasIronArmor: boolean; hasBlazeGuardian: boolean; hasPvPWin: boolean; isEligible: boolean } };
 
 export default function AdminPvpPage() {
   const [matches, setMatches] = useState<MatchRow[] | null>(null);
@@ -53,7 +53,21 @@ export default function AdminPvpPage() {
     ]);
     if (m.ok) setMatches(m.data.matches ?? []);
     else toast.error(m.message);
-    if (q.ok) setOptions(q.data.teams ?? []);
+    if (q.ok) {
+      const teams = q.data.teams ?? [];
+      // Fetch year labels for eligible teams
+      const eligibleIds = teams
+        .filter((t) => t.eligibility?.hasIronArmor && t.eligibility?.hasBlazeGuardian)
+        .map((t) => t.id);
+      let yearMap: Record<string, string> = {};
+      if (eligibleIds.length > 0) {
+        const yr = await apiCall<{ years: Record<string, string> }>(
+          `/api/admin/pvp/team-years?ids=${eligibleIds.join(',')}`,
+        );
+        if (yr.ok) yearMap = yr.data.years;
+      }
+      setOptions(teams.map((t) => ({ ...t, year: yearMap[t.id] })));
+    }
   }, []);
 
   const loadDetail = useCallback(async (id: string) => {
@@ -156,7 +170,9 @@ export default function AdminPvpPage() {
               <select className="n-select" value={teamA} onChange={(e) => setTeamA(e.target.value)}>
                 <option value="">Select…</option>
                 {eligible.map((t) => (
-                  <option key={t.id} value={t.id} disabled={t.id === teamB}>{t.team_code} — {t.team_name}</option>
+                  <option key={t.id} value={t.id} disabled={t.id === teamB}>
+                    {t.team_code} — {t.team_name}{t.year ? ` · ${t.year}` : ''}
+                  </option>
                 ))}
               </select>
             </Field>
@@ -165,7 +181,9 @@ export default function AdminPvpPage() {
               <select className="n-select" value={teamB} onChange={(e) => setTeamB(e.target.value)}>
                 <option value="">Select…</option>
                 {eligible.map((t) => (
-                  <option key={t.id} value={t.id} disabled={t.id === teamA}>{t.team_code} — {t.team_name}</option>
+                  <option key={t.id} value={t.id} disabled={t.id === teamA}>
+                    {t.team_code} — {t.team_name}{t.year ? ` · ${t.year}` : ''}
+                  </option>
                 ))}
               </select>
             </Field>

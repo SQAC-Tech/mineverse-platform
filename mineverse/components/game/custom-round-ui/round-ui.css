@@ -124,7 +124,7 @@
   --rd-accent: #ff6b4a;
   --rd-accent-deep: #66190f;
   --rd-accent-ink: #1c0604;
-  --rd-scene: url('/cinematic_minecraft_bg.webp');
+  --rd-scene: url('/nether_bg.jpg');
   --rd-scene-shade: linear-gradient(180deg, rgba(14, 4, 5, 0.46), rgba(14, 4, 5, 0.2) 38%, rgba(10, 3, 4, 0.82));
   --rd-frame: url('/round2/stone-board-texture.svg');
   --rd-frame-edge: #5c3330;
@@ -686,6 +686,8 @@
    the grid squeeze until the tiles spill over each other. */
 .round-ui__answer {
   min-height: 232px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .round-ui__prompt {
@@ -801,7 +803,7 @@
 .round-ui__field {
   width: 100%;
   min-height: 84px;
-  flex: 1;
+  flex: 1 0 auto;
   padding: 11px;
   border: 2px solid var(--rd-board-line);
   border-radius: 2px;
@@ -2363,6 +2365,7 @@
   align-items: center;
   gap: 8px;
   padding: 10px 12px;
+  margin-top: 12px;
   border: 2px solid var(--rd-board-tile-edge);
   background: var(--rd-board-sunk);
   color: var(--rd-board-dim);
@@ -2563,4 +2566,90 @@
 .nt__delta--down {
   border-color: var(--rd-bad);
   color: var(--rd-bad);
+}
+
+/* ── PvP ─────────────────────────────────────────────────────── */
+
+.round-ui__pvp-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.round-ui__pvp-status {
+  font-size: 11px;
+  color: var(--rd-ink-dim);
+}
+
+.round-ui__pvp-status strong {
+  color: var(--rd-ink);
+}
+
+.round-ui__pvp-reqs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--rd-edge);
+  border-radius: 2px;
+}
+
+.round-ui__pvp-req {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--rd-ink-dim);
+}
+
+.round-ui__pvp-req--met {
+  color: var(--rd-good);
+}
+
+.round-ui__pvp-arena {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  background: var(--rd-void);
+}
+
+.round-ui__pvp-countdown {
+  font-family: var(--rd-font-display);
+  font-size: 24px;
+  color: var(--rd-gold);
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.8);
+}
+
+.round-ui__pvp-result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 32px;
+  background: var(--rd-board-sunk);
+  border: 2px solid var(--rd-board-line);
+  text-align: center;
+}
+
+.round-ui__pvp-result-title {
+  font-family: var(--rd-font-display);
+  font-size: 24px;
+  text-transform: uppercase;
+}
+
+.round-ui__pvp-result-title--won {
+  color: var(--rd-good);
+}
+
+.round-ui__pvp-result-title--lost {
+  color: var(--rd-bad);
+}
+
+.round-ui__pvp-result-award {
+  color: var(--rd-gold);
+  font-size: 14px;
+  letter-spacing: 1px;
 }

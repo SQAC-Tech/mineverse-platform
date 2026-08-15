@@ -20,6 +20,7 @@ import { toast } from 'sonner';
 import { GuardianArena } from './GuardianArena';
 import { NotificationTray, type LedgerEntry } from './NotificationTray';
 import { WorldEvent } from './WorldEvent';
+import { PvpPanel } from '../pvp/PvpPanel';
 import {
   RESOURCE_META,
   buildQuestionTabs,
@@ -30,6 +31,7 @@ import {
   roundCraft,
   roundGuardian,
   roundObjective,
+  roundPvp,
   type ResourceKey,
   type ShellQuestion,
 } from './round-presentation';
@@ -196,6 +198,7 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
   const objective = roundObjective(roundId);
   const guardian = roundGuardian(roundId);
   const craft = roundCraft(roundId);
+  const isPvp = roundPvp(roundId);
 
   // The tab set only exists once questions load, so the selection follows it.
   useEffect(() => {
@@ -657,6 +660,8 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
                 </button>
               </section>
               )}
+
+              {isPvp && <PvpPanel />}
             </aside>
           ) : (
             <button

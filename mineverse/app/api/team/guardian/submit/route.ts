@@ -3,6 +3,7 @@ import { getSession } from '@/lib/auth/session';
 import { resolveGuardianBattle, GuardianName } from '@/lib/gameplay/guardians/service';
 import { verifyTeamRoundAccess } from '@/lib/gameplay/utils/access';
 import { z } from 'zod';
+import { broadcastPvpEligible } from '@/lib/gameplay/pvp/notify';
 
 const submitSchema = z.object({
   guardian_name: z.enum(['forest_guardian', 'skeleton_archer', 'blaze_guardian']),
@@ -44,6 +45,12 @@ export async function POST(req: NextRequest) {
     
     if (!res.success) {
       return NextResponse.json({ success: false, error: { code: res.error, message: res.message } }, { status: 409 });
+    }
+
+    // Fire-and-forget: if the blaze_guardian was just defeated, check if team is now fully
+    // PvP-eligible (also has Iron Armor) and notify the admin.
+    if (res.success && guardian_name === 'blaze_guardian' && res.data?.status === 'won') {
+      void broadcastPvpEligible(session.team_id);
     }
 
     return NextResponse.json({ success: true, data: res.data });

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getSession } from '@/lib/auth/session';
 import { craftTeamItem, listCraftRecipes } from '@/lib/gameplay/crafting/service';
+import { broadcastPvpEligible } from '@/lib/gameplay/pvp/notify';
 
 const craftSchema = z.object({
   item: z.enum(['wooden_pickaxe', 'stone_pickaxe', 'iron_armor', 'diamond_pickaxe']),
@@ -38,6 +39,12 @@ export async function POST(req: NextRequest) {
         { success: false, error: { code: result.code, message: result.message } },
         { status: result.status },
       );
+    }
+
+    // Fire-and-forget: if iron_armor was just crafted, check if team is now fully PvP-eligible
+    // and notify the admin. This is best-effort and must not block the response.
+    if (parsed.data.item === 'iron_armor') {
+      void broadcastPvpEligible(session.team_id);
     }
 
     return NextResponse.json({ success: true, data: result.data });

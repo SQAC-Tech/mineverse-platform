@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { usePathname } from 'next/navigation';
-import { Menu, X } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { Menu, X, Swords } from 'lucide-react';
 import { AdminNav } from '@/components/admin/admin-nav';
 import { LogoutButton } from '@/components/admin/logout-button';
+import { supabaseClient } from '@/lib/supabase/client';
+import { toast } from 'sonner';
 
 /**
  * Layout chrome for the admin panel. Client-side only because the sidebar
@@ -14,6 +16,7 @@ import { LogoutButton } from '@/components/admin/logout-button';
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
 
   // Navigating on a phone should dismiss the drawer, not leave it covering the
   // page the organizer just asked for.
@@ -25,6 +28,28 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [open]);
+
+  // Listen for PvP-eligible team notifications from the backend.
+  // Any admin with the panel open will receive these in real-time.
+  useEffect(() => {
+    const channel = supabaseClient.channel('pvp_admin')
+      .on('broadcast', { event: 'team_eligible' }, (msg) => {
+        const { team_name, team_code, year } = msg.payload ?? {};
+        if (!team_name) return;
+        toast(`⚔ ${team_name} (${year ?? 'Unknown Year'}) is PvP-ready!`, {
+          description: `${team_code} has Iron Armor + Blaze Guardian. Go pair them in PvP.`,
+          duration: 12000,
+          icon: <Swords size={16} style={{ color: '#f59e0b' }} />,
+          action: {
+            label: 'Open PvP',
+            onClick: () => router.push('/admin/pvp'),
+          },
+        });
+      })
+      .subscribe();
+
+    return () => { void supabaseClient.removeChannel(channel); };
+  }, [router]);
 
   return (
     <div className="nether n-shell">
