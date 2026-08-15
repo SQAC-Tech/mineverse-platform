@@ -2,13 +2,49 @@
  * The screening paper.
  *
  * Same rules as round-ui.css — blocky, 2px corners at most, depth from a hard
- * offset shadow. It borrows the `--rd-*` tokens from `.round-ui--night`, which
- * the wrapper always carries, so nothing here redefines a colour.
+ * offset shadow. The layout is an exam, not a game screen: one question at a
+ * time with a navigator, because 25 questions in 30 minutes means the thing
+ * that matters is knowing what you have left.
  *
- * The layout is an exam, not a game screen: one question at a time with a
- * navigator, because 25 questions in 30 minutes means the thing that matters is
- * knowing what you have left.
+ * The palette lives HERE, not in round-ui.css.
+ *
+ * It was in round-ui.css at first, which was wrong twice over. The screening
+ * pages only import this file, so none of the tokens resolved and the
+ * background silently never loaded. And the biome classes there only carry the
+ * scene colours — `--rd-ink`, `--rd-gold`, `--rd-bad` and the fonts sit on the
+ * base `.round-ui` class, which the screening does not use because it is not a
+ * game round. Defining the complete set here makes this surface self-contained:
+ * no import order to get right, and no `.round-ui` layout rules coming along
+ * for the ride.
  */
+
+.round-ui--night {
+  /* Base tokens, normally inherited from `.round-ui`. */
+  --rd-ink: #e8f0ec;
+  --rd-ink-dim: #9db3aa;
+  --rd-gold: #f2c14e;
+  --rd-good: #4fae7d;
+  --rd-good-deep: #1d5340;
+  --rd-bad: #e05b4b;
+
+  --rd-font-display: var(--font-minecraft), 'Press Start 2P', ui-monospace, monospace;
+  --rd-font-body: ui-sans-serif, system-ui, 'Segoe UI', Roboto, sans-serif;
+  --rd-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Read off the night art this sits on: deep blue-green ground, moonlight as
+     the accent, torch amber held back for the clock running out. */
+  --rd-void: #070d0c;
+  --rd-panel: linear-gradient(155deg, #10201d 0%, #070f0e 100%);
+  --rd-edge: #1f3733;
+  --rd-edge-lit: #3d635b;
+  --rd-accent: #7fd4bd;
+  --rd-accent-deep: #16453a;
+  --rd-accent-ink: #04140f;
+  --rd-scene: url('/minecraft-bg.webp');
+  --rd-scene-shade: linear-gradient(180deg, rgba(3, 9, 8, 0.42), rgba(3, 9, 8, 0.14) 38%, rgba(2, 7, 6, 0.88));
+  --rd-glass: rgba(6, 14, 12, 0.5);
+  --rd-glass-edge: rgba(127, 212, 189, 0.26);
+}
 
 .scr {
   position: relative;

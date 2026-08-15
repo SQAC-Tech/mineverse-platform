@@ -112,3 +112,19 @@ export function canStart(window: ScreeningWindow, now: number = Date.now()): boo
 export function deadlineFrom(startedAt: string | number | Date): Date {
   return new Date(new Date(startedAt).getTime() + SCREENING_DURATION_MS);
 }
+
+/**
+ * Dev-only: treat the window as open whatever the date says.
+ *
+ * Reuses the existing `NEXT_PUBLIC_DEV_UNLOCK_ALL_ROUNDS` flag rather than
+ * inventing a second one, and rather than moving the real window on the shared
+ * database — the round is live for 41 teams, and a date edited for a local walk
+ * through would open the qualifier for all of them.
+ *
+ * Deliberately kept out of `windowState` and `canStart`, which stay pure and
+ * are asserted against the exact IST boundaries. The bypass is applied at the
+ * two call sites that need it, where it is visible.
+ *
+ * NEVER set that flag in production.
+ */
+export const DEV_OPEN_SCREENING = process.env.NEXT_PUBLIC_DEV_UNLOCK_ALL_ROUNDS === 'true';

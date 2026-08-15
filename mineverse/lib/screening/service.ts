@@ -1,6 +1,8 @@
 import { supabaseServer } from '@/lib/supabase/server';
 import { registrationYears } from '@/lib/registration-no';
+import { noteDevUnlockBypass } from '@/lib/gameplay/dev-mode';
 import {
+  DEV_OPEN_SCREENING,
   DIFFICULTY_POINTS,
   FIRST_YEAR_BONUS,
   REQUIRE_PAYMENT_VERIFIED,
@@ -109,7 +111,13 @@ export async function startAttempt(teamId: string): Promise<Result<StartedAttemp
   }
 
   if (!canStart({ startsAt: round.starts_at, endsAt: round.ends_at })) {
-    return { ok: false, status: 403, code: 'WINDOW_CLOSED', message: 'The screening round is not open.' };
+    if (!DEV_OPEN_SCREENING) {
+      return { ok: false, status: 403, code: 'WINDOW_CLOSED', message: 'The screening round is not open.' };
+    }
+    // Only the date check is skipped. Payment verification, the one-attempt
+    // rule, the draw, the 30-minute deadline and grading are all untouched
+    // below, so a walk through in dev exercises the real thing.
+    noteDevUnlockBypass(`screening window for team ${teamId}`);
   }
 
   const { data: team } = await db

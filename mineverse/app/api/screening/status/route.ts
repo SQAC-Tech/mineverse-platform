@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth/session';
+import { noteDevUnlockBypass } from '@/lib/gameplay/dev-mode';
 import {
+  DEV_OPEN_SCREENING,
   LATE_START_WARNING_MS,
   SCREENING_DURATION_MINUTES,
   SCREENING_QUESTION_COUNT,
@@ -19,7 +21,13 @@ import { supabaseServer } from '@/lib/supabase/server';
 export async function GET() {
   const round = await getScreeningRound();
   const now = Date.now();
-  const state = windowState({ startsAt: round?.starts_at ?? null, endsAt: round?.ends_at ?? null }, now);
+  const realState = windowState({ startsAt: round?.starts_at ?? null, endsAt: round?.ends_at ?? null }, now);
+
+  // Dev only. The login card and the instructions screen both gate on this, so
+  // without it a local walk through stops at "opens on 22 Aug" even though
+  // `start` would let you in.
+  const state = DEV_OPEN_SCREENING && realState !== 'open' ? 'open' : realState;
+  if (state !== realState) noteDevUnlockBypass('screening status');
 
   const closesInMs = round?.ends_at ? new Date(round.ends_at).getTime() - now : null;
 
