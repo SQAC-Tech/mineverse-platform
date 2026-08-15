@@ -1,5 +1,5 @@
 import {
-  BookOpen, Brain, Bug, Code2, Flame, Mountain, Pickaxe, Puzzle,
+  BookOpen, Brain, Bug, Code2, Flame, Moon, Mountain, Pickaxe, Puzzle,
   ScrollText, Sparkles, Terminal, TreePine, type LucideIcon,
 } from 'lucide-react';
 import { ROUND_CONFIGS } from '@/lib/gameplay/round-config';
@@ -159,6 +159,14 @@ interface RoundChrome {
 }
 
 const CHROME: Record<number, Omit<RoundChrome, 'name'>> = {
+  // The screening qualifier. Not a game round — it runs before the event and has
+  // no biome, guardian or economy — but it is proctored through the same gate,
+  // so it needs a palette entry for the gate to theme itself with.
+  0: {
+    eyebrow: 'SCREENING', day: 'Qualifier', mode: 'Online', Icon: Moon, themeClass: 'round-ui--night',
+    guardianArt: null, eventArt: null,
+    eventIdleText: 'The world is dark. Only the qualifier stands between you and the event.',
+  },
   1: {
     eyebrow: 'ROUND 1', day: 'Day 1', mode: 'Online', Icon: TreePine, themeClass: 'round-ui--forest',
     guardianArt: '/round1/guardian-forest.webp', eventArt: '/round1/event-heavy-rain.webp',
@@ -191,7 +199,10 @@ const CHROME: Record<number, Omit<RoundChrome, 'name'>> = {
 export function roundChrome(roundId: number): RoundChrome {
   const config = ROUND_CONFIGS[roundId];
   const chrome = CHROME[roundId] ?? CHROME[1];
-  return { name: config?.name ?? `Round ${roundId}`, ...chrome };
+  // The screening has no ROUND_CONFIGS entry — it has no objective, guardian or
+  // craft — so "Round 0" would be the fallback. Name it properly.
+  const fallback = roundId === 0 ? 'Screening Round' : `Round ${roundId}`;
+  return { name: config?.name ?? fallback, ...chrome };
 }
 
 export function roundObjective(roundId: number) {

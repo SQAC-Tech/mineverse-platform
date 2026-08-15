@@ -1,0 +1,336 @@
+/*
+ * Proctor surfaces: the entry gate, the warning toast and the fullscreen scrim.
+ *
+ * Same rules as round-ui.css — blocky, 2px corners at most, depth from a hard
+ * offset shadow rather than a blur. These render both inside a `.round-ui`
+ * (where the --rd-* palette is defined) and standalone on Round 5, so every
+ * token below carries a fallback rather than assuming the biome is present.
+ */
+
+.pgate {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  overflow: auto;
+  background: var(--rd-void, #0b1509);
+  color: var(--rd-ink, #f2f0e6);
+  font-family: var(--rd-font-body, ui-sans-serif, system-ui, sans-serif);
+}
+
+/* A faint scanline wash so the gate reads as a held state, not a loading blank. */
+.pgate::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.022) 0 2px,
+    transparent 2px 4px
+  );
+}
+
+.pgate__card {
+  position: relative;
+  width: min(100%, 560px);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 26px clamp(18px, 4vw, 32px) 24px;
+  border: 2px solid var(--rd-edge-lit, #5f7a4b);
+  border-radius: 2px;
+  background: var(--rd-panel, linear-gradient(155deg, #17231a 0%, #0b120c 100%));
+  box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.55);
+}
+
+.pgate__eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-family: var(--rd-font-display, var(--font-minecraft), 'Press Start 2P', ui-monospace, monospace);
+  font-size: 9px;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--rd-gold, #f2c14e);
+}
+
+.pgate__title {
+  margin: 0;
+  font-family: var(--rd-font-display, var(--font-minecraft), 'Press Start 2P', ui-monospace, monospace);
+  font-size: clamp(14px, 3.2vw, 19px);
+  line-height: 1.5;
+  text-transform: uppercase;
+  text-wrap: balance;
+}
+
+.pgate__lede {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--rd-ink-dim, #a9b1a6);
+}
+
+.pgate__rules {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--rd-edge, #37472f);
+}
+
+.pgate__rule {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  gap: 11px;
+  align-items: start;
+  padding: 11px 2px;
+  border-bottom: 1px solid var(--rd-edge, #37472f);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.pgate__rule svg {
+  margin-top: 2px;
+  color: var(--rd-accent, #7ad64e);
+}
+
+.pgate__rule--strict svg { color: var(--rd-bad, #e05b4b); }
+
+.pgate__rule b {
+  display: block;
+  font-weight: 650;
+  color: var(--rd-ink, #f2f0e6);
+}
+
+.pgate__rule span {
+  color: var(--rd-ink-dim, #a9b1a6);
+}
+
+/* The budget line is the one number a participant should leave with. */
+.pgate__budget {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pgate__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px;
+  border: 1px solid var(--rd-edge-lit, #5f7a4b);
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.28);
+  font-family: var(--rd-font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  color: var(--rd-ink-dim, #a9b1a6);
+}
+
+.pgate__chip b {
+  color: var(--rd-gold, #f2c14e);
+  font-variant-numeric: tabular-nums;
+}
+
+.pgate__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+/*
+ * Scoped to `.pgate` / `.pscrim` for specificity, not for tidiness.
+ *
+ * The gate root carries `.round-ui` so it inherits the biome palette, and
+ * round-ui.css contains `.round-ui button { font: inherit }` — (0,1,1), which
+ * beats a bare `.pgate__btn` at (0,1,0) and silently reset these buttons to
+ * 16px body sans. Measured, not assumed; the two-class selector is (0,2,0).
+ */
+.pgate .pgate__btn,
+.pscrim .pgate__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 20px;
+  border: 2px solid rgba(0, 0, 0, 0.5);
+  border-radius: 2px;
+  cursor: pointer;
+  font-family: var(--rd-font-display, var(--font-minecraft), 'Press Start 2P', ui-monospace, monospace);
+  font-size: 10px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  background: linear-gradient(180deg, var(--rd-good, #6cc244) 0%, var(--rd-good-deep, #2f6c22) 100%);
+  box-shadow: inset 2px 2px 0 rgba(255, 255, 255, 0.3), inset -2px -2px 0 rgba(0, 0, 0, 0.35);
+  color: #f4ffe9;
+}
+
+.pgate .pgate__btn:hover:not(:disabled),
+.pscrim .pgate__btn:hover:not(:disabled) { filter: brightness(1.1); }
+
+.pgate .pgate__btn:disabled,
+.pscrim .pgate__btn:disabled { cursor: not-allowed; filter: grayscale(0.8); opacity: 0.55; }
+
+.pgate .pgate__btn:focus-visible,
+.pscrim .pgate__btn:focus-visible { outline: 2px solid var(--rd-gold, #f2c14e); outline-offset: 2px; }
+
+.pgate .pgate__btn--quiet {
+  background: rgba(0, 0, 0, 0.3);
+  border-color: var(--rd-edge-lit, #5f7a4b);
+  box-shadow: none;
+  color: var(--rd-ink-dim, #a9b1a6);
+}
+.pgate .pgate__btn--quiet:hover:not(:disabled) { color: var(--rd-ink, #f2f0e6); filter: none; }
+
+.pgate__error {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  padding: 11px 13px;
+  border: 1px solid var(--rd-bad, #e05b4b);
+  border-left-width: 3px;
+  border-radius: 2px;
+  background: rgba(224, 91, 75, 0.12);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--rd-ink, #f2f0e6);
+}
+
+.pgate__error svg { flex: none; margin-top: 2px; color: var(--rd-bad, #e05b4b); }
+
+.pgate__foot {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--rd-ink-dim, #a9b1a6);
+  opacity: 0.85;
+}
+
+/* ── Blocking scrim: shown while out of fullscreen ─────────────────── */
+
+.pscrim {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.86);
+  backdrop-filter: blur(3px);
+  color: var(--rd-ink, #f2f0e6);
+  font-family: var(--rd-font-body, ui-sans-serif, system-ui, sans-serif);
+  text-align: center;
+}
+
+.pscrim__card {
+  display: flex;
+  width: min(100%, 440px);
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+  padding: 30px 26px;
+  border: 2px solid var(--rd-bad, #e05b4b);
+  border-radius: 2px;
+  background: var(--rd-panel, linear-gradient(155deg, #17231a 0%, #0b120c 100%));
+  box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.6);
+}
+
+.pscrim__card h2 {
+  margin: 0;
+  font-family: var(--rd-font-display, var(--font-minecraft), 'Press Start 2P', ui-monospace, monospace);
+  font-size: 13px;
+  line-height: 1.6;
+  text-transform: uppercase;
+}
+
+.pscrim__card p {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--rd-ink-dim, #a9b1a6);
+}
+
+.pscrim__count {
+  font-family: var(--rd-font-mono, ui-monospace, monospace);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--rd-gold, #f2c14e);
+}
+
+/* ── Warning toast ─────────────────────────────────────────────────── */
+
+.ptoast {
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  z-index: 65;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(92vw, 460px);
+  padding: 10px 14px;
+  border: 2px solid var(--rd-bad, #e05b4b);
+  border-radius: 2px;
+  background: #1a0f0d;
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.5);
+  color: #f7e9e6;
+  font-family: var(--rd-font-body, ui-sans-serif, system-ui, sans-serif);
+  font-size: 13px;
+  line-height: 1.45;
+  transform: translateX(-50%);
+  animation: ptoast-in 160ms ease-out;
+}
+
+.ptoast svg { flex: none; color: var(--rd-bad, #e05b4b); }
+
+.ptoast__count {
+  flex: none;
+  padding-left: 10px;
+  margin-left: auto;
+  border-left: 1px solid rgba(255, 255, 255, 0.15);
+  font-family: var(--rd-font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--rd-gold, #f2c14e);
+  white-space: nowrap;
+}
+
+@keyframes ptoast-in {
+  from { opacity: 0; transform: translate(-50%, -10px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ptoast { animation: none; }
+}
+
+/* A persistent, unobtrusive reminder that the round is being watched. */
+.pbadge {
+  position: fixed;
+  right: 12px;
+  bottom: 12px;
+  z-index: 55;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 9px;
+  border: 1px solid var(--rd-edge-lit, #5f7a4b);
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.55);
+  font-family: var(--rd-font-mono, ui-monospace, monospace);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--rd-ink-dim, #a9b1a6);
+  pointer-events: none;
+}
+
+.pbadge svg { color: var(--rd-accent, #7ad64e); }
+.pbadge--hot { border-color: var(--rd-bad, #e05b4b); }
+.pbadge--hot svg { color: var(--rd-bad, #e05b4b); }

@@ -139,6 +139,37 @@
   --rd-glass-edge: rgba(255, 122, 90, 0.28);
 }
 
+/*
+ * Screening qualifier. Palette read off the night art it sits on: a deep
+ * blue-green ground, moonlight as the accent instead of a biome colour, and
+ * torch amber held back for the clock running out.
+ *
+ * The only palette here that is not a biome — the screening happens before the
+ * world does.
+ */
+.round-ui--night {
+  --rd-void: #070d0c;
+  --rd-panel: linear-gradient(155deg, #10201d 0%, #070f0e 100%);
+  --rd-edge: #1f3733;
+  --rd-edge-lit: #3d635b;
+  --rd-accent: #7fd4bd;
+  --rd-accent-deep: #16453a;
+  --rd-accent-ink: #04140f;
+  --rd-scene: url('/minecraft-bg.webp');
+  --rd-scene-shade: linear-gradient(180deg, rgba(3, 9, 8, 0.44), rgba(3, 9, 8, 0.16) 38%, rgba(2, 7, 6, 0.86));
+  --rd-frame: url('/round2/stone-board-texture.svg');
+  --rd-frame-edge: #3a4a46;
+  --rd-board: linear-gradient(180deg, #dde6e1 0%, #c8d4cf 55%, #b3c1bb 100%);
+  --rd-board-ink: #16211e;
+  --rd-board-dim: #44544f;
+  --rd-board-line: #7d908a;
+  --rd-board-tile: rgba(247, 251, 249, 0.54);
+  --rd-board-tile-edge: #7b8e88;
+  --rd-board-sunk: rgba(28, 42, 38, 0.15);
+  --rd-glass: rgba(6, 14, 12, 0.5);
+  --rd-glass-edge: rgba(127, 212, 189, 0.26);
+}
+
 /* ── Scene ───────────────────────────────────────────────────── */
 
 .round-ui__backdrop,
