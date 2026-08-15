@@ -13,6 +13,7 @@ import { ConsumableInventory } from '@/components/game/marketplace/ConsumableInv
 import { ChoicePanel } from '@/components/game/choices/ChoicePanel';
 import { getRoundConfig } from '@/lib/gameplay/round-config';
 import { Panel, Btn, Pill, Loading } from '@/components/admin/nether-ui';
+import { useProctorSession } from '@/components/game/proctor/ProctorProvider';
 
 interface RoundShellProps { roundId: number }
 
@@ -48,6 +49,9 @@ function formatRemaining(ms: number) {
 
 export function RoundShell({ roundId }: RoundShellProps) {
   const router = useRouter();
+  // Null when the proctor is switched off, or when this shell is rendered
+  // outside a ProctorProvider — the round still works either way.
+  const proctor = useProctorSession();
   const config = getRoundConfig(roundId);
 
   const [round, setRound] = useState<RoundData | null>(null);
@@ -124,13 +128,16 @@ export function RoundShell({ roundId }: RoundShellProps) {
           return;
         }
       }
+      // Closes the proctor session and leaves fullscreen before navigating, so
+      // the dashboard is not stuck behind a fullscreen scrim.
+      await proctor?.finish();
       router.push('/dashboard');
     } catch {
       setError({ code: 'NETWORK', message: 'Could not reach the server. Nothing was submitted.' });
     } finally {
       setFinishing(false);
     }
-  }, [answeredIds, roundId, router]);
+  }, [answeredIds, roundId, router, proctor]);
 
   const remaining = useMemo(() => {
     if (!round?.ends_at) return null;

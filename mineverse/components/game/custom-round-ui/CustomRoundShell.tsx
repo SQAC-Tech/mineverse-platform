@@ -17,6 +17,7 @@ import {
   X,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useProctorSession } from '@/components/game/proctor/ProctorProvider';
 import { GuardianArena } from './GuardianArena';
 import { NotificationTray, type LedgerEntry } from './NotificationTray';
 import { WorldEvent } from './WorldEvent';
@@ -110,6 +111,9 @@ function initials(name: string | null | undefined) {
 
 export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
   const router = useRouter();
+  // Null when the proctor is switched off, or when this shell is rendered
+  // outside a ProctorProvider — the round still works either way.
+  const proctor = useProctorSession();
   const [questions, setQuestions] = useState<Question[]>([]);
   const [resources, setResources] = useState<ResourcesData | null>(null);
   const [team, setTeam] = useState<TeamInfo | null>(null);
@@ -330,6 +334,9 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
       }
       toast.success('Round submitted — your answers are final.');
       setConfirmFinish(false);
+      // Closes the proctor session and leaves fullscreen before navigating, so
+      // the dashboard is not stuck behind a fullscreen scrim.
+      await proctor?.finish();
       router.push('/dashboard');
     } catch {
       toast.error('Could not reach the server. Nothing was submitted.');

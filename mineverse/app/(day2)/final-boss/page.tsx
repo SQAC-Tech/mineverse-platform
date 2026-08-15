@@ -1,4 +1,5 @@
 import { FinalBossUI } from '@/components/day2/final-boss/FinalBossUI';
+import { ProctoredRound } from '@/components/game/proctor/ProctoredRound';
 import { requireDay2Access } from '@/lib/day2/access/guard';
 import { NextResponse } from 'next/server';
 import { redirect } from 'next/navigation';
@@ -21,5 +22,12 @@ export default async function FinalBossPage() {
     return null;
   }
 
-  return <FinalBossUI />;
+  // Proctored under Round 5's rules: this is the graded challenge that decides
+  // the champions. The Nether Portal repair on /portal is deliberately left
+  // open — Round 4 is a cooperative step, not an assessment.
+  return (
+    <ProctoredRound roundId={5}>
+      <FinalBossUI />
+    </ProctoredRound>
+  );
 }

@@ -3,6 +3,7 @@ import { getSession } from '@/lib/auth/session';
 import { supabaseServer } from '@/lib/supabase/server';
 import { DEV_UNLOCK_ALL_ROUNDS } from '@/lib/gameplay/dev-mode';
 import { EndRoundShell } from '@/components/day2/end-round/EndRoundShell';
+import { ProctoredRound } from '@/components/game/proctor/ProctoredRound';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,5 +29,9 @@ export default async function Round5Page() {
     }
   }
 
-  return <EndRoundShell roundId={5} />;
+  return (
+    <ProctoredRound roundId={5}>
+      <EndRoundShell roundId={5} />
+    </ProctoredRound>
+  );
 }
