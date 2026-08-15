@@ -245,3 +245,8 @@ export function roundCraft(roundId: number) {
     unlockRoundId: recipe.unlock_round_id,
   };
 }
+
+/** Whether PvP is enabled for this round. */
+export function roundPvp(roundId: number) {
+  return ROUND_CONFIGS[roundId]?.pvp ?? false;
+}

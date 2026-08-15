@@ -134,7 +134,7 @@
 :is(.nether, .biome) .n-table tbody tr:nth-child(even) { background: rgb(from var(--bg-void) r g b / 55%); }
 :is(.nether, .biome) .n-table tbody tr:hover { background: rgb(from var(--bg-panel-raised) r g b / 40%); }
 :is(.nether, .biome) .n-table-wrap { overflow-x: auto; }
-:is(.nether, .biome) .n-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; }
+:is(.nether, .biome) .n-mono { font-family: var(--font-minecraft); font-size: 10px; }
 
 /* ── Status pills ────────────────────────────────────────── */
 :is(.nether, .biome) .n-pill {
