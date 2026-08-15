@@ -1164,6 +1164,121 @@ export type Database = {
           },
         ]
       }
+      proctor_events: {
+        Row: {
+          detail: Json
+          id: number
+          kind: string
+          occurred_at: string
+          round_id: number
+          session_id: string
+          severity: string
+          team_id: string
+        }
+        Insert: {
+          detail?: Json
+          id?: number
+          kind: string
+          occurred_at?: string
+          round_id: number
+          session_id: string
+          severity: string
+          team_id: string
+        }
+        Update: {
+          detail?: Json
+          id?: number
+          kind?: string
+          occurred_at?: string
+          round_id?: number
+          session_id?: string
+          severity?: string
+          team_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proctor_events_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proctor_events_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "proctor_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proctor_events_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      proctor_sessions: {
+        Row: {
+          capabilities: Json
+          device_id: string
+          ended_at: string | null
+          id: string
+          key_violation_count: number
+          last_seen_at: string
+          round_id: number
+          started_at: string
+          status: string
+          team_id: string
+          user_agent: string | null
+          warning_count: number
+        }
+        Insert: {
+          capabilities?: Json
+          device_id: string
+          ended_at?: string | null
+          id?: string
+          key_violation_count?: number
+          last_seen_at?: string
+          round_id: number
+          started_at?: string
+          status?: string
+          team_id: string
+          user_agent?: string | null
+          warning_count?: number
+        }
+        Update: {
+          capabilities?: Json
+          device_id?: string
+          ended_at?: string | null
+          id?: string
+          key_violation_count?: number
+          last_seen_at?: string
+          round_id?: number
+          started_at?: string
+          status?: string
+          team_id?: string
+          user_agent?: string | null
+          warning_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proctor_sessions_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proctor_sessions_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pvp_match_questions: {
         Row: {
           content: Json
@@ -1692,6 +1807,181 @@ export type Database = {
           time_allotted?: number
         }
         Relationships: []
+      }
+      screening_answers: {
+        Row: {
+          answered_at: string
+          attempt_id: string
+          question_id: string
+          selected_index: number
+        }
+        Insert: {
+          answered_at?: string
+          attempt_id: string
+          question_id: string
+          selected_index: number
+        }
+        Update: {
+          answered_at?: string
+          attempt_id?: string
+          question_id?: string
+          selected_index?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "screening_answers_attempt_id_fkey"
+            columns: ["attempt_id"]
+            isOneToOne: false
+            referencedRelation: "screening_attempts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screening_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "screening_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      screening_attempts: {
+        Row: {
+          auto_submitted: boolean
+          bonus_points: number
+          correct_count: number | null
+          created_at: string
+          deadline_at: string
+          id: string
+          option_order: Json
+          question_ids: string[]
+          raw_score: number | null
+          started_at: string
+          status: string
+          submitted_at: string | null
+          team_id: string
+          total_score: number | null
+        }
+        Insert: {
+          auto_submitted?: boolean
+          bonus_points?: number
+          correct_count?: number | null
+          created_at?: string
+          deadline_at: string
+          id?: string
+          option_order?: Json
+          question_ids: string[]
+          raw_score?: number | null
+          started_at?: string
+          status?: string
+          submitted_at?: string | null
+          team_id: string
+          total_score?: number | null
+        }
+        Update: {
+          auto_submitted?: boolean
+          bonus_points?: number
+          correct_count?: number | null
+          created_at?: string
+          deadline_at?: string
+          id?: string
+          option_order?: Json
+          question_ids?: string[]
+          raw_score?: number | null
+          started_at?: string
+          status?: string
+          submitted_at?: string | null
+          team_id?: string
+          total_score?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "screening_attempts_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: true
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      screening_questions: {
+        Row: {
+          correct_index: number
+          created_at: string
+          difficulty: string
+          explanation: string | null
+          id: string
+          options: Json
+          order_index: number
+          prompt: string
+          topic: string | null
+        }
+        Insert: {
+          correct_index: number
+          created_at?: string
+          difficulty: string
+          explanation?: string | null
+          id?: string
+          options: Json
+          order_index: number
+          prompt: string
+          topic?: string | null
+        }
+        Update: {
+          correct_index?: number
+          created_at?: string
+          difficulty?: string
+          explanation?: string | null
+          id?: string
+          options?: Json
+          order_index?: number
+          prompt?: string
+          topic?: string | null
+        }
+        Relationships: []
+      }
+      screening_shortlist: {
+        Row: {
+          decided_at: string
+          decided_by: string | null
+          grant_ledger_id: string | null
+          rank: number
+          result: string
+          result_mailed_at: string | null
+          submitted_at: string | null
+          team_id: string
+          total_score: number
+        }
+        Insert: {
+          decided_at?: string
+          decided_by?: string | null
+          grant_ledger_id?: string | null
+          rank: number
+          result: string
+          result_mailed_at?: string | null
+          submitted_at?: string | null
+          team_id: string
+          total_score: number
+        }
+        Update: {
+          decided_at?: string
+          decided_by?: string | null
+          grant_ledger_id?: string | null
+          rank?: number
+          result?: string
+          result_mailed_at?: string | null
+          submitted_at?: string | null
+          team_id?: string
+          total_score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "screening_shortlist_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: true
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       staff_attendance: {
         Row: {

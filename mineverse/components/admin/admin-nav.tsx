@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, CreditCard, Users, Clock, ClipboardCheck,
-  Zap, Swords, Coins, Trophy, ClipboardList,
+  Zap, Swords, Coins, Trophy, ClipboardList, Eye, Moon,
 } from 'lucide-react';
 
 /**
@@ -21,6 +21,14 @@ const NAV_GROUPS = [
     ],
   },
   {
+    // The screening runs before the event, so it sits with the setup screens
+    // rather than with the things an organizer touches on event day.
+    group: 'Screening',
+    items: [
+      { name: 'Screening Round', href: '/admin/screening', icon: Moon },
+    ],
+  },
+  {
     group: 'Live Ops',
     items: [
       { name: 'Rounds', href: '/admin/rounds', icon: Clock },
@@ -29,6 +37,7 @@ const NAV_GROUPS = [
       // decides a team earned is handed out on the Resources screen.
       { name: 'Grant Resources', href: '/admin/resources', icon: Coins },
       { name: 'PvP Matches', href: '/admin/pvp', icon: Swords },
+      { name: 'Proctor', href: '/admin/proctor', icon: Eye },
       { name: 'Desk Attendance', href: '/admin/staff-attendance', icon: ClipboardList },
     ],
   },

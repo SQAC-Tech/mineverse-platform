@@ -29,7 +29,11 @@ async function logEmail(type: string, provider: 'resend'|'smtp', to: string, sub
  * followed by a `smtp` row is how you spot the fallback carrying traffic
  * rather than it silently becoming the primary again.
  */
-async function deliver({
+/**
+ * Exported so the screening templates can live in their own file — index.ts is
+ * already long, and those three are a self-contained set.
+ */
+export async function deliver({
   type, to, subject, html, attachments, teamId, memberId,
 }: {
   type: string;
@@ -55,7 +59,7 @@ async function deliver({
 // By using pure black (#000000) and white (#ffffff), Gmail's dark mode
 // will NOT invert the colors, guaranteeing perfect readability.
 
-function mcLayout(inner: string) {
+export function mcLayout(inner: string) {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -108,7 +112,7 @@ function mcLayout(inner: string) {
 </html>`;
 }
 
-function mcTitle(text: string) {
+export function mcTitle(text: string) {
   return `<h2 class="pixel" style="color: #4ade80; font-size: 32px; margin: 0 0 20px 0; font-weight: normal; letter-spacing: 2px;">> ${text}</h2>`;
 }
 
@@ -126,7 +130,7 @@ function mcCodeBox(code: string) {
 `;
 }
 
-function mcButton(text: string, url: string, color = '#3e8e2b') {
+export function mcButton(text: string, url: string, color = '#3e8e2b') {
   return `
 <table width="100%" border="0" cellpadding="0" cellspacing="0" style="margin: 30px 0;">
   <tr>
@@ -140,7 +144,7 @@ function mcButton(text: string, url: string, color = '#3e8e2b') {
 `;
 }
 
-function mcRow(label: string, value: string) {
+export function mcRow(label: string, value: string) {
   return `
 <tr>
   <td class="pixel" style="padding: 12px 0; color: #a3a3a3; font-size: 20px; border-bottom: 1px dashed #333333;">${label}</td>
