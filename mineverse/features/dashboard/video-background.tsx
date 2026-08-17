@@ -37,12 +37,12 @@ export function VideoBackground() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [showMapModal]);
 
-  // ── Transition Video (transition1.mp4) ──────────────────────
-  const [playingTransitionVideo, setPlayingTransitionVideo] = useState(false);
+  // ── Transition Video ────────────────────────────────────────
+  const [transitionTarget, setTransitionTarget] = useState<string | null>(null);
   const transitionVideoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
-    if (!playingTransitionVideo) return;
+    if (!transitionTarget) return;
     const v = transitionVideoRef.current;
     if (v) {
       v.currentTime = 0;
@@ -51,7 +51,7 @@ export function VideoBackground() {
         v.play().catch(() => { });
       });
     }
-  }, [playingTransitionVideo]);
+  }, [transitionTarget]);
 
   // ── Fetch the team's round state so the portals know what is enterable ──
   const fetchRounds = useCallback(async () => {
@@ -198,7 +198,7 @@ export function VideoBackground() {
             }}
           >
             <img
-              src="/map.webp"
+              src={rounds.find(r => r.round_id === 2)?.can_enter ? '/cave-biome-map.jpg' : '/map.webp'}
               alt="World Map"
               style={{
                 width: '100vw',
@@ -226,7 +226,7 @@ export function VideoBackground() {
                     e.stopPropagation();
                     if (enterable) {
                       setShowMapModal(false);
-                      setPlayingTransitionVideo(true);
+                      setTransitionTarget('/round1');
                     }
                   }}
                   style={{
@@ -276,9 +276,87 @@ export function VideoBackground() {
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <span style={{ fontSize: '18px' }}>{enterable ? (completed ? '🔄' : '🌲') : '🔒'}</span>
-                    <span>{completed ? 'REPLAY FOREST REGION' : enterable ? 'ACCESS FOREST REGION' : 'FOREST REGION LOCKED'}</span>
+                    <span>{completed ? 'REPLAY FOREST BIOME' : enterable ? 'ACCESS FOREST BIOME' : 'FOREST BIOME LOCKED'}</span>
                   </div>
                   {round1?.unlocked_by_dev_mode && (
+                    <span style={{ fontSize: '9px', color: '#ffcc00', letterSpacing: '1px' }}>DEV UNLOCKED</span>
+                  )}
+                </button>
+              );
+            })()}
+
+            {/* Access Cave Biome Button (Backend Linked to Round 2) */}
+            {(() => {
+              const round1 = rounds.find(r => r.round_id === 1);
+              const round2 = rounds.find(r => r.round_id === 2);
+
+              // Only show the Cave Biome button if Forest (Round 1) is completed OR Cave is unlocked
+              if (!round1?.completed_at && !round2?.can_enter) return null;
+
+              const enterable = round2?.can_enter ?? false;
+              const completed = Boolean(round2?.completed_at);
+
+              return (
+                <button
+                  type="button"
+                  disabled={!enterable}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (enterable) {
+                      setShowMapModal(false);
+                      setTransitionTarget('/round2');
+                    }
+                  }}
+                  style={{
+                    position: 'absolute',
+                    top: '65%',
+                    left: '28%',
+                    transform: 'translate(-50%, -50%)',
+                    zIndex: 100,
+                    background: enterable
+                      ? 'linear-gradient(135deg, rgba(70, 70, 80, 0.95), rgba(40, 40, 50, 0.96))'
+                      : 'rgba(30, 34, 42, 0.92)',
+                    border: `2px solid ${enterable ? '#a0a0b0' : 'rgba(140, 150, 170, 0.4)'}`,
+                    borderRadius: '6px',
+                    padding: '10px 20px',
+                    color: enterable ? '#ffffff' : 'rgba(255, 255, 255, 0.45)',
+                    fontFamily: 'var(--font-minecraft), system-ui, sans-serif',
+                    fontSize: 'clamp(11px, 1.2vw, 15px)',
+                    fontWeight: 'bold',
+                    letterSpacing: '1.5px',
+                    textTransform: 'uppercase',
+                    textShadow: enterable ? '1px 2px 4px rgba(0,0,0,0.9)' : 'none',
+                    boxShadow: enterable
+                      ? '0 0 20px rgba(180, 180, 200, 0.6), 0 6px 16px rgba(0, 0, 0, 0.8)'
+                      : '0 4px 12px rgba(0, 0, 0, 0.6)',
+                    cursor: enterable ? 'var(--mv-cursor-pickaxe, pointer)' : 'not-allowed',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '4px',
+                    transition: 'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                    animation: enterable ? 'pulse-cave-btn 2s infinite alternate' : 'none',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (enterable) {
+                      e.currentTarget.style.transform = 'translate(-50%, -50%) scale(1.08)';
+                      e.currentTarget.style.boxShadow = '0 0 32px rgba(180, 180, 200, 0.95), 0 8px 24px rgba(0, 0, 0, 0.9)';
+                      e.currentTarget.style.borderColor = '#d0d0e0';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (enterable) {
+                      e.currentTarget.style.transform = 'translate(-50%, -50%) scale(1)';
+                      e.currentTarget.style.boxShadow = '0 0 20px rgba(180, 180, 200, 0.6), 0 6px 16px rgba(0, 0, 0, 0.8)';
+                      e.currentTarget.style.borderColor = '#a0a0b0';
+                    }
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '18px' }}>{enterable ? (completed ? '🔄' : '⛏️') : '🔒'}</span>
+                    <span>{completed ? 'REPLAY CAVE BIOME' : enterable ? 'ACCESS CAVE BIOME' : 'CAVE BIOME LOCKED'}</span>
+                  </div>
+                  {round2?.unlocked_by_dev_mode && (
                     <span style={{ fontSize: '9px', color: '#ffcc00', letterSpacing: '1px' }}>DEV UNLOCKED</span>
                   )}
                 </button>
@@ -288,8 +366,8 @@ export function VideoBackground() {
         </div>
       )}
 
-      {/* ── TRANSITION VIDEO OVERLAY (transition1.mp4) ── */}
-      {playingTransitionVideo && (
+      {/* ── TRANSITION VIDEO OVERLAY ── */}
+      {transitionTarget && (
         <div
           style={{
             position: 'fixed',
@@ -308,7 +386,7 @@ export function VideoBackground() {
             autoPlay
             playsInline
             onEnded={() => {
-              router.push('/round1');
+              router.push(transitionTarget);
             }}
             style={{
               width: '100vw',
@@ -320,7 +398,7 @@ export function VideoBackground() {
 
           <button
             type="button"
-            onClick={() => router.push('/round1')}
+            onClick={() => router.push(transitionTarget)}
             style={{
               position: 'absolute',
               top: '24px',
@@ -409,6 +487,10 @@ export function VideoBackground() {
         @keyframes pulse-forest-btn {
           0%   { box-shadow: 0 0 15px rgba(85, 255, 85, 0.5), 0 4px 14px rgba(0, 0, 0, 0.8); }
           100% { box-shadow: 0 0 28px rgba(85, 255, 85, 0.85), 0 6px 18px rgba(0, 0, 0, 0.9); }
+        }
+        @keyframes pulse-cave-btn {
+          0%   { box-shadow: 0 0 15px rgba(180, 180, 200, 0.5), 0 4px 14px rgba(0, 0, 0, 0.8); }
+          100% { box-shadow: 0 0 28px rgba(180, 180, 200, 0.85), 0 6px 18px rgba(0, 0, 0, 0.9); }
         }
       `}</style>
 
