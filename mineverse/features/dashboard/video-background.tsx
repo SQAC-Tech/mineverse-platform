@@ -14,6 +14,10 @@ export function VideoBackground() {
   const [rounds, setRounds] = useState<DashboardRound[]>([]);
   const [devUnlock, setDevUnlock] = useState(false);
 
+  // ── Team identity & resources ─────────────────────────────────
+  const [teamName, setTeamName] = useState<string | null>(null);
+  const [resources, setResources] = useState<Record<string, number>>({});
+
   // ── Toast notification ────────────────────────────────────────
   const [toast, setToast] = useState<{ icon: string; title: string; subtitle: string; key: number } | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -61,6 +65,8 @@ export function VideoBackground() {
       if (json.success) {
         setRounds(json.rounds ?? []);
         setDevUnlock(Boolean(json.dev_unlock));
+        if (json.team?.name) setTeamName(json.team.name);
+        if (json.resources) setResources(json.resources);
       }
     } catch {
       // The portals still render; they stay locked until a fetch succeeds.
@@ -124,6 +130,29 @@ export function VideoBackground() {
         />
       </div>
 
+      {/* Player Statistics HUD */}
+      <div className="stats-hud">
+        {/* Team name header */}
+        <div style={{ fontSize: '11px', borderBottom: '2px solid #555', paddingBottom: '6px', marginBottom: '2px', textAlign: 'center', color: '#ffff55', letterSpacing: '1px' }}>
+          {teamName ?? 'LOADING...'}
+        </div>
+        <div style={{ fontSize: '9px', textAlign: 'center', color: '#aaaaaa', letterSpacing: '1px', marginBottom: '4px' }}>RESOURCES</div>
+        {[
+          { label: 'WOOD',     key: 'wood',     color: '#c8a87a' },
+          { label: 'STONE',    key: 'stone',    color: '#aaaaaa' },
+          { label: 'IRON',     key: 'iron',     color: '#d8d8d8' },
+          { label: 'GOLD',     key: 'gold',     color: '#ffaa00' },
+          { label: 'DIAMOND',  key: 'diamond',  color: '#55ffff' },
+          { label: 'EMERALD',  key: 'emerald',  color: '#55ff55' },
+          { label: 'OBSIDIAN', key: 'obsidian', color: '#9966cc' },
+        ].map(({ label, key, color }) => (
+          <div key={key} style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', fontSize: '12px' }}>
+            <span style={{ color: '#cccccc' }}>{label}</span>
+            <span style={{ color, fontWeight: 'bold' }}>{resources[key] ?? 0}</span>
+          </div>
+        ))}
+      </div>
+
       {/* DASHBOARD TITLE — dashboard.webp */}
       <div style={{
         position: 'absolute',
@@ -163,6 +192,32 @@ export function VideoBackground() {
         }}
         className="scene-btn steve-btn"
       >
+        {/* Floating map hint — also clickable */}
+        <button
+          type="button"
+          onClick={() => setShowMapModal(true)}
+          style={{
+            position: 'absolute',
+            top: '-35px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'rgba(20, 24, 30, 0.9)',
+            border: '2px solid #a0a0a0',
+            borderRadius: '4px',
+            padding: '8px 12px',
+            color: '#ffffff',
+            fontFamily: 'var(--font-minecraft), system-ui, sans-serif',
+            fontSize: 'clamp(10px, 1.2vw, 14px)',
+            fontWeight: 'bold',
+            whiteSpace: 'nowrap',
+            textShadow: '1px 2px 2px rgba(0,0,0,0.8)',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.8), 0 0 10px rgba(255,255,255,0.2)',
+            animation: 'float-bounce 2s ease-in-out infinite',
+            cursor: 'pointer',
+          }}
+        >
+          CLICK TO OPEN MAP
+        </button>
         <Image src="/steve.svg" alt="Steve" width={680} height={560}
           style={{ width: '100%', height: 'auto', display: 'block', filter: 'drop-shadow(0 12px 32px rgba(0,0,0,0.65))' }}
           priority />
@@ -730,6 +785,49 @@ export function VideoBackground() {
         @keyframes pulse-cave-btn {
           0%   { box-shadow: 0 0 15px rgba(180, 180, 200, 0.5), 0 4px 14px rgba(0, 0, 0, 0.8); }
           100% { box-shadow: 0 0 28px rgba(180, 180, 200, 0.85), 0 6px 18px rgba(0, 0, 0, 0.9); }
+        }
+        @keyframes float-bounce {
+          0%, 100% { transform: translateX(-50%) translateY(0); }
+          50% { transform: translateX(-50%) translateY(-8px); }
+        }
+        @keyframes slide-in-right {
+          0% { transform: translateX(120%); opacity: 0; }
+          100% { transform: translateX(0); opacity: 1; }
+        }
+
+        /* Stats HUD — responsive Minecraft panel */
+        .stats-hud {
+          position: absolute;
+          top: 40px;
+          right: 30px;
+          z-index: 10;
+          background: rgba(40, 40, 40, 0.88);
+          border: 3px solid #555;
+          border-top-color: #888;
+          border-left-color: #888;
+          border-bottom-color: #222;
+          border-right-color: #222;
+          padding: 12px 16px;
+          font-family: var(--font-minecraft), system-ui, sans-serif;
+          color: #ffffff;
+          text-shadow: 2px 2px 0 #000;
+          animation: slide-in-right 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+          box-shadow: 0 8px 24px rgba(0,0,0,0.8);
+          display: flex;
+          flex-direction: column;
+          gap: 7px;
+          min-width: 180px;
+        }
+        @media (max-width: 600px) {
+          .stats-hud {
+            top: auto;
+            bottom: 12px;
+            right: 12px;
+            min-width: 140px;
+            padding: 8px 12px;
+            gap: 5px;
+            font-size: 10px;
+          }
         }
       `}</style>
 
