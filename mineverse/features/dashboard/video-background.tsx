@@ -180,7 +180,7 @@ export function VideoBackground() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: '12px',
+            padding: 0,
             cursor: 'pointer',
             animation: 'mc-backdrop-fade 0.25s ease-out forwards',
           }}
@@ -190,11 +190,12 @@ export function VideoBackground() {
             onClick={(e) => e.stopPropagation()}
             style={{
               position: 'relative',
-              width: '100vw',
-              height: '100vh',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+              width: '100%',
+              height: '100%',
+              maxHeight: '100vh',
+              maxWidth: '100vw',
+              aspectRatio: '1024 / 815',
+              margin: 'auto',
             }}
           >
             {(() => {
@@ -214,10 +215,8 @@ export function VideoBackground() {
                   src={imgSrc}
                   alt="World Map"
                   style={{
-                    width: '100vw',
-                    height: '100vh',
-                    maxHeight: '100vh',
-                    maxWidth: '100vw',
+                    width: '100%',
+                    height: '100%',
                     objectFit: 'contain',
                     display: 'block',
                     animation: 'map-pop-in 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) forwards',
@@ -246,8 +245,8 @@ export function VideoBackground() {
                   }}
                   style={{
                     position: 'absolute',
-                    top: '32%',
-                    left: '64%',
+                    top: '25%',
+                    left: '65%',
                     transform: 'translate(-50%, -50%)',
                     zIndex: 100,
                     background: enterable
@@ -305,8 +304,9 @@ export function VideoBackground() {
               const round1 = rounds.find(r => r.round_id === 1);
               const round2 = rounds.find(r => r.round_id === 2);
 
-              // Only show the Cave Biome button if Forest (Round 1) is completed OR Cave is unlocked
-              if (!round1?.completed_at && !round2?.can_enter) return null;
+              // Only show the Cave Biome button if Forest is completed, OR Cave (or any later round) is unlocked
+              const isR2OrLater = round2?.can_enter || rounds.some(r => r.round_id > 2 && r.can_enter);
+              if (!round1?.completed_at && !isR2OrLater) return null;
 
               const enterable = round2?.can_enter ?? false;
               const completed = Boolean(round2?.completed_at);
@@ -325,7 +325,7 @@ export function VideoBackground() {
                   style={{
                     position: 'absolute',
                     top: '65%',
-                    left: '28%',
+                    left: '35%',
                     transform: 'translate(-50%, -50%)',
                     zIndex: 100,
                     background: enterable
@@ -383,7 +383,8 @@ export function VideoBackground() {
               const round2 = rounds.find(r => r.round_id === 2);
               const round3 = rounds.find(r => r.round_id === 3);
 
-              if (!round2?.completed_at && !round3?.can_enter) return null;
+              const isR3OrLater = round3?.can_enter || rounds.some(r => r.round_id > 3 && r.can_enter);
+              if (!round2?.completed_at && !isR3OrLater) return null;
 
               const enterable = round3?.can_enter ?? false;
               const completed = Boolean(round3?.completed_at);
@@ -401,8 +402,8 @@ export function VideoBackground() {
                   }}
                   style={{
                     position: 'absolute',
-                    top: '25%',
-                    left: '30%',
+                    top: '30%',
+                    left: '35%',
                     transform: 'translate(-50%, -50%)',
                     zIndex: 100,
                     background: enterable
@@ -457,7 +458,8 @@ export function VideoBackground() {
               const round3 = rounds.find(r => r.round_id === 3);
               const round4 = rounds.find(r => r.round_id === 4);
 
-              if (!round3?.completed_at && !round4?.can_enter) return null;
+              const isR4OrLater = round4?.can_enter || rounds.some(r => r.round_id > 4 && r.can_enter);
+              if (!round3?.completed_at && !isR4OrLater) return null;
 
               const enterable = round4?.can_enter ?? false;
               const completed = Boolean(round4?.completed_at);
@@ -475,8 +477,8 @@ export function VideoBackground() {
                   }}
                   style={{
                     position: 'absolute',
-                    top: '75%',
-                    left: '60%',
+                    top: '65%',
+                    left: '65%',
                     transform: 'translate(-50%, -50%)',
                     zIndex: 100,
                     background: enterable
@@ -549,8 +551,8 @@ export function VideoBackground() {
                   }}
                   style={{
                     position: 'absolute',
-                    top: '80%',
-                    left: '80%',
+                    top: '78%',
+                    left: '75%',
                     transform: 'translate(-50%, -50%)',
                     zIndex: 100,
                     background: enterable
