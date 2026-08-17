@@ -197,20 +197,35 @@ export function VideoBackground() {
               justifyContent: 'center',
             }}
           >
-            <img
-              src={rounds.find(r => r.round_id === 2)?.can_enter ? '/cave-biome-map.jpg' : '/map.webp'}
-              alt="World Map"
-              style={{
-                width: '100vw',
-                height: '100vh',
-                maxHeight: '100vh',
-                maxWidth: '100vw',
-                objectFit: 'contain',
-                display: 'block',
-                animation: 'map-pop-in 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) forwards',
-                filter: 'drop-shadow(0 0 40px rgba(0,0,0,0.9))',
-              }}
-            />
+            {(() => {
+              const r5 = rounds.find(r => r.round_id === 5)?.can_enter;
+              const r4 = rounds.find(r => r.round_id === 4)?.can_enter;
+              const r3 = rounds.find(r => r.round_id === 3)?.can_enter;
+              const r2 = rounds.find(r => r.round_id === 2)?.can_enter;
+
+              let imgSrc = '/map.webp';
+              if (r5) imgSrc = '/final-biome-map.jpg';
+              else if (r4) imgSrc = '/nether-biome-map.jpg';
+              else if (r3) imgSrc = '/mountain-biome-map.jpg';
+              else if (r2) imgSrc = '/cave-biome-map.jpg';
+
+              return (
+                <img
+                  src={imgSrc}
+                  alt="World Map"
+                  style={{
+                    width: '100vw',
+                    height: '100vh',
+                    maxHeight: '100vh',
+                    maxWidth: '100vw',
+                    objectFit: 'contain',
+                    display: 'block',
+                    animation: 'map-pop-in 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) forwards',
+                    filter: 'drop-shadow(0 0 40px rgba(0,0,0,0.9))',
+                  }}
+                />
+              );
+            })()}
 
             {/* Access Forest & Grassland Region Button (Backend Linked to Round 1) */}
             {(() => {
@@ -357,6 +372,228 @@ export function VideoBackground() {
                     <span>{completed ? 'REPLAY CAVE BIOME' : enterable ? 'ACCESS CAVE BIOME' : 'CAVE BIOME LOCKED'}</span>
                   </div>
                   {round2?.unlocked_by_dev_mode && (
+                    <span style={{ fontSize: '9px', color: '#ffcc00', letterSpacing: '1px' }}>DEV UNLOCKED</span>
+                  )}
+                </button>
+              );
+            })()}
+
+            {/* Access Mountain Biome Button (Round 3) */}
+            {(() => {
+              const round2 = rounds.find(r => r.round_id === 2);
+              const round3 = rounds.find(r => r.round_id === 3);
+
+              if (!round2?.completed_at && !round3?.can_enter) return null;
+
+              const enterable = round3?.can_enter ?? false;
+              const completed = Boolean(round3?.completed_at);
+
+              return (
+                <button
+                  type="button"
+                  disabled={!enterable}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (enterable) {
+                      setShowMapModal(false);
+                      setTransitionTarget('/round3');
+                    }
+                  }}
+                  style={{
+                    position: 'absolute',
+                    top: '25%',
+                    left: '30%',
+                    transform: 'translate(-50%, -50%)',
+                    zIndex: 100,
+                    background: enterable
+                      ? 'linear-gradient(135deg, rgba(80, 120, 150, 0.95), rgba(40, 70, 90, 0.96))'
+                      : 'rgba(30, 34, 42, 0.92)',
+                    border: `2px solid ${enterable ? '#aaddff' : 'rgba(140, 150, 170, 0.4)'}`,
+                    borderRadius: '6px',
+                    padding: '10px 20px',
+                    color: enterable ? '#ffffff' : 'rgba(255, 255, 255, 0.45)',
+                    fontFamily: 'var(--font-minecraft), system-ui, sans-serif',
+                    fontSize: 'clamp(11px, 1.2vw, 15px)',
+                    fontWeight: 'bold',
+                    letterSpacing: '1.5px',
+                    textTransform: 'uppercase',
+                    textShadow: enterable ? '1px 2px 4px rgba(0,0,0,0.9)' : 'none',
+                    boxShadow: enterable
+                      ? '0 0 20px rgba(170, 220, 255, 0.6), 0 6px 16px rgba(0, 0, 0, 0.8)'
+                      : '0 4px 12px rgba(0, 0, 0, 0.6)',
+                    cursor: enterable ? 'var(--mv-cursor-pickaxe, pointer)' : 'not-allowed',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '4px',
+                    transition: 'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (enterable) {
+                      e.currentTarget.style.transform = 'translate(-50%, -50%) scale(1.08)';
+                      e.currentTarget.style.boxShadow = '0 0 32px rgba(170, 220, 255, 0.95), 0 8px 24px rgba(0, 0, 0, 0.9)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (enterable) {
+                      e.currentTarget.style.transform = 'translate(-50%, -50%) scale(1)';
+                      e.currentTarget.style.boxShadow = '0 0 20px rgba(170, 220, 255, 0.6), 0 6px 16px rgba(0, 0, 0, 0.8)';
+                    }
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '18px' }}>{enterable ? (completed ? '🔄' : '❄️') : '🔒'}</span>
+                    <span>{completed ? 'REPLAY MOUNTAIN BIOME' : enterable ? 'ACCESS MOUNTAIN BIOME' : 'MOUNTAIN BIOME LOCKED'}</span>
+                  </div>
+                  {round3?.unlocked_by_dev_mode && (
+                    <span style={{ fontSize: '9px', color: '#ffcc00', letterSpacing: '1px' }}>DEV UNLOCKED</span>
+                  )}
+                </button>
+              );
+            })()}
+
+            {/* Access Nether Biome Button (Round 4) */}
+            {(() => {
+              const round3 = rounds.find(r => r.round_id === 3);
+              const round4 = rounds.find(r => r.round_id === 4);
+
+              if (!round3?.completed_at && !round4?.can_enter) return null;
+
+              const enterable = round4?.can_enter ?? false;
+              const completed = Boolean(round4?.completed_at);
+
+              return (
+                <button
+                  type="button"
+                  disabled={!enterable}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (enterable) {
+                      setShowMapModal(false);
+                      setTransitionTarget('/round4');
+                    }
+                  }}
+                  style={{
+                    position: 'absolute',
+                    top: '75%',
+                    left: '60%',
+                    transform: 'translate(-50%, -50%)',
+                    zIndex: 100,
+                    background: enterable
+                      ? 'linear-gradient(135deg, rgba(120, 40, 40, 0.95), rgba(70, 20, 20, 0.96))'
+                      : 'rgba(30, 34, 42, 0.92)',
+                    border: `2px solid ${enterable ? '#ff6666' : 'rgba(140, 150, 170, 0.4)'}`,
+                    borderRadius: '6px',
+                    padding: '10px 20px',
+                    color: enterable ? '#ffffff' : 'rgba(255, 255, 255, 0.45)',
+                    fontFamily: 'var(--font-minecraft), system-ui, sans-serif',
+                    fontSize: 'clamp(11px, 1.2vw, 15px)',
+                    fontWeight: 'bold',
+                    letterSpacing: '1.5px',
+                    textTransform: 'uppercase',
+                    textShadow: enterable ? '1px 2px 4px rgba(0,0,0,0.9)' : 'none',
+                    boxShadow: enterable
+                      ? '0 0 20px rgba(255, 100, 100, 0.6), 0 6px 16px rgba(0, 0, 0, 0.8)'
+                      : '0 4px 12px rgba(0, 0, 0, 0.6)',
+                    cursor: enterable ? 'var(--mv-cursor-pickaxe, pointer)' : 'not-allowed',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '4px',
+                    transition: 'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (enterable) {
+                      e.currentTarget.style.transform = 'translate(-50%, -50%) scale(1.08)';
+                      e.currentTarget.style.boxShadow = '0 0 32px rgba(255, 100, 100, 0.95), 0 8px 24px rgba(0, 0, 0, 0.9)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (enterable) {
+                      e.currentTarget.style.transform = 'translate(-50%, -50%) scale(1)';
+                      e.currentTarget.style.boxShadow = '0 0 20px rgba(255, 100, 100, 0.6), 0 6px 16px rgba(0, 0, 0, 0.8)';
+                    }
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '18px' }}>{enterable ? (completed ? '🔄' : '🔥') : '🔒'}</span>
+                    <span>{completed ? 'REPLAY NETHER BIOME' : enterable ? 'ACCESS NETHER BIOME' : 'NETHER BIOME LOCKED'}</span>
+                  </div>
+                  {round4?.unlocked_by_dev_mode && (
+                    <span style={{ fontSize: '9px', color: '#ffcc00', letterSpacing: '1px' }}>DEV UNLOCKED</span>
+                  )}
+                </button>
+              );
+            })()}
+
+            {/* Access The End Button (Round 5) */}
+            {(() => {
+              const round4 = rounds.find(r => r.round_id === 4);
+              const round5 = rounds.find(r => r.round_id === 5);
+
+              if (!round4?.completed_at && !round5?.can_enter) return null;
+
+              const enterable = round5?.can_enter ?? false;
+              const completed = Boolean(round5?.completed_at);
+
+              return (
+                <button
+                  type="button"
+                  disabled={!enterable}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (enterable) {
+                      setShowMapModal(false);
+                      setTransitionTarget('/round5');
+                    }
+                  }}
+                  style={{
+                    position: 'absolute',
+                    top: '80%',
+                    left: '80%',
+                    transform: 'translate(-50%, -50%)',
+                    zIndex: 100,
+                    background: enterable
+                      ? 'linear-gradient(135deg, rgba(140, 40, 180, 0.95), rgba(70, 20, 90, 0.96))'
+                      : 'rgba(30, 34, 42, 0.92)',
+                    border: `2px solid ${enterable ? '#dd88ff' : 'rgba(140, 150, 170, 0.4)'}`,
+                    borderRadius: '6px',
+                    padding: '10px 20px',
+                    color: enterable ? '#ffffff' : 'rgba(255, 255, 255, 0.45)',
+                    fontFamily: 'var(--font-minecraft), system-ui, sans-serif',
+                    fontSize: 'clamp(11px, 1.2vw, 15px)',
+                    fontWeight: 'bold',
+                    letterSpacing: '1.5px',
+                    textTransform: 'uppercase',
+                    textShadow: enterable ? '1px 2px 4px rgba(0,0,0,0.9)' : 'none',
+                    boxShadow: enterable
+                      ? '0 0 20px rgba(220, 140, 255, 0.6), 0 6px 16px rgba(0, 0, 0, 0.8)'
+                      : '0 4px 12px rgba(0, 0, 0, 0.6)',
+                    cursor: enterable ? 'var(--mv-cursor-pickaxe, pointer)' : 'not-allowed',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '4px',
+                    transition: 'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (enterable) {
+                      e.currentTarget.style.transform = 'translate(-50%, -50%) scale(1.08)';
+                      e.currentTarget.style.boxShadow = '0 0 32px rgba(220, 140, 255, 0.95), 0 8px 24px rgba(0, 0, 0, 0.9)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (enterable) {
+                      e.currentTarget.style.transform = 'translate(-50%, -50%) scale(1)';
+                      e.currentTarget.style.boxShadow = '0 0 20px rgba(220, 140, 255, 0.6), 0 6px 16px rgba(0, 0, 0, 0.8)';
+                    }
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '18px' }}>{enterable ? (completed ? '🔄' : '👁️') : '🔒'}</span>
+                    <span>{completed ? 'REPLAY THE END' : enterable ? 'ACCESS THE END' : 'THE END LOCKED'}</span>
+                  </div>
+                  {round5?.unlocked_by_dev_mode && (
                     <span style={{ fontSize: '9px', color: '#ffcc00', letterSpacing: '1px' }}>DEV UNLOCKED</span>
                   )}
                 </button>
