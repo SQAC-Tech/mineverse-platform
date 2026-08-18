@@ -38,6 +38,10 @@ yarn-error.log*
 .env.production.local
 *.env
 !.env.example
+# Hand-made copies of the above. `.env.local.bak` held live service-role keys and
+# was one `git add .` away from being published.
+*.env.bak
+.env*.bak
 
 # vercel
 .vercel
@@ -59,3 +63,5 @@ next-env.d.ts
 /supabase/seed.zip
 /supabase/seed*.zip
 /supabase/seed*.tar.gz
+# Pre-delete snapshots from scripts/clean-db.mjs — contain participant PII
+clean-db-snapshot-*.json

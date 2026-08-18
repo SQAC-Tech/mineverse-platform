@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { otpSendSchema } from '@/lib/validation/schemas';
-import { rateLimit } from '@/lib/rate-limit';
+import { consumeRateLimit, retryHint, tooManyRequests } from '@/lib/rate-limit';
+import { clientIp } from '@/lib/request-ip';
 import { supabaseServer } from '@/lib/supabase/server';
 import { sendOtpEmail } from '@/lib/email';
 import { generateOtp, hashOtp } from '@/lib/auth/otp';
@@ -8,7 +9,7 @@ import { env } from '@/lib/env';
 import { verifyTurnstileToken } from '@/lib/turnstile';
 
 export async function POST(req: Request) {
-  const ip = req.headers.get('x-forwarded-for') ?? 'unknown';
+  const ip = clientIp(req);
   const body = await req.json();
   const parsed = otpSendSchema.safeParse(body);
 
@@ -23,8 +24,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: false, error: `Use your college email (${collegeDomain})` }, { status: 400 });
   }
 
-  if (!rateLimit('otp:' + college_email, 3, 10 * 60_000)) {
-    return NextResponse.json({ success: false, error: 'Too many OTP requests. Wait a few minutes.' }, { status: 429 });
+  // Keyed on the mailbox we are about to send to, which is the right axis: it
+  // survives the whole campus sharing one public IP, and the thing being
+  // rationed is somebody's inbox. Lowercased, or the same address in a different
+  // case would hand out a fresh budget.
+  const perEmail = consumeRateLimit(`otp:${college_email.toLowerCase()}`, 3, 10 * 60_000);
+  if (!perEmail.allowed) {
+    return tooManyRequests(
+      `Too many OTP requests for this email. Try again in ${retryHint(perEmail.retryAfterSeconds)}.`,
+      perEmail.retryAfterSeconds,
+    );
   }
 
   // Turnstile verification (canonical siteverify with remoteip)

@@ -1184,7 +1184,7 @@ function CavernContent({ config }: { config: any }) {
               </svg>
             </div>
             <h3 style={{ fontFamily: 'system-ui, sans-serif', fontSize: 'clamp(0.5rem, 1.5vw, 0.6rem)', color: '#fca311', textShadow: '1px 1px 0 #000', marginBottom: '6px' }}>VENUE</h3>
-            <p style={{ fontFamily: 'system-ui, sans-serif', fontSize: 'clamp(0.8rem, 2.5vw, 1rem)', color: '#e5e5e5', textShadow: '1px 1px 0 #000', lineHeight: '1.6', wordBreak: 'break-word' }}>{process.env.NEXT_PUBLIC_EVENT_VENUE || 'TP710'}</p>
+            <p style={{ fontFamily: 'system-ui, sans-serif', fontSize: 'clamp(0.8rem, 2.5vw, 1rem)', color: '#e5e5e5', textShadow: '1px 1px 0 #000', lineHeight: '1.6', wordBreak: 'break-word' }}>{process.env.NEXT_PUBLIC_EVENT_VENUE || 'TP2 711'}</p>
           </McPanel>
           
           <McPanel style={{ flex: '1 1 180px', minWidth: 0, maxWidth: '260px', padding: '20px 16px', textAlign: 'center', boxSizing: 'border-box', overflowWrap: 'break-word' }}>

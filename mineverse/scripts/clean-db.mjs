@@ -16,7 +16,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createInterface } from 'node:readline/promises';
@@ -55,6 +55,28 @@ const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!url || !serviceKey) {
   console.error('Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY (checked .env.local).');
+  process.exit(1);
+}
+
+/**
+ * On 16 Aug 2026 this script ran against production because `.env.local` happened
+ * to hold the live credentials — 52 teams, 210 members and every payment record
+ * went with it, and the project had no backup to restore from.
+ *
+ * So production is refused by default. Pointing `.env.local` at the live project
+ * is no longer enough to arm this thing; you have to say so on the command line
+ * and then type the project ref back at the prompt.
+ */
+const PRODUCTION_REF = 'cmfhvvgsdwvsbsbwyhqo';
+const targetRef = new URL(url).hostname.split('.')[0];
+const isProduction = targetRef === PRODUCTION_REF;
+const allowProduction = args.includes('--allow-production');
+
+if (isProduction && !allowProduction) {
+  console.error(`\n  REFUSING TO RUN — ${url} is the production project.\n`);
+  console.error('  Point .env.local at a local or branch database, or, if you genuinely');
+  console.error('  mean to wipe production, re-run with --allow-production and be ready');
+  console.error(`  to type the project ref (${PRODUCTION_REF}) to confirm.\n`);
   process.exit(1);
 }
 if (!keepCodes.length) {
@@ -251,8 +273,42 @@ async function main() {
     return;
   }
 
+  // ------------------------------------------------------------- snapshot
+  // Taken before anything is touched, so a mistaken run is still recoverable
+  // from disk even when the project has no database backup behind it.
+  if (dropIds.length) {
+    const [{ data: teamRows }, { data: memberRows }, { data: paymentRows }] = await Promise.all([
+      db.from('teams').select('*').in('id', dropIds),
+      db.from('members').select('*').in('team_id', dropIds),
+      db.from('payments').select('*').in('team_id', dropIds),
+    ]);
+
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const snapshotPath = resolve(ROOT, `clean-db-snapshot-${stamp}.json`);
+    writeFileSync(
+      snapshotPath,
+      JSON.stringify(
+        { taken_at: new Date().toISOString(), supabase_url: url, teams: teamRows ?? [], members: memberRows ?? [], payments: paymentRows ?? [] },
+        null,
+        2,
+      ),
+    );
+    console.log(`\n  Snapshot written: ${snapshotPath}`);
+    console.log(`  ${teamRows?.length ?? 0} teams, ${memberRows?.length ?? 0} members, ${paymentRows?.length ?? 0} payments.`);
+  }
+
   // --------------------------------------------------------------- execute
   const rl = createInterface({ input: process.stdin, output: process.stdout });
+
+  if (isProduction) {
+    const ref = await rl.question(`\nThis is PRODUCTION. Type the project ref (${PRODUCTION_REF}) to continue: `);
+    if (ref.trim() !== PRODUCTION_REF) {
+      rl.close();
+      console.log('Aborted.\n');
+      return;
+    }
+  }
+
   const answer = await rl.question(`\nType DELETE to permanently remove ${total} rows: `);
   rl.close();
   if (answer.trim() !== 'DELETE') {

@@ -1,3 +1,5 @@
+import { isIpAddress } from '@/lib/request-ip';
+
 /**
  * Canonical Cloudflare Turnstile server-side verification.
  *
@@ -7,8 +9,17 @@
  */
 export async function verifyTurnstileToken(
   token: string,
-  remoteIp: string,
+  remoteIp?: string | null,
 ): Promise<boolean> {
+  const form = new URLSearchParams({
+    secret: process.env.TURNSTILE_SECRET!,
+    response: token,
+  });
+  // `remoteip` is optional, and it has to be one bare address. We used to pass
+  // the raw `x-forwarded-for` header, which is a proxy chain, or the literal
+  // string 'unknown' when the header was missing — neither is an IP.
+  if (isIpAddress(remoteIp)) form.set('remoteip', remoteIp);
+
   let result: { success: boolean };
   try {
     const r = await fetch(
@@ -16,11 +27,7 @@ export async function verifyTurnstileToken(
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          secret: process.env.TURNSTILE_SECRET!,
-          response: token,
-          remoteip: remoteIp,
-        }),
+        body: form,
       },
     );
     if (!r.ok) throw new Error(`siteverify ${r.status}`);

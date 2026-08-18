@@ -1,15 +1,23 @@
 import { NextResponse } from 'next/server';
 import { registrationSchema } from '@/lib/validation/schemas';
-import { rateLimit } from '@/lib/rate-limit';
+import { consumeRateLimit, retryHint, tooManyRequests } from '@/lib/rate-limit';
+import { clientIp } from '@/lib/request-ip';
 import { supabaseServer } from '@/lib/supabase/server';
 import { sendRegistrationReceivedEmail } from '@/lib/email';
 import { env } from '@/lib/env';
 import { verifyTurnstileToken } from '@/lib/turnstile';
 
 export async function POST(req: Request) {
-  const ip = req.headers.get('x-forwarded-for') ?? 'unknown';
-  if (!rateLimit('reg:' + ip, 5, 60 * 60_000)) {
-    return NextResponse.json({ success: false, error: 'Too many registrations from this IP' }, { status: 429 });
+  const ip = clientIp(req);
+
+  // Flood guard only. Everyone registers from SRMIST wifi, which puts the whole
+  // campus behind one public IP, so this budget is shared by hundreds of people
+  // and must be sized for machine-speed traffic rather than per person — a
+  // per-IP cap is what locked real teams out during the re-registration drive.
+  // The per-person limit is keyed on the lead's email further down.
+  const flood = consumeRateLimit(`reg-ip:${ip ?? 'unknown'}`, 120, 60_000);
+  if (!flood.allowed) {
+    return tooManyRequests('The registration form is under heavy load. Please try again in a moment.', flood.retryAfterSeconds);
   }
 
   const body = await req.json();
@@ -23,13 +31,26 @@ export async function POST(req: Request) {
 
   const { challenge_id, verification_token, turnstile_token, team_name, members, transaction_id, sender_name } = parsed.data;
 
+  const lead = members.find((m) => m.is_team_lead)!;
+
+  // The real per-person limit. The lead's college email is what is worth
+  // rationing — /api/otp/send already caps how fast a new one can be verified —
+  // and it stays correct no matter how many people share the campus IP. The cap
+  // is deliberately loose: an expired captcha or a rejected transaction ID sends
+  // honest leads round again, and only a loop should ever reach 15.
+  const perLead = consumeRateLimit(`reg-lead:${lead.college_email.toLowerCase()}`, 15, 60 * 60_000);
+  if (!perLead.allowed) {
+    return tooManyRequests(
+      `Too many registration attempts for ${lead.college_email}. Try again in ${retryHint(perLead.retryAfterSeconds)}, or reply to our mail if you are stuck.`,
+      perLead.retryAfterSeconds,
+    );
+  }
+
   // Turnstile verification (canonical siteverify with remoteip)
   const turnstileOk = await verifyTurnstileToken(turnstile_token, ip);
   if (!turnstileOk) {
     return NextResponse.json({ success: false, error: 'Captcha verification failed' }, { status: 403 });
   }
-
-  const lead = members.find((m) => m.is_team_lead)!;
 
   // Verify challenge
   const { data: challenge } = await supabaseServer.from('otp_challenges')
