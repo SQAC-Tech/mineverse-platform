@@ -1,5 +1,6 @@
 import { supabaseServer } from '@/lib/supabase/server';
 import { DEV_UNLOCK_ALL_ROUNDS, noteDevUnlockBypass } from '@/lib/gameplay/dev-mode';
+import { isDemoTeamId, noteDemoBypass } from '@/lib/gameplay/demo-teams';
 
 export type Dev4RoundAccess =
   | { ok: true; round: { id: number; name: string; status: string; starts_at: string | null; ends_at: string | null; time_allotted: number } }
@@ -25,23 +26,33 @@ export async function verifyDev4RoundAccess(teamId: string, roundId: number): Pr
     return { ok: true, round };
   }
 
-  if (round.status !== 'active') {
-    return { ok: false, status: 403, code: 'ROUND_NOT_ACTIVE', message: 'This round is not active.' };
-  }
+  // Scoped to named team codes — see lib/gameplay/demo-teams.ts. This waives the
+  // *scheduling* gates (round status, window, per-team lock) so a round can be
+  // walked without flipping `rounds.status`, which is global. The progression
+  // gates below are not waived: a demo team still has to qualify for Day 2 and
+  // repair the portal, because those are the thing worth testing.
+  const isDemo = await isDemoTeamId(teamId);
+  if (isDemo) noteDemoBypass(`team ${teamId} round ${roundId}`);
 
-  if (!round.ends_at || new Date(round.ends_at).getTime() <= Date.now()) {
-    return { ok: false, status: 403, code: 'ROUND_LOCKED', message: 'This round is no longer accepting submissions.' };
-  }
+  if (!isDemo) {
+    if (round.status !== 'active') {
+      return { ok: false, status: 403, code: 'ROUND_NOT_ACTIVE', message: 'This round is not active.' };
+    }
 
-  const { data: access, error: accessError } = await db
-    .from('team_round_access')
-    .select('is_locked')
-    .eq('team_id', teamId)
-    .eq('round_id', roundId)
-    .single();
+    if (!round.ends_at || new Date(round.ends_at).getTime() <= Date.now()) {
+      return { ok: false, status: 403, code: 'ROUND_LOCKED', message: 'This round is no longer accepting submissions.' };
+    }
 
-  if (accessError || !access || access.is_locked) {
-    return { ok: false, status: 403, code: 'TEAM_NOT_AUTHORIZED_FOR_ROUND', message: 'This round is not unlocked for your team.' };
+    const { data: access, error: accessError } = await db
+      .from('team_round_access')
+      .select('is_locked')
+      .eq('team_id', teamId)
+      .eq('round_id', roundId)
+      .single();
+
+    if (accessError || !access || access.is_locked) {
+      return { ok: false, status: 403, code: 'TEAM_NOT_AUTHORIZED_FOR_ROUND', message: 'This round is not unlocked for your team.' };
+    }
   }
 
   // Round 5 (The End) requires Day 2 qualification + portal repair (Dev 3 tables)

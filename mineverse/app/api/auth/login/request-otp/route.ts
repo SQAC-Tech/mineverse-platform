@@ -6,6 +6,7 @@ import { sendOtpEmail } from '@/lib/email';
 import { generateOtp, hashOtp, isEventDay } from '@/lib/auth/otp';
 import { env } from '@/lib/env';
 import { verifyTurnstileToken } from '@/lib/turnstile';
+import { isDemoTeamCode } from '@/lib/gameplay/demo-teams';
 
 /**
  * Normalise team-code to canonical MNV-XXX format on the server side.
@@ -47,9 +48,11 @@ export async function POST(req: Request) {
     );
   }
 
-  // MNV-000 is the seeded demo team: fixed OTP 000000, no email, no gates.
-  // It always has dashboard access (developer mode) — no event-day restriction.
-  const isDemoTeam = team_code === 'MNV-000';
+  // Demo teams get a fixed OTP of 000000, no email and no gates, so an organiser
+  // can walk the event without waiting for event day. The list is server-side
+  // config (DEMO_TEAM_CODES) rather than a hardcoded code — see
+  // lib/gameplay/demo-teams.ts for what that does and does not bypass.
+  const isDemoTeam = isDemoTeamCode(team_code);
 
   // Turnstile verification — skip for demo team so devs can test without CAPTCHA
   if (!isDemoTeam) {
