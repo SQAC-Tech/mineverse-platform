@@ -2,12 +2,25 @@ import { NextResponse } from 'next/server';
 import { createPanelToken, PANEL_COOKIE } from '@/lib/panel/session';
 import { env } from '@/lib/env';
 import { cookies } from 'next/headers';
-import { rateLimit } from '@/lib/rate-limit';
+import { consumeRateLimit, peekRateLimit, retryHint, tooManyRequests } from '@/lib/rate-limit';
+import { clientIp } from '@/lib/request-ip';
+
+// Charged per failure, not per attempt — see the guard in POST.
+const MAX_FAILURES = 20;
+const FAILURE_WINDOW_MS = 15 * 60_000;
 
 export async function POST(req: Request) {
-  const ip = req.headers.get('x-forwarded-for') ?? 'unknown';
-  if (!rateLimit('panel-login:' + ip, 5, 15 * 60_000)) {
-    return NextResponse.json({ success: false, error: 'Too many login attempts' }, { status: 429 });
+  // Only failed attempts are charged. Volunteers all sign in from the same
+  // campus NAT address on event day, so charging for success meant the sixth
+  // person to arrive got a 429 for doing nothing wrong. A brute-forcer produces
+  // nothing but failures, so this still bites exactly who it should.
+  const failureKey = `panel-login:${clientIp(req) ?? 'unknown'}`;
+  const gate = peekRateLimit(failureKey, MAX_FAILURES);
+  if (!gate.allowed) {
+    return tooManyRequests(
+      `Too many failed login attempts. Try again in ${retryHint(gate.retryAfterSeconds)}.`,
+      gate.retryAfterSeconds,
+    );
   }
 
   const { password, scope } = await req.json();
@@ -19,6 +32,7 @@ export async function POST(req: Request) {
   const validPassword = scope === 'admin' ? env.ADMIN_PASSWORD : env.ATTENDANCE_PASSWORD;
 
   if (password !== validPassword) {
+    consumeRateLimit(failureKey, MAX_FAILURES, FAILURE_WINDOW_MS);
     return NextResponse.json({ success: false, error: 'Invalid password' }, { status: 401 });
   }
 

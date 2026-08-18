@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase/server';
-import { rateLimit } from '@/lib/rate-limit';
+import { consumeRateLimit, retryHint, tooManyRequests } from '@/lib/rate-limit';
+import { clientIp } from '@/lib/request-ip';
 import { sendOtpEmail } from '@/lib/email';
 import { generateOtp, hashOtp, isEventDay } from '@/lib/auth/otp';
 import { env } from '@/lib/env';
@@ -19,15 +20,32 @@ function normalizeTeamCode(raw: string): string {
 }
 
 export async function POST(req: Request) {
-  const ip = req.headers.get('x-forwarded-for') ?? 'unknown';
-  if (!rateLimit('login-otp:' + ip, 5, 10 * 60_000)) {
-    return NextResponse.json({ success: false, error: 'Too many requests' }, { status: 429 });
+  const ip = clientIp(req);
+
+  // Flood guard only — see the per-team limit below for why this is not the
+  // real one.
+  const flood = consumeRateLimit(`login-otp-ip:${ip ?? 'unknown'}`, 120, 60_000);
+  if (!flood.allowed) {
+    return tooManyRequests('Login is under heavy load. Please try again in a moment.', flood.retryAfterSeconds);
   }
 
   const { team_code: rawTeamCode, turnstile_token } = await req.json();
   if (!rawTeamCode) return NextResponse.json({ success: false, error: 'Team code required' }, { status: 400 });
 
   const team_code = normalizeTeamCode(rawTeamCode);
+
+  // Ration by team, not by IP. On event day every team logs in from the same
+  // campus wifi, so an IP budget is one queue the whole hall shares — the first
+  // five teams to arrive would lock out everyone behind them. Per team is also
+  // the limit that actually matters here, since it is what stops anyone
+  // mail-bombing a lead's inbox with OTPs.
+  const perTeam = consumeRateLimit(`login-otp:${team_code}`, 5, 10 * 60_000);
+  if (!perTeam.allowed) {
+    return tooManyRequests(
+      `Too many login codes requested for ${team_code}. Try again in ${retryHint(perTeam.retryAfterSeconds)}.`,
+      perTeam.retryAfterSeconds,
+    );
+  }
 
   // MNV-000 is the seeded demo team: fixed OTP 000000, no email, no gates.
   // It always has dashboard access (developer mode) — no event-day restriction.
