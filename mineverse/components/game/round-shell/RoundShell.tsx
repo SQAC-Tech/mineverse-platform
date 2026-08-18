@@ -356,6 +356,7 @@ function Shell({
     <main className={`biome biome-${biome} round-ui-scene ${themeClass}`} style={{ minHeight: '100vh' }}>
       <div className="round-ui-scene__backdrop" aria-hidden="true" />
       <div className="round-ui-scene__shade" aria-hidden="true" />
+      <div className="round-ui-scene__scrim" aria-hidden="true" />
       <div style={{ maxWidth: 1240, margin: '0 auto', padding: '20px 16px 40px' }}>
         <header
           style={{

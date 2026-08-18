@@ -19,12 +19,26 @@
  */
 
 .pr-stage {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 18px;
-  padding: 8px 0 4px;
+  padding: 20px 0 10px;
 }
+
+/* The scene behind this page is a lit cavern. Without something to sit the
+   portal on, the frame competes with the lava rather than reading as the
+   subject. This darkens and warms the area immediately around it. */
+.pr-stage::before {
+  content: '';
+  position: absolute;
+  inset: -10% -6%;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% 42%, rgba(60, 20, 90, 0.34), rgba(4, 2, 8, 0.62) 58%, transparent 78%);
+}
+
+.pr-stage > * { position: relative; }
 
 /* ── The portal ──────────────────────────────────────────────── */
 
@@ -33,7 +47,7 @@
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   grid-template-rows: repeat(5, 1fr);
-  width: min(228px, 62vw);
+  width: min(268px, 66vw);
   aspect-ratio: 4 / 5;
   gap: 2px;
   filter: drop-shadow(0 14px 28px rgba(0, 0, 0, 0.7));

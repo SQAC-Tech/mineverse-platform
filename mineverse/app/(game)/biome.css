@@ -38,17 +38,34 @@
 }
 
 /*
- * `--bg-panel` is a gradient, and `background-color` cannot take one. theme-kit
- * sets `background: var(--bg-panel)` on panels, which works; this only fixes the
- * places that would otherwise inherit a transparent surface.
+ * A panel on a scene page is a reading surface sitting on top of artwork, so it
+ * has to be genuinely opaque. `--rd-panel` is a translucent-looking gradient
+ * tuned for the shells, where it sits on a flat void colour; over a lit Nether
+ * cavern the same gradient let the scene through and the text became unreadable.
+ * The flat colour underneath is what makes it solid.
  */
 .biome .n-panel {
-  background: var(--rd-panel, linear-gradient(155deg, #17231a 0%, #0b120c 100%));
-  border-color: var(--rd-edge-lit, #5f7a4b);
+  background-color: #0c0910;
+  background-image: var(--rd-panel, linear-gradient(155deg, #17231a 0%, #0b120c 100%));
+  border: 2px solid var(--rd-edge-lit, #5f7a4b);
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.85);
 }
 
 .biome .n-panel-head {
   border-bottom-color: var(--rd-edge, #37472f);
+}
+
+/* The kit's default panel title is dim by design — legible on a flat admin
+   background, lost on this one. */
+.biome .n-panel-title {
+  color: var(--rd-ink, #f2f0e6);
+}
+
+/* Anything outside a panel — the page header, the caption under the portal —
+   still sits directly on the scene, so it carries its own shadow. */
+.biome > div > header,
+.biome .pr-caption {
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.95), 0 0 2px rgba(0, 0, 0, 0.9);
 }
 
 /* Body copy in a round is read at speed. The pixel font stays on headings. */

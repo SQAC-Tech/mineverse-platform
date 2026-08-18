@@ -145,6 +145,7 @@ export function PortalRepairUI() {
     <main className={`biome round-ui-scene ${themeClass}`} style={{ minHeight: '100vh' }}>
       <div className="round-ui-scene__backdrop" aria-hidden="true" />
       <div className="round-ui-scene__shade" aria-hidden="true" />
+      <div className="round-ui-scene__scrim" aria-hidden="true" />
 
       <div style={{ maxWidth: 760, margin: '0 auto', padding: '28px 16px 48px' }}>
         <header style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>

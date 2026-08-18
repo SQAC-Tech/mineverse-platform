@@ -15,7 +15,13 @@
  * for display text only. Dense UI text falls back to the system sans.
  */
 
-.round-ui {
+/*
+ * Base tokens, shared by the full-screen biome shells (`.round-ui`) and by the
+ * scrolling pages that borrow only the palette (`.round-ui-scene`). These lived
+ * on `.round-ui` alone, so a scene page resolved --rd-ink, --rd-gold and the
+ * fonts to nothing and fell back to whatever each consumer had hardcoded.
+ */
+:is(.round-ui, .round-ui-scene) {
   --rd-ink: #f2f0e6;
   --rd-ink-dim: #a9b1a6;
   --rd-gold: #f2c14e;
@@ -29,7 +35,9 @@
 
   --rd-gap: 10px;
   --rd-slot: 3px;
+}
 
+.round-ui {
   /* The round is a single screen: the page itself never scrolls. Anything that
      cannot fit scrolls inside its own column instead (see __board/__rail). */
   position: relative;
@@ -191,9 +199,24 @@
   background-size: cover;
 }
 
+/*
+ * Two layers, not one. `--rd-scene-shade` is tuned for the full-screen shells,
+ * where content sits inside opaque panels and the scene is meant to stay vivid.
+ * A scrolling page puts text straight over the artwork, and the Nether scene in
+ * particular is bright enough to swallow it, so this adds a flat scrim under the
+ * biome gradient. Readability wins over the pretty version of the picture.
+ */
 .round-ui-scene__shade {
   z-index: -1;
   background: var(--rd-scene-shade);
+}
+
+.round-ui-scene__scrim {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: rgba(4, 2, 6, 0.62);
 }
 
 /*
