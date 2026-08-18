@@ -9,8 +9,8 @@ export async function GET() {
   const session = await getSession();
   if (!session) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
 
-  const [{ data: team }, { data: access }, { data: resources }] = await Promise.all([
-    supabaseServer.from('teams').select('id, name, team_code').eq('id', session.team_id).single(),
+  const [teamResult, accessResult, resourcesResult] = await Promise.all([
+    supabaseServer.from('teams').select('id, team_name, team_code').eq('id', session.team_id).single(),
     supabaseServer
       .from('team_round_access')
       .select('*, rounds(id, name, day, sequence, description, time_allotted, status, ends_at)')
@@ -22,6 +22,21 @@ export async function GET() {
       .eq('team_id', session.team_id)
       .maybeSingle(),
   ]);
+
+  // These errors used to be discarded. Selecting `teams.name`, a column that has
+  // never existed, therefore produced `team: null` and a dashboard stuck on
+  // "LOADING..." rather than anything that looked like a failure.
+  for (const [label, result] of [
+    ['team', teamResult],
+    ['round access', accessResult],
+    ['resources', resourcesResult],
+  ] as const) {
+    if (result.error) console.error(`Dashboard ${label} query failed:`, result.error);
+  }
+
+  const { data: team } = teamResult;
+  const { data: access } = accessResult;
+  const { data: resources } = resourcesResult;
 
   const rounds = (access ?? []).map((row: any) => {
     const round = row.rounds ?? {};

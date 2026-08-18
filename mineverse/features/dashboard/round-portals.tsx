@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { Lock, CheckCircle2, Play, Wrench } from 'lucide-react';
+import { ROUND_CONFIGS } from '@/lib/gameplay/round-config';
 
 export interface DashboardRound {
   round_id: number;
@@ -22,14 +23,24 @@ export interface DashboardRound {
  * the four panels on the four-season screen. Tweak these to re-align the cards if
  * the video is re-cut.
  */
-const PANEL_CENTERS_PCT = [16.5, 38.5, 61.5, 83.5];
+export const PANEL_CENTERS_PCT = [13, 31.5, 50, 68.5, 87];
 
-const ACCENTS = [
+export const ACCENTS = [
   { border: 'rgba(120,220,140,0.85)', glow: 'rgba(120,220,140,0.55)' }, // Forest
   { border: 'rgba(150,160,180,0.85)', glow: 'rgba(150,160,180,0.55)' }, // Cave
   { border: 'rgba(255,170,80,0.85)', glow: 'rgba(255,170,80,0.55)' },   // Mountain
-  { border: 'rgba(190,120,255,0.85)', glow: 'rgba(190,120,255,0.55)' }, // Nether
+  { border: 'rgba(255,110,74,0.85)', glow: 'rgba(255,110,74,0.55)' },   // Nether
+  { border: 'rgba(196,137,245,0.85)', glow: 'rgba(196,137,245,0.55)' }, // The End
 ];
+
+/**
+ * Derived, never hardcoded. This was a literal `4` while the event had five
+ * rounds, which left The End with no way in from the dashboard at all — adding
+ * a sixth round to ROUND_CONFIGS would have gone the same way.
+ */
+export const ROUND_IDS = Object.keys(ROUND_CONFIGS)
+  .map(Number)
+  .sort((a, b) => a - b);
 
 interface RoundPortalsProps {
   rounds: DashboardRound[];
@@ -40,11 +51,10 @@ interface RoundPortalsProps {
 export function RoundPortals({ rounds, devUnlock, visible }: RoundPortalsProps) {
   const router = useRouter();
 
-  // Always render four slots so the layout matches the video even while the
-  // dashboard payload is still loading.
-  const slots = Array.from({ length: 4 }, (_, index) =>
-    rounds.find((round) => round.round_id === index + 1) ?? null,
-  );
+  // Always render every slot so the layout is stable while the dashboard payload
+  // is still loading. This was hardcoded to 4, which left Round 5 — The End —
+  // with no way in from the dashboard at all.
+  const slots = ROUND_IDS.map((roundId) => rounds.find((round) => round.round_id === roundId) ?? null);
 
   const enter = (roundId: number) => router.push(`/round${roundId}`);
 
@@ -66,7 +76,7 @@ export function RoundPortals({ rounds, devUnlock, visible }: RoundPortalsProps) 
           position: absolute;
           bottom: 11%;
           transform: translateX(-50%);
-          width: clamp(150px, 19vw, 260px);
+          width: clamp(132px, 15.5vw, 220px);
           transition: transform 0.18s ease, filter 0.18s ease;
         }
         .portal-card.enterable:hover  { transform: translate(-50%, -6px); filter: brightness(1.12); }
@@ -107,8 +117,8 @@ export function RoundPortals({ rounds, devUnlock, visible }: RoundPortalsProps) 
         }}
       >
         {slots.map((round, index) => {
-          const roundId = index + 1;
-          const accent = ACCENTS[index];
+          const roundId = ROUND_IDS[index];
+          const accent = ACCENTS[index] ?? ACCENTS[ACCENTS.length - 1];
           const enterable = round?.can_enter ?? false;
           const completed = Boolean(round?.completed_at);
 
@@ -118,7 +128,7 @@ export function RoundPortals({ rounds, devUnlock, visible }: RoundPortalsProps) 
               className={`portal-card ${enterable ? 'enterable' : ''}`}
               onClick={() => enterable && enter(roundId)}
               style={{
-                left: `${PANEL_CENTERS_PCT[index]}%`,
+                left: `${PANEL_CENTERS_PCT[index] ?? 50}%`,
                 background: 'rgba(10,12,18,0.82)',
                 backdropFilter: 'blur(10px)',
                 WebkitBackdropFilter: 'blur(10px)',

@@ -1,8 +1,10 @@
 'use client';
 
 import Image from 'next/image';
+import Link from 'next/link';
 import { useRef, useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { QrCode } from 'lucide-react';
 
 import { RoundPortals, type DashboardRound } from '@/features/dashboard/round-portals';
 import { supabaseClient } from '@/lib/supabase/client';
@@ -10,7 +12,7 @@ import { supabaseClient } from '@/lib/supabase/client';
 export function VideoBackground() {
   const router = useRouter();
 
-  // ── Round data driving the four portals ───────────────────────
+  // ── Round data driving the portals ────────────────────────────
   const [rounds, setRounds] = useState<DashboardRound[]>([]);
   const [devUnlock, setDevUnlock] = useState(false);
 
@@ -65,7 +67,7 @@ export function VideoBackground() {
       if (json.success) {
         setRounds(json.rounds ?? []);
         setDevUnlock(Boolean(json.dev_unlock));
-        if (json.team?.name) setTeamName(json.team.name);
+        if (json.team?.team_name) setTeamName(json.team.team_name);
         if (json.resources) setResources(json.resources);
       }
     } catch {
@@ -151,6 +153,13 @@ export function VideoBackground() {
             <span style={{ color, fontWeight: 'bold' }}>{resources[key] ?? 0}</span>
           </div>
         ))}
+
+        {/* Attendance QR. /dashboard/qr had no inbound link from anywhere in the
+            app, so the one page teams need at every checkpoint was reachable
+            only by typing the URL. */}
+        <Link href="/dashboard/qr" className="hud-link">
+          <QrCode size={11} /> ATTENDANCE QR
+        </Link>
       </div>
 
       {/* DASHBOARD TITLE — dashboard.webp */}
@@ -818,6 +827,27 @@ export function VideoBackground() {
           gap: 7px;
           min-width: 180px;
         }
+        .hud-link {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          margin-top: 4px;
+          padding: 6px 8px;
+          border: 2px solid #6a6a6a;
+          border-top-color: #8f8f8f;
+          border-left-color: #8f8f8f;
+          border-bottom-color: #2a2a2a;
+          border-right-color: #2a2a2a;
+          background: rgba(70, 70, 70, 0.9);
+          color: #ffff55;
+          font-size: 9px;
+          letter-spacing: 1px;
+          text-decoration: none;
+          cursor: var(--mv-cursor-hand-closed, pointer);
+        }
+        .hud-link:hover { background: rgba(96, 96, 96, 0.95); color: #ffffff; }
+
         @media (max-width: 600px) {
           .stats-hud {
             top: auto;

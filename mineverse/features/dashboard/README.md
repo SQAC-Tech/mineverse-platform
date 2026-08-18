@@ -4,10 +4,11 @@
 
 1. `/dashboard` renders `VideoBackground`, which loops `dashvid.mp4` with a crossfade.
 2. Dragging the slider to the right end crossfades **straight into `transitioin_from_dashboard_to_fourseason.mp4`**.
-3. When it ends it holds on its final frame — the four-season screen — and the four
-   `RoundPortals` cards fade in over the video's four panels.
-4. Each card routes to `/round/<id>`, which renders the Phase 2 `RoundShell`
-   (questions, resources, crafting, and the PvP panel on round 3).
+3. When it ends it holds on its final frame — the four-season screen — and the
+   `RoundPortals` cards fade in over it.
+4. Each card routes to `/round<id>`, a page in the `(game)` route group. Rounds 1,
+   3 and 4 render `CustomRoundShell`, Round 2 has its own `CaveRoundShell`, and
+   Round 5 renders `EndRoundShell` over the older `RoundShell`.
 
 The old `vid2.mp4` hand-off and its "Play Video 3" button were removed — there is
 one transition now, not two.
@@ -17,12 +18,15 @@ one transition now, not two.
 `round-portals.tsx` positions each card by the horizontal centre of its panel:
 
 ```ts
-const PANEL_CENTERS_PCT = [16.5, 38.5, 61.5, 83.5];
+const PANEL_CENTERS_PCT = [13, 31.5, 50, 68.5, 87];
 ```
 
-These are percentages of viewport width. If `transitioin_from_dashboard_to_fourseason.mp4` is re-cut and the panels
-move, adjust these four numbers — nothing else needs to change. Vertical position
-is `bottom: 11%` on `.portal-card`.
+These are percentages of viewport width, one per round. The event has five rounds
+and the video has four panels, so the cards are spread evenly rather than pinned
+to a panel each — the count comes from `ROUND_COUNT`, not from the artwork. If
+`transitioin_from_dashboard_to_fourseason.mp4` is re-cut, adjust these numbers;
+nothing else needs to change. Vertical position is `bottom: 11%` on
+`.portal-card`.
 
 Below 900px wide the overlay becomes a scrollable vertical stack instead, because
 the video panels are too small to sit cards on.
@@ -35,7 +39,7 @@ Set in `.env.local`:
 NEXT_PUBLIC_DEV_UNLOCK_ALL_ROUNDS=true
 ```
 
-This unlocks all four rounds without an admin unlocking them in round control. It
+This unlocks every round without an admin unlocking them in round control. It
 is read in one place (`lib/gameplay/dev-mode.ts`) and honoured by both server-side
 access checks, so the button state and the API always agree:
 
@@ -64,8 +68,12 @@ to recombine round status and per-team lock state:
 The dashboard polls this every 10s and also refetches on the `round_status`
 broadcast an admin sends when unlocking a round.
 
-## Note
+## Access
 
-`app/round1/page.tsx` is the pre-Phase-2 prototype with hardcoded questions. Nothing
-links to it any more — the portals go to `/round/1`. It is left in place rather than
-deleted in case its visuals are still wanted.
+Every round page calls `requireRoundAccess(roundId)` before rendering anything. It
+redirects to `/login` without a session and to `/dashboard` without access, and it
+delegates to `verifyTeamRoundAccess` — the same helper the round APIs use — so a
+page and the endpoints it calls cannot disagree about who is let in.
+
+That is a redirect for the sake of the user, not a security boundary. Every
+mutation re-validates on its own.
