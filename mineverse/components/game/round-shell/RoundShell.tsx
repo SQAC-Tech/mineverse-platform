@@ -37,6 +37,8 @@ interface RoundQuestion {
 interface RoundData {
   round_id: number;
   round_name: string;
+  /** This team's own code, used to namespace local answer drafts. */
+  team_code: string | null;
   ends_at: string | null;
   server_time: string;
   questions: RoundQuestion[];
@@ -246,6 +248,7 @@ export function RoundShell({ roundId }: RoundShellProps) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
               <QuestionList
                 roundId={roundId}
+                teamCode={round?.team_code ?? null}
                 questions={round?.questions ?? []}
                 onSubmitted={() => { void fetchRound(); refreshAll(); }}
                 locked={timeUp}

@@ -1,5 +1,6 @@
 'use client';
 
+import { readDraft, writeDraft, purgeForeignDrafts } from '@/lib/client/answer-drafts';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -69,6 +70,9 @@ interface TeamInfo {
   team_size: number | null;
 }
 
+/** This shell is Round 2 only — see app/(game)/round2/page.tsx. */
+const ROUND_ID = 2;
+
 const resources: Array<{ key: ResourceKey; label: string; icon: string }> = [
   { key: 'wood', label: 'Wood', icon: '/wood.svg' },
   { key: 'stone', label: 'Stone', icon: '/stone.svg' },
@@ -89,7 +93,6 @@ const tabs: Array<{ id: CaveTab; label: string; Icon: typeof Brain }> = [
 /** Statuses the server will no longer accept a revision for. */
 const FINAL_STATUSES = ['locked', 'graded', 'manual_review'];
 
-function draftKey(questionId: string) { return `mineverse:round:2:question:${questionId}:draft`; }
 
 function timeParts(seconds: number) {
   const value = Math.max(0, seconds);
@@ -149,6 +152,7 @@ export function CaveRoundShell() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [resourceData, setResourceData] = useState<ResourcesData | null>(null);
   const [team, setTeam] = useState<TeamInfo | null>(null);
+  const teamCode = team?.team_code ?? null;
   const [history, setHistory] = useState<LedgerEntry[]>([]);
   const [endsAt, setEndsAt] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<CaveTab>('aptitudes');
@@ -207,10 +211,12 @@ export function CaveRoundShell() {
   }, []);
 
   useEffect(() => {
+    // Clears anything left by a previous team on this machine before reading.
+    purgeForeignDrafts(teamCode);
     const localDrafts: Record<string, string> = {};
-    for (const question of questions) localDrafts[question.id] = window.localStorage.getItem(draftKey(question.id)) ?? '';
+    for (const question of questions) localDrafts[question.id] = readDraft(teamCode, ROUND_ID, question.id);
     setDrafts(localDrafts);
-  }, [questions]);
+  }, [questions, teamCode]);
 
   const grouped = useMemo(() => {
     const result: Record<CaveTab, Question[]> = { aptitudes: [], debugging: [], completion: [], output: [] };
@@ -240,7 +246,7 @@ export function CaveRoundShell() {
 
   const updateDraft = (questionId: string, value: string) => {
     setDrafts((current) => ({ ...current, [questionId]: value }));
-    window.localStorage.setItem(draftKey(questionId), value);
+    writeDraft(teamCode, ROUND_ID, questionId, value);
   };
 
   const saveAnswer = async (target: Question) => {
