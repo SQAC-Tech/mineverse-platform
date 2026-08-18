@@ -1,0 +1,57 @@
+/*
+ * The `.biome` palette.
+ *
+ * app/theme-kit.css builds every component off custom properties and says the
+ * palettes live in "app/(game)/round/biome.css" — a file that never existed. So
+ * `.biome` pages resolved `--bg-void`, `--bg-panel`, `--accent-primary` and the
+ * rest to nothing: panels lost their background and borders, buttons lost their
+ * fill, and the page rendered as bare text over the scene image.
+ *
+ * Rather than invent a sixth palette, this bridges onto the `--rd-*` tokens that
+ * components/game/custom-round-ui/round-ui.css already defines per biome. A page
+ * that sets `round-ui--nether` gets a red-lit kit; `round-ui--end` gets a violet
+ * one; and a new biome needs no changes here. The fallbacks after each comma are
+ * the forest values, so a page that forgets its theme class still renders.
+ */
+
+.biome {
+  --bg-void: var(--rd-void, #0b1509);
+  --bg-panel: var(--rd-panel, linear-gradient(155deg, #17231a 0%, #0b120c 100%));
+  --bg-panel-raised: var(--rd-glass, rgba(9, 18, 9, 0.42));
+
+  --accent-primary: var(--rd-accent, #7ad64e);
+  --accent-primary-hover: var(--rd-accent, #7ad64e);
+  --accent-secondary: var(--rd-edge, #37472f);
+  --accent-muted: var(--rd-edge-lit, #5f7a4b);
+  --accent-danger: var(--rd-bad, #e05b4b);
+
+  --text-onDark: var(--rd-ink, #f2f0e6);
+  --text-onLava: var(--rd-accent-ink, #0d1a08);
+  --text-portal: var(--rd-ink-dim, #a9b1a6);
+
+  --ok: var(--rd-good, #6cc244);
+  --warn: var(--rd-gold, #f2c14e);
+
+  /* Rounds keep the pixel display font — this is the arcade side of the app,
+     not the admin panel, where it was dropped for readability. */
+  --font-display: var(--rd-font-display, var(--font-minecraft), 'Press Start 2P', monospace);
+}
+
+/*
+ * `--bg-panel` is a gradient, and `background-color` cannot take one. theme-kit
+ * sets `background: var(--bg-panel)` on panels, which works; this only fixes the
+ * places that would otherwise inherit a transparent surface.
+ */
+.biome .n-panel {
+  background: var(--rd-panel, linear-gradient(155deg, #17231a 0%, #0b120c 100%));
+  border-color: var(--rd-edge-lit, #5f7a4b);
+}
+
+.biome .n-panel-head {
+  border-bottom-color: var(--rd-edge, #37472f);
+}
+
+/* Body copy in a round is read at speed. The pixel font stays on headings. */
+.biome :is(p, li, span, td, label, input, textarea, select) {
+  font-family: var(--rd-font-body, ui-sans-serif, system-ui, 'Segoe UI', Roboto, sans-serif);
+}
