@@ -2,34 +2,35 @@
 
 ## Sequence
 
-1. `/dashboard` renders `VideoBackground`, which loops `dashvid.mp4` with a crossfade.
-2. Dragging the slider to the right end crossfades **straight into `transitioin_from_dashboard_to_fourseason.mp4`**.
-3. When it ends it holds on its final frame — the four-season screen — and the
-   `RoundPortals` cards fade in over it.
-4. Each card routes to `/round<id>`, a page in the `(game)` route group. Rounds 1,
-   3 and 4 render `CustomRoundShell`, Round 2 has its own `CaveRoundShell`, and
-   Round 5 renders `EndRoundShell` over the older `RoundShell`.
+1. `/dashboard` renders `VideoBackground` over a static `background1.webp`.
+2. Clicking Steve opens the **map modal**. That modal is the round navigation:
+   one biome button per round, revealed as the previous round completes, each
+   driven by `can_enter` from `/api/dashboard/data`.
+3. Choosing a biome plays `transition1.mp4` and then routes to `/round<id>`.
 
-The old `vid2.mp4` hand-off and its "Play Video 3" button were removed — there is
-one transition now, not two.
+`round-portals.tsx` — an overlay of cards laid over
+`transitioin_from_dashboard_to_fourseason.mp4` — was the previous design. The
+slider and that video were removed in `c351930` and the component was left
+imported but never rendered, along with the dev-mode banner inside it. Both are
+gone now; the banner moved to `progress-panel.tsx` where it can actually be seen.
 
-## Aligning the portals with the video
+## What is on the screen
 
-`round-portals.tsx` positions each card by the horizontal centre of its panel:
+| Piece | File | Shows |
+|---|---|---|
+| Stats HUD (top right) | `video-background.tsx` | team name and the seven resource balances |
+| Progress panel (top left) | `progress-panel.tsx` | crafted items, PvP eligibility, Day 2 status, portal requirements, the dev-mode warning, and links to `/portal`, `/qualification` and `/leaderboard` |
+| Map modal | `video-background.tsx` | the biome buttons that enter each round |
+| Resource history | `resource-ledger.tsx` | paginated `resource_ledger`, opened from the progress panel |
 
-```ts
-const PANEL_CENTERS_PCT = [13, 31.5, 50, 68.5, 87];
-```
+All of them read one snapshot from `GET /api/dashboard/data`. That route is
+deliberately a single query set rather than the dashboard fanning out to
+`/api/team/craft/recipes`, `/day2/status` and the rest — those guard on Day 2
+qualification and return 403s that a status page should not be treating as
+errors.
 
-These are percentages of viewport width, one per round. The event has five rounds
-and the video has four panels, so the cards are spread evenly rather than pinned
-to a panel each — the count comes from `ROUND_COUNT`, not from the artwork. If
-`transitioin_from_dashboard_to_fourseason.mp4` is re-cut, adjust these numbers;
-nothing else needs to change. Vertical position is `bottom: 11%` on
-`.portal-card`.
-
-Below 900px wide the overlay becomes a scrollable vertical stack instead, because
-the video panels are too small to sit cards on.
+Everything here is display-only. Dashboard state is never permission to act:
+each linked page and every mutation re-checks on the server.
 
 ## Dev mode
 
@@ -45,11 +46,11 @@ access checks, so the button state and the API always agree:
 
 - `lib/gameplay/questions/access.ts` — Dev 4 routes (questions, submissions)
 - `lib/gameplay/utils/access.ts` — Dev 3 routes (guardians, structures, marketplace, choices)
+- `lib/gameplay/round-access.ts` — the round pages themselves
 
 It bypasses **only the round lock**. A valid team session is still required, and
-resource mutations, idempotency, and grading are untouched. Cards unlocked this way
-show a `dev unlock` badge and the screen shows a "Dev mode" banner, so it is never
-ambiguous whether the flag is on.
+resource mutations, idempotency, and grading are untouched. The progress panel
+shows a "Dev mode" warning while the flag is on, so it is never ambiguous.
 
 **Never set this in production.** It is opt-in and absent by default; the server
 logs a warning on every bypass.

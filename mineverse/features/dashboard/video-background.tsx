@@ -1,24 +1,27 @@
 'use client';
 
 import Image from 'next/image';
-import Link from 'next/link';
 import { useRef, useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { QrCode } from 'lucide-react';
 
-import { RoundPortals, type DashboardRound } from '@/features/dashboard/round-portals';
+import { ProgressPanel } from '@/features/dashboard/progress-panel';
+import { ResourceLedger } from '@/features/dashboard/resource-ledger';
+import type { CraftedItem, DashboardProgress, DashboardRound } from '@/features/dashboard/types';
 import { supabaseClient } from '@/lib/supabase/client';
 
 export function VideoBackground() {
   const router = useRouter();
 
-  // ── Round data driving the portals ────────────────────────────
+  // ── Round data driving the map modal's biome buttons ──────────
   const [rounds, setRounds] = useState<DashboardRound[]>([]);
   const [devUnlock, setDevUnlock] = useState(false);
 
   // ── Team identity & resources ─────────────────────────────────
   const [teamName, setTeamName] = useState<string | null>(null);
   const [resources, setResources] = useState<Record<string, number>>({});
+  const [crafted, setCrafted] = useState<CraftedItem[]>([]);
+  const [progress, setProgress] = useState<DashboardProgress | null>(null);
+  const [showLedger, setShowLedger] = useState(false);
 
   // ── Toast notification ────────────────────────────────────────
   const [toast, setToast] = useState<{ icon: string; title: string; subtitle: string; key: number } | null>(null);
@@ -69,6 +72,8 @@ export function VideoBackground() {
         setDevUnlock(Boolean(json.dev_unlock));
         if (json.team?.team_name) setTeamName(json.team.team_name);
         if (json.resources) setResources(json.resources);
+        if (json.crafted) setCrafted(json.crafted);
+        if (json.progress) setProgress(json.progress);
       }
     } catch {
       // The portals still render; they stay locked until a fetch succeeds.
@@ -153,14 +158,16 @@ export function VideoBackground() {
             <span style={{ color, fontWeight: 'bold' }}>{resources[key] ?? 0}</span>
           </div>
         ))}
-
-        {/* Attendance QR. /dashboard/qr had no inbound link from anywhere in the
-            app, so the one page teams need at every checkpoint was reachable
-            only by typing the URL. */}
-        <Link href="/dashboard/qr" className="hud-link">
-          <QrCode size={11} /> ATTENDANCE QR
-        </Link>
       </div>
+
+      <ProgressPanel
+        crafted={crafted}
+        progress={progress}
+        devUnlock={devUnlock}
+        onOpenLedger={() => setShowLedger(true)}
+      />
+
+      {showLedger && <ResourceLedger onClose={() => setShowLedger(false)} />}
 
       {/* DASHBOARD TITLE — dashboard.webp */}
       <div style={{

@@ -116,7 +116,10 @@ features/
 │   ├── minecraft-landing.tsx    the landing page content
 │   └── registration-form.tsx    the entire registration form (the reference pattern — read this one)
 ├── dashboard/
-│   ├── dashboard-view.tsx       the team's round-card view
+│   ├── video-background.tsx     the dashboard scene — this is what /dashboard renders
+│   ├── progress-panel.tsx       crafted items, PvP/Day 2 status, portal requirements
+│   ├── resource-ledger.tsx      paginated resource history modal
+│   ├── types.ts                 the shape of GET /api/dashboard/data
 │   └── team-qr-view.tsx         the "re-show my attendance QR" view
 ├── round-1/  round-2/  round-3/   ← EMPTY except a README. This is where Phase 2 team-facing
 ├── round-4/  round-5/               gameplay UI goes. If you're building Round 2's question screen,
