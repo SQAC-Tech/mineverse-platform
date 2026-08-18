@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, Fragment } from 'react';
 import { toast } from 'sonner';
-import { RefreshCw, Search, ChevronDown, UserPlus, Trash2, AlertTriangle } from 'lucide-react';
+import { RefreshCw, Search, ChevronDown, UserPlus, Trash2, AlertTriangle, Download } from 'lucide-react';
 import { Panel, Btn, Pill, statusTone, Table, Empty, Loading, PageTitle, apiCall, Grid, StatTile, Field } from '@/components/admin/nether-ui';
 
 /** Mirrors `teams_team_size_check` in the database. */
@@ -238,7 +238,15 @@ export default function AdminTeamsPage() {
       <PageTitle
         title="Teams"
         subtitle="Full roster with members and attendance"
-        actions={<Btn onClick={load}><RefreshCw size={12} /> Refresh</Btn>}
+        actions={
+          <>
+            {/* Content-Disposition makes this a download, so the page stays put. */}
+            <Btn onClick={() => { window.location.href = '/api/admin/export'; }}>
+              <Download size={12} /> Export CSV
+            </Btn>
+            <Btn onClick={load}><RefreshCw size={12} /> Refresh</Btn>
+          </>
+        }
       />
 
       <Grid min={190}>
