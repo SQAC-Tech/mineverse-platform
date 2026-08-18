@@ -14,6 +14,8 @@ import { ChoicePanel } from '@/components/game/choices/ChoicePanel';
 import { getRoundConfig } from '@/lib/gameplay/round-config';
 import { Panel, Btn, Pill, Loading } from '@/components/admin/nether-ui';
 import { useProctorSession } from '@/components/game/proctor/ProctorProvider';
+import { roundChrome } from '@/components/game/custom-round-ui/round-presentation';
+import '@/components/game/custom-round-ui/round-ui.css';
 
 interface RoundShellProps { roundId: number }
 
@@ -342,8 +344,15 @@ function Shell({
   header?: React.ReactNode;
   children: React.ReactNode;
 }) {
+  // Only the palette is borrowed from the biome shells, not their layout — this
+  // shell scrolls. Without it Round 5 rendered on the bare admin theme, because
+  // `.biome-end` has never existed in any stylesheet.
+  const { themeClass } = roundChrome(roundId);
+
   return (
-    <main className={`biome biome-${biome}`} style={{ minHeight: '100vh' }}>
+    <main className={`biome biome-${biome} round-ui-scene ${themeClass}`} style={{ minHeight: '100vh' }}>
+      <div className="round-ui-scene__backdrop" aria-hidden="true" />
+      <div className="round-ui-scene__shade" aria-hidden="true" />
       <div style={{ maxWidth: 1240, margin: '0 auto', padding: '20px 16px 40px' }}>
         <header
           style={{
