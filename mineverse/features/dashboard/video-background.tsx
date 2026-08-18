@@ -14,6 +14,10 @@ export function VideoBackground() {
   const [rounds, setRounds] = useState<DashboardRound[]>([]);
   const [devUnlock, setDevUnlock] = useState(false);
 
+  // ── Team identity & resources ─────────────────────────────────
+  const [teamName, setTeamName] = useState<string | null>(null);
+  const [resources, setResources] = useState<Record<string, number>>({});
+
   // ── Toast notification ────────────────────────────────────────
   const [toast, setToast] = useState<{ icon: string; title: string; subtitle: string; key: number } | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -37,12 +41,12 @@ export function VideoBackground() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [showMapModal]);
 
-  // ── Transition Video (transition1.mp4) ──────────────────────
-  const [playingTransitionVideo, setPlayingTransitionVideo] = useState(false);
+  // ── Transition Video ────────────────────────────────────────
+  const [transitionTarget, setTransitionTarget] = useState<string | null>(null);
   const transitionVideoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
-    if (!playingTransitionVideo) return;
+    if (!transitionTarget) return;
     const v = transitionVideoRef.current;
     if (v) {
       v.currentTime = 0;
@@ -51,7 +55,7 @@ export function VideoBackground() {
         v.play().catch(() => { });
       });
     }
-  }, [playingTransitionVideo]);
+  }, [transitionTarget]);
 
   // ── Fetch the team's round state so the portals know what is enterable ──
   const fetchRounds = useCallback(async () => {
@@ -61,6 +65,8 @@ export function VideoBackground() {
       if (json.success) {
         setRounds(json.rounds ?? []);
         setDevUnlock(Boolean(json.dev_unlock));
+        if (json.team?.name) setTeamName(json.team.name);
+        if (json.resources) setResources(json.resources);
       }
     } catch {
       // The portals still render; they stay locked until a fetch succeeds.
@@ -124,6 +130,29 @@ export function VideoBackground() {
         />
       </div>
 
+      {/* Player Statistics HUD */}
+      <div className="stats-hud">
+        {/* Team name header */}
+        <div style={{ fontSize: '11px', borderBottom: '2px solid #555', paddingBottom: '6px', marginBottom: '2px', textAlign: 'center', color: '#ffff55', letterSpacing: '1px' }}>
+          {teamName ?? 'LOADING...'}
+        </div>
+        <div style={{ fontSize: '9px', textAlign: 'center', color: '#aaaaaa', letterSpacing: '1px', marginBottom: '4px' }}>RESOURCES</div>
+        {[
+          { label: 'WOOD',     key: 'wood',     color: '#c8a87a' },
+          { label: 'STONE',    key: 'stone',    color: '#aaaaaa' },
+          { label: 'IRON',     key: 'iron',     color: '#d8d8d8' },
+          { label: 'GOLD',     key: 'gold',     color: '#ffaa00' },
+          { label: 'DIAMOND',  key: 'diamond',  color: '#55ffff' },
+          { label: 'EMERALD',  key: 'emerald',  color: '#55ff55' },
+          { label: 'OBSIDIAN', key: 'obsidian', color: '#9966cc' },
+        ].map(({ label, key, color }) => (
+          <div key={key} style={{ display: 'flex', justifyContent: 'space-between', gap: '16px', fontSize: '12px' }}>
+            <span style={{ color: '#cccccc' }}>{label}</span>
+            <span style={{ color, fontWeight: 'bold' }}>{resources[key] ?? 0}</span>
+          </div>
+        ))}
+      </div>
+
       {/* DASHBOARD TITLE — dashboard.webp */}
       <div style={{
         position: 'absolute',
@@ -163,6 +192,32 @@ export function VideoBackground() {
         }}
         className="scene-btn steve-btn"
       >
+        {/* Floating map hint — also clickable */}
+        <button
+          type="button"
+          onClick={() => setShowMapModal(true)}
+          style={{
+            position: 'absolute',
+            top: '-35px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'rgba(20, 24, 30, 0.9)',
+            border: '2px solid #a0a0a0',
+            borderRadius: '4px',
+            padding: '8px 12px',
+            color: '#ffffff',
+            fontFamily: 'var(--font-minecraft), system-ui, sans-serif',
+            fontSize: 'clamp(10px, 1.2vw, 14px)',
+            fontWeight: 'bold',
+            whiteSpace: 'nowrap',
+            textShadow: '1px 2px 2px rgba(0,0,0,0.8)',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.8), 0 0 10px rgba(255,255,255,0.2)',
+            animation: 'float-bounce 2s ease-in-out infinite',
+            cursor: 'pointer',
+          }}
+        >
+          CLICK TO OPEN MAP
+        </button>
         <Image src="/steve.svg" alt="Steve" width={680} height={560}
           style={{ width: '100%', height: 'auto', display: 'block', filter: 'drop-shadow(0 12px 32px rgba(0,0,0,0.65))' }}
           priority />
@@ -180,7 +235,7 @@ export function VideoBackground() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: '12px',
+            padding: 0,
             cursor: 'pointer',
             animation: 'mc-backdrop-fade 0.25s ease-out forwards',
           }}
@@ -190,27 +245,41 @@ export function VideoBackground() {
             onClick={(e) => e.stopPropagation()}
             style={{
               position: 'relative',
-              width: '100vw',
-              height: '100vh',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+              width: '100%',
+              height: '100%',
+              maxHeight: '100vh',
+              maxWidth: '100vw',
+              aspectRatio: '1024 / 815',
+              margin: 'auto',
             }}
           >
-            <img
-              src="/map.webp"
-              alt="World Map"
-              style={{
-                width: '100vw',
-                height: '100vh',
-                maxHeight: '100vh',
-                maxWidth: '100vw',
-                objectFit: 'contain',
-                display: 'block',
-                animation: 'map-pop-in 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) forwards',
-                filter: 'drop-shadow(0 0 40px rgba(0,0,0,0.9))',
-              }}
-            />
+            {(() => {
+              const r5 = rounds.find(r => r.round_id === 5)?.can_enter;
+              const r4 = rounds.find(r => r.round_id === 4)?.can_enter;
+              const r3 = rounds.find(r => r.round_id === 3)?.can_enter;
+              const r2 = rounds.find(r => r.round_id === 2)?.can_enter;
+
+              let imgSrc = '/map.webp';
+              if (r5) imgSrc = '/final-biome-map.jpg';
+              else if (r4) imgSrc = '/nether-biome-map.jpg';
+              else if (r3) imgSrc = '/mountain-biome-map.jpg';
+              else if (r2) imgSrc = '/cave-biome-map.jpg';
+
+              return (
+                <img
+                  src={imgSrc}
+                  alt="World Map"
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'contain',
+                    display: 'block',
+                    animation: 'map-pop-in 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) forwards',
+                    filter: 'drop-shadow(0 0 40px rgba(0,0,0,0.9))',
+                  }}
+                />
+              );
+            })()}
 
             {/* Access Forest & Grassland Region Button (Backend Linked to Round 1) */}
             {(() => {
@@ -226,13 +295,13 @@ export function VideoBackground() {
                     e.stopPropagation();
                     if (enterable) {
                       setShowMapModal(false);
-                      setPlayingTransitionVideo(true);
+                      setTransitionTarget('/round1');
                     }
                   }}
                   style={{
                     position: 'absolute',
-                    top: '32%',
-                    left: '64%',
+                    top: '25%',
+                    left: '65%',
                     transform: 'translate(-50%, -50%)',
                     zIndex: 100,
                     background: enterable
@@ -276,9 +345,312 @@ export function VideoBackground() {
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <span style={{ fontSize: '18px' }}>{enterable ? (completed ? '🔄' : '🌲') : '🔒'}</span>
-                    <span>{completed ? 'REPLAY FOREST REGION' : enterable ? 'ACCESS FOREST REGION' : 'FOREST REGION LOCKED'}</span>
+                    <span>{completed ? 'REPLAY FOREST BIOME' : enterable ? 'ACCESS FOREST BIOME' : 'FOREST BIOME LOCKED'}</span>
                   </div>
                   {round1?.unlocked_by_dev_mode && (
+                    <span style={{ fontSize: '9px', color: '#ffcc00', letterSpacing: '1px' }}>DEV UNLOCKED</span>
+                  )}
+                </button>
+              );
+            })()}
+
+            {/* Access Cave Biome Button (Backend Linked to Round 2) */}
+            {(() => {
+              const round1 = rounds.find(r => r.round_id === 1);
+              const round2 = rounds.find(r => r.round_id === 2);
+
+              // Only show the Cave Biome button if Forest is completed, OR Cave (or any later round) is unlocked
+              const isR2OrLater = round2?.can_enter || rounds.some(r => r.round_id > 2 && r.can_enter);
+              if (!round1?.completed_at && !isR2OrLater) return null;
+
+              const enterable = round2?.can_enter ?? false;
+              const completed = Boolean(round2?.completed_at);
+
+              return (
+                <button
+                  type="button"
+                  disabled={!enterable}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (enterable) {
+                      setShowMapModal(false);
+                      setTransitionTarget('/round2');
+                    }
+                  }}
+                  style={{
+                    position: 'absolute',
+                    top: '65%',
+                    left: '35%',
+                    transform: 'translate(-50%, -50%)',
+                    zIndex: 100,
+                    background: enterable
+                      ? 'linear-gradient(135deg, rgba(70, 70, 80, 0.95), rgba(40, 40, 50, 0.96))'
+                      : 'rgba(30, 34, 42, 0.92)',
+                    border: `2px solid ${enterable ? '#a0a0b0' : 'rgba(140, 150, 170, 0.4)'}`,
+                    borderRadius: '6px',
+                    padding: '10px 20px',
+                    color: enterable ? '#ffffff' : 'rgba(255, 255, 255, 0.45)',
+                    fontFamily: 'var(--font-minecraft), system-ui, sans-serif',
+                    fontSize: 'clamp(11px, 1.2vw, 15px)',
+                    fontWeight: 'bold',
+                    letterSpacing: '1.5px',
+                    textTransform: 'uppercase',
+                    textShadow: enterable ? '1px 2px 4px rgba(0,0,0,0.9)' : 'none',
+                    boxShadow: enterable
+                      ? '0 0 20px rgba(180, 180, 200, 0.6), 0 6px 16px rgba(0, 0, 0, 0.8)'
+                      : '0 4px 12px rgba(0, 0, 0, 0.6)',
+                    cursor: enterable ? 'var(--mv-cursor-pickaxe, pointer)' : 'not-allowed',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '4px',
+                    transition: 'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                    animation: enterable ? 'pulse-cave-btn 2s infinite alternate' : 'none',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (enterable) {
+                      e.currentTarget.style.transform = 'translate(-50%, -50%) scale(1.08)';
+                      e.currentTarget.style.boxShadow = '0 0 32px rgba(180, 180, 200, 0.95), 0 8px 24px rgba(0, 0, 0, 0.9)';
+                      e.currentTarget.style.borderColor = '#d0d0e0';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (enterable) {
+                      e.currentTarget.style.transform = 'translate(-50%, -50%) scale(1)';
+                      e.currentTarget.style.boxShadow = '0 0 20px rgba(180, 180, 200, 0.6), 0 6px 16px rgba(0, 0, 0, 0.8)';
+                      e.currentTarget.style.borderColor = '#a0a0b0';
+                    }
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '18px' }}>{enterable ? (completed ? '🔄' : '⛏️') : '🔒'}</span>
+                    <span>{completed ? 'REPLAY CAVE BIOME' : enterable ? 'ACCESS CAVE BIOME' : 'CAVE BIOME LOCKED'}</span>
+                  </div>
+                  {round2?.unlocked_by_dev_mode && (
+                    <span style={{ fontSize: '9px', color: '#ffcc00', letterSpacing: '1px' }}>DEV UNLOCKED</span>
+                  )}
+                </button>
+              );
+            })()}
+
+            {/* Access Mountain Biome Button (Round 3) */}
+            {(() => {
+              const round2 = rounds.find(r => r.round_id === 2);
+              const round3 = rounds.find(r => r.round_id === 3);
+
+              const isR3OrLater = round3?.can_enter || rounds.some(r => r.round_id > 3 && r.can_enter);
+              if (!round2?.completed_at && !isR3OrLater) return null;
+
+              const enterable = round3?.can_enter ?? false;
+              const completed = Boolean(round3?.completed_at);
+
+              return (
+                <button
+                  type="button"
+                  disabled={!enterable}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (enterable) {
+                      setShowMapModal(false);
+                      setTransitionTarget('/round3');
+                    }
+                  }}
+                  style={{
+                    position: 'absolute',
+                    top: '30%',
+                    left: '35%',
+                    transform: 'translate(-50%, -50%)',
+                    zIndex: 100,
+                    background: enterable
+                      ? 'linear-gradient(135deg, rgba(80, 120, 150, 0.95), rgba(40, 70, 90, 0.96))'
+                      : 'rgba(30, 34, 42, 0.92)',
+                    border: `2px solid ${enterable ? '#aaddff' : 'rgba(140, 150, 170, 0.4)'}`,
+                    borderRadius: '6px',
+                    padding: '10px 20px',
+                    color: enterable ? '#ffffff' : 'rgba(255, 255, 255, 0.45)',
+                    fontFamily: 'var(--font-minecraft), system-ui, sans-serif',
+                    fontSize: 'clamp(11px, 1.2vw, 15px)',
+                    fontWeight: 'bold',
+                    letterSpacing: '1.5px',
+                    textTransform: 'uppercase',
+                    textShadow: enterable ? '1px 2px 4px rgba(0,0,0,0.9)' : 'none',
+                    boxShadow: enterable
+                      ? '0 0 20px rgba(170, 220, 255, 0.6), 0 6px 16px rgba(0, 0, 0, 0.8)'
+                      : '0 4px 12px rgba(0, 0, 0, 0.6)',
+                    cursor: enterable ? 'var(--mv-cursor-pickaxe, pointer)' : 'not-allowed',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '4px',
+                    transition: 'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (enterable) {
+                      e.currentTarget.style.transform = 'translate(-50%, -50%) scale(1.08)';
+                      e.currentTarget.style.boxShadow = '0 0 32px rgba(170, 220, 255, 0.95), 0 8px 24px rgba(0, 0, 0, 0.9)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (enterable) {
+                      e.currentTarget.style.transform = 'translate(-50%, -50%) scale(1)';
+                      e.currentTarget.style.boxShadow = '0 0 20px rgba(170, 220, 255, 0.6), 0 6px 16px rgba(0, 0, 0, 0.8)';
+                    }
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '18px' }}>{enterable ? (completed ? '🔄' : '❄️') : '🔒'}</span>
+                    <span>{completed ? 'REPLAY MOUNTAIN BIOME' : enterable ? 'ACCESS MOUNTAIN BIOME' : 'MOUNTAIN BIOME LOCKED'}</span>
+                  </div>
+                  {round3?.unlocked_by_dev_mode && (
+                    <span style={{ fontSize: '9px', color: '#ffcc00', letterSpacing: '1px' }}>DEV UNLOCKED</span>
+                  )}
+                </button>
+              );
+            })()}
+
+            {/* Access Nether Biome Button (Round 4) */}
+            {(() => {
+              const round3 = rounds.find(r => r.round_id === 3);
+              const round4 = rounds.find(r => r.round_id === 4);
+
+              const isR4OrLater = round4?.can_enter || rounds.some(r => r.round_id > 4 && r.can_enter);
+              if (!round3?.completed_at && !isR4OrLater) return null;
+
+              const enterable = round4?.can_enter ?? false;
+              const completed = Boolean(round4?.completed_at);
+
+              return (
+                <button
+                  type="button"
+                  disabled={!enterable}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (enterable) {
+                      setShowMapModal(false);
+                      setTransitionTarget('/round4');
+                    }
+                  }}
+                  style={{
+                    position: 'absolute',
+                    top: '65%',
+                    left: '65%',
+                    transform: 'translate(-50%, -50%)',
+                    zIndex: 100,
+                    background: enterable
+                      ? 'linear-gradient(135deg, rgba(120, 40, 40, 0.95), rgba(70, 20, 20, 0.96))'
+                      : 'rgba(30, 34, 42, 0.92)',
+                    border: `2px solid ${enterable ? '#ff6666' : 'rgba(140, 150, 170, 0.4)'}`,
+                    borderRadius: '6px',
+                    padding: '10px 20px',
+                    color: enterable ? '#ffffff' : 'rgba(255, 255, 255, 0.45)',
+                    fontFamily: 'var(--font-minecraft), system-ui, sans-serif',
+                    fontSize: 'clamp(11px, 1.2vw, 15px)',
+                    fontWeight: 'bold',
+                    letterSpacing: '1.5px',
+                    textTransform: 'uppercase',
+                    textShadow: enterable ? '1px 2px 4px rgba(0,0,0,0.9)' : 'none',
+                    boxShadow: enterable
+                      ? '0 0 20px rgba(255, 100, 100, 0.6), 0 6px 16px rgba(0, 0, 0, 0.8)'
+                      : '0 4px 12px rgba(0, 0, 0, 0.6)',
+                    cursor: enterable ? 'var(--mv-cursor-pickaxe, pointer)' : 'not-allowed',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '4px',
+                    transition: 'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (enterable) {
+                      e.currentTarget.style.transform = 'translate(-50%, -50%) scale(1.08)';
+                      e.currentTarget.style.boxShadow = '0 0 32px rgba(255, 100, 100, 0.95), 0 8px 24px rgba(0, 0, 0, 0.9)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (enterable) {
+                      e.currentTarget.style.transform = 'translate(-50%, -50%) scale(1)';
+                      e.currentTarget.style.boxShadow = '0 0 20px rgba(255, 100, 100, 0.6), 0 6px 16px rgba(0, 0, 0, 0.8)';
+                    }
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '18px' }}>{enterable ? (completed ? '🔄' : '🔥') : '🔒'}</span>
+                    <span>{completed ? 'REPLAY NETHER BIOME' : enterable ? 'ACCESS NETHER BIOME' : 'NETHER BIOME LOCKED'}</span>
+                  </div>
+                  {round4?.unlocked_by_dev_mode && (
+                    <span style={{ fontSize: '9px', color: '#ffcc00', letterSpacing: '1px' }}>DEV UNLOCKED</span>
+                  )}
+                </button>
+              );
+            })()}
+
+            {/* Access The End Button (Round 5) */}
+            {(() => {
+              const round4 = rounds.find(r => r.round_id === 4);
+              const round5 = rounds.find(r => r.round_id === 5);
+
+              if (!round4?.completed_at && !round5?.can_enter) return null;
+
+              const enterable = round5?.can_enter ?? false;
+              const completed = Boolean(round5?.completed_at);
+
+              return (
+                <button
+                  type="button"
+                  disabled={!enterable}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (enterable) {
+                      setShowMapModal(false);
+                      setTransitionTarget('/round5');
+                    }
+                  }}
+                  style={{
+                    position: 'absolute',
+                    top: '78%',
+                    left: '75%',
+                    transform: 'translate(-50%, -50%)',
+                    zIndex: 100,
+                    background: enterable
+                      ? 'linear-gradient(135deg, rgba(140, 40, 180, 0.95), rgba(70, 20, 90, 0.96))'
+                      : 'rgba(30, 34, 42, 0.92)',
+                    border: `2px solid ${enterable ? '#dd88ff' : 'rgba(140, 150, 170, 0.4)'}`,
+                    borderRadius: '6px',
+                    padding: '10px 20px',
+                    color: enterable ? '#ffffff' : 'rgba(255, 255, 255, 0.45)',
+                    fontFamily: 'var(--font-minecraft), system-ui, sans-serif',
+                    fontSize: 'clamp(11px, 1.2vw, 15px)',
+                    fontWeight: 'bold',
+                    letterSpacing: '1.5px',
+                    textTransform: 'uppercase',
+                    textShadow: enterable ? '1px 2px 4px rgba(0,0,0,0.9)' : 'none',
+                    boxShadow: enterable
+                      ? '0 0 20px rgba(220, 140, 255, 0.6), 0 6px 16px rgba(0, 0, 0, 0.8)'
+                      : '0 4px 12px rgba(0, 0, 0, 0.6)',
+                    cursor: enterable ? 'var(--mv-cursor-pickaxe, pointer)' : 'not-allowed',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '4px',
+                    transition: 'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (enterable) {
+                      e.currentTarget.style.transform = 'translate(-50%, -50%) scale(1.08)';
+                      e.currentTarget.style.boxShadow = '0 0 32px rgba(220, 140, 255, 0.95), 0 8px 24px rgba(0, 0, 0, 0.9)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (enterable) {
+                      e.currentTarget.style.transform = 'translate(-50%, -50%) scale(1)';
+                      e.currentTarget.style.boxShadow = '0 0 20px rgba(220, 140, 255, 0.6), 0 6px 16px rgba(0, 0, 0, 0.8)';
+                    }
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '18px' }}>{enterable ? (completed ? '🔄' : '👁️') : '🔒'}</span>
+                    <span>{completed ? 'REPLAY THE END' : enterable ? 'ACCESS THE END' : 'THE END LOCKED'}</span>
+                  </div>
+                  {round5?.unlocked_by_dev_mode && (
                     <span style={{ fontSize: '9px', color: '#ffcc00', letterSpacing: '1px' }}>DEV UNLOCKED</span>
                   )}
                 </button>
@@ -288,8 +660,8 @@ export function VideoBackground() {
         </div>
       )}
 
-      {/* ── TRANSITION VIDEO OVERLAY (transition1.mp4) ── */}
-      {playingTransitionVideo && (
+      {/* ── TRANSITION VIDEO OVERLAY ── */}
+      {transitionTarget && (
         <div
           style={{
             position: 'fixed',
@@ -308,7 +680,7 @@ export function VideoBackground() {
             autoPlay
             playsInline
             onEnded={() => {
-              router.push('/round1');
+              router.push(transitionTarget);
             }}
             style={{
               width: '100vw',
@@ -320,7 +692,7 @@ export function VideoBackground() {
 
           <button
             type="button"
-            onClick={() => router.push('/round1')}
+            onClick={() => router.push(transitionTarget)}
             style={{
               position: 'absolute',
               top: '24px',
@@ -409,6 +781,53 @@ export function VideoBackground() {
         @keyframes pulse-forest-btn {
           0%   { box-shadow: 0 0 15px rgba(85, 255, 85, 0.5), 0 4px 14px rgba(0, 0, 0, 0.8); }
           100% { box-shadow: 0 0 28px rgba(85, 255, 85, 0.85), 0 6px 18px rgba(0, 0, 0, 0.9); }
+        }
+        @keyframes pulse-cave-btn {
+          0%   { box-shadow: 0 0 15px rgba(180, 180, 200, 0.5), 0 4px 14px rgba(0, 0, 0, 0.8); }
+          100% { box-shadow: 0 0 28px rgba(180, 180, 200, 0.85), 0 6px 18px rgba(0, 0, 0, 0.9); }
+        }
+        @keyframes float-bounce {
+          0%, 100% { transform: translateX(-50%) translateY(0); }
+          50% { transform: translateX(-50%) translateY(-8px); }
+        }
+        @keyframes slide-in-right {
+          0% { transform: translateX(120%); opacity: 0; }
+          100% { transform: translateX(0); opacity: 1; }
+        }
+
+        /* Stats HUD — responsive Minecraft panel */
+        .stats-hud {
+          position: absolute;
+          top: 40px;
+          right: 30px;
+          z-index: 10;
+          background: rgba(40, 40, 40, 0.88);
+          border: 3px solid #555;
+          border-top-color: #888;
+          border-left-color: #888;
+          border-bottom-color: #222;
+          border-right-color: #222;
+          padding: 12px 16px;
+          font-family: var(--font-minecraft), system-ui, sans-serif;
+          color: #ffffff;
+          text-shadow: 2px 2px 0 #000;
+          animation: slide-in-right 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+          box-shadow: 0 8px 24px rgba(0,0,0,0.8);
+          display: flex;
+          flex-direction: column;
+          gap: 7px;
+          min-width: 180px;
+        }
+        @media (max-width: 600px) {
+          .stats-hud {
+            top: auto;
+            bottom: 12px;
+            right: 12px;
+            min-width: 140px;
+            padding: 8px 12px;
+            gap: 5px;
+            font-size: 10px;
+          }
         }
       `}</style>
 
