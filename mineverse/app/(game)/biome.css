@@ -68,7 +68,37 @@
   text-shadow: 0 2px 6px rgba(0, 0, 0, 0.95), 0 0 2px rgba(0, 0, 0, 0.9);
 }
 
-/* Body copy in a round is read at speed. The pixel font stays on headings. */
-.biome :is(p, li, span, td, label, input, textarea, select) {
+/*
+ * Typography, opt-in rather than opt-out.
+ *
+ * theme-kit sets the display font on the whole surface, which is right for the
+ * admin panel's sans stack but wrong here: the rounds' display font is Press
+ * Start 2P, and round-ui.css says it plainly — that font turns to mush below
+ * about 14px. Every paragraph and every form control was rendering in it.
+ *
+ * So the body font is the default, and the pixel font is applied to the short
+ * uppercase labels it was designed for. Listing them beats an element-based
+ * blanket rule, which outranked component classes like `.pr-caption` and stole
+ * their font back.
+ */
+.biome {
   font-family: var(--rd-font-body, ui-sans-serif, system-ui, 'Segoe UI', Roboto, sans-serif);
 }
+
+.biome :is(
+  h1, h2, h3,
+  .n-panel-title,
+  .n-stat-label,
+  .n-stat-value,
+  .n-btn,
+  .n-pill,
+  .n-label,
+  .pr-caption,
+  .pr-req__part
+) {
+  font-family: var(--rd-font-display, var(--font-minecraft), 'Press Start 2P', monospace);
+}
+
+/* Press Start 2P needs the room. These are the smallest places it appears. */
+.biome :is(.n-panel-title, .n-stat-label) { font-size: 12px; line-height: 1.5; }
+.biome .n-btn { font-size: 11px; line-height: 1.5; }

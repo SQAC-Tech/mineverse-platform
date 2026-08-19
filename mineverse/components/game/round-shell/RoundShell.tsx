@@ -15,6 +15,12 @@ import { getRoundConfig } from '@/lib/gameplay/round-config';
 import { Panel, Btn, Pill, Loading } from '@/components/admin/nether-ui';
 import { useProctorSession } from '@/components/game/proctor/ProctorProvider';
 import { roundChrome } from '@/components/game/custom-round-ui/round-presentation';
+// The kit and the palette are imported here, not left to a layout. `/portal`
+// lives in the (day2) group, which has no layout, so it loaded neither — every
+// token resolved to nothing, panels went transparent and the text fell back to
+// the global near-black on a dark scene.
+import '@/app/theme-kit.css';
+import '@/app/(game)/biome.css';
 import '@/components/game/custom-round-ui/round-ui.css';
 
 interface RoundShellProps { roundId: number }

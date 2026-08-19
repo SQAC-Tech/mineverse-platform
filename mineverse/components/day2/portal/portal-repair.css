@@ -1,44 +1,310 @@
 /*
- * The Nether portal on Round 4.
+ * Round 4 — the Nether Portal repair.
  *
- * The frame is a 4x5 grid of obsidian blocks with a 2x3 opening, the same shape
- * a portal is built in. Each requirement owns a part of it — the core lays the
- * base, the fragment raises the pillars, the diamonds cap the lintel — so a team
- * can see which part of the portal it is short of without reading anything. That
- * is the point of drawing it at all; a progress bar would say less.
+ * One screen, no scrolling. The portal is the subject and stands free in the
+ * middle of it; the two side panels and the footer card sit around it rather
+ * than boxing it in. Below 1100px there is no room for three columns, so it
+ * stacks and the page is allowed to scroll — a phone cannot honour the layout
+ * and pretending otherwise just clips content.
  *
- * States, set as `data-state` on `.pr-portal`:
- *   collecting -> unlit blocks, dead opening
- *   ready      -> every block lit, the opening breathing but not yet open
- *   igniting   -> one-shot ignition, ~1.6s
- *   repaired   -> the portal running
+ * The frame is 4x5 obsidian blocks with a 2x3 opening, the shape a portal is
+ * built in, and each requirement owns a course of it: the core lays the base,
+ * the fragment raises the pillars, the diamonds cap the lintel. So the drawing
+ * carries the status — a team short of diamonds sees a portal with no top.
  *
- * Everything animated here is decorative. The requirement text under it carries
- * the same information, so the reduced-motion block at the bottom can switch all
- * of it off without taking anything away.
+ * `data-state` on `.pr-portal`: collecting | ready | igniting | repaired.
+ *
+ * Every animation here is decorative; the panels state the same facts in words,
+ * which is what lets the reduced-motion block at the bottom switch all of it off.
  */
 
+.pr-page {
+  position: relative;
+  min-height: 100dvh;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 4px;
+  padding: 14px clamp(14px, 3vw, 36px) 16px;
+  overflow: hidden;
+}
+
+/* ── Header ──────────────────────────────────────────────────── */
+
+.pr-head { text-align: center; position: relative; }
+
+.pr-head__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--rd-font-display, monospace);
+  font-size: clamp(10px, 1.1vw, 13px);
+  letter-spacing: 3px;
+  color: #ff6b4a;
+}
+
+.pr-head__title {
+  margin: 6px 0 0;
+  font-family: var(--rd-font-display, monospace);
+  font-size: clamp(22px, 4.2vw, 46px);
+  line-height: 1.1;
+  letter-spacing: 2px;
+  color: #f2f0e6;
+  text-shadow: 0 3px 0 rgba(0, 0, 0, 0.9), 0 0 24px rgba(255, 107, 74, 0.35);
+}
+
+/* The rule either side of the subtitle is drawn, not typed, so it scales. */
+.pr-head__sub {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin: 10px 0 0;
+  font-size: clamp(12px, 1.3vw, 15px);
+  color: #d9cfcb;
+}
+
+.pr-head__sub::before,
+.pr-head__sub::after {
+  content: '';
+  width: clamp(30px, 7vw, 96px);
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #ff6b4a);
+}
+.pr-head__sub::after { background: linear-gradient(270deg, transparent, #ff6b4a); }
+
+.pr-status {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 15px;
+  border: 2px solid currentColor;
+  border-radius: 3px;
+  font-family: var(--rd-font-display, monospace);
+  font-size: clamp(9px, 0.95vw, 11px);
+  letter-spacing: 2px;
+  background: rgba(0, 0, 0, 0.55);
+}
+.pr-status[data-tone='repaired'] { color: #6cdc8a; box-shadow: 0 0 18px rgba(108, 220, 138, 0.3); }
+.pr-status[data-tone='ready']    { color: #ff9d4a; box-shadow: 0 0 18px rgba(255, 157, 74, 0.3); }
+.pr-status[data-tone='waiting']  { color: #a9b1a6; }
+
+/* ── Stage: panel | portal | panel ───────────────────────────── */
+
 .pr-stage {
+  display: grid;
+  grid-template-columns: minmax(240px, 300px) minmax(0, 1fr) minmax(240px, 300px);
+  align-items: center;
+  gap: clamp(12px, 2.5vw, 40px);
+  min-height: 0;
+}
+
+.pr-centre {
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 18px;
-  padding: 20px 0 10px;
+  justify-content: center;
+  gap: 14px;
+  min-height: 0;
 }
 
-/* The scene behind this page is a lit cavern. Without something to sit the
-   portal on, the frame competes with the lava rather than reading as the
-   subject. This darkens and warms the area immediately around it. */
-.pr-stage::before {
+/* Sits the portal on something so it does not compete with the lava behind. */
+.pr-centre::before {
   content: '';
   position: absolute;
-  inset: -10% -6%;
+  inset: -6% -14%;
   pointer-events: none;
-  background: radial-gradient(ellipse at 50% 42%, rgba(60, 20, 90, 0.34), rgba(4, 2, 8, 0.62) 58%, transparent 78%);
+  background: radial-gradient(ellipse at 50% 46%, rgba(70, 24, 108, 0.42), rgba(4, 2, 8, 0.55) 56%, transparent 76%);
+}
+.pr-centre > * { position: relative; }
+
+/* ── Panels ──────────────────────────────────────────────────── */
+
+.pr-panel {
+  border: 2px solid rgba(255, 107, 74, 0.42);
+  border-radius: 4px;
+  background: rgba(10, 6, 12, 0.82);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  box-shadow: 0 0 22px rgba(255, 90, 60, 0.14), inset 0 0 30px rgba(0, 0, 0, 0.6);
+  padding: 14px;
 }
 
-.pr-stage > * { position: relative; }
+.pr-panel__title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  margin: 0 0 12px;
+  font-family: var(--rd-font-display, monospace);
+  font-size: clamp(8px, 0.8vw, 10px);
+  letter-spacing: 2px;
+  white-space: nowrap;
+  color: #ff6b4a;
+}
+.pr-panel__title::before,
+.pr-panel__title::after { content: '◆'; font-size: 8px; opacity: 0.85; }
+
+/* ── Materials ───────────────────────────────────────────────── */
+
+.pr-mats { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+
+.pr-mat {
+  display: grid;
+  grid-template-columns: 42px 1fr auto;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.42);
+}
+.pr-mat[data-met='true'] {
+  border-color: rgba(150, 92, 214, 0.5);
+  background: rgba(70, 34, 110, 0.24);
+}
+
+.pr-mat__icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.5);
+}
+.pr-mat__icon img,
+.pr-mat__icon svg { width: 26px; height: 26px; }
+
+.pr-mat__name { display: block; font-size: 14px; font-weight: 600; color: #f2f0e6; line-height: 1.2; }
+.pr-mat__sub { display: block; font-size: 11.5px; color: #a29aa6; margin-top: 3px; }
+.pr-mat__right { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
+.pr-mat__count {
+  font-family: var(--rd-font-display, monospace);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: #f2c14e;
+}
+.pr-mat[data-met='true'] .pr-mat__count { color: #6cdc8a; }
+
+/* ── Progress ────────────────────────────────────────────────── */
+
+.pr-progress { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+
+.pr-ring { position: relative; width: clamp(104px, 11vw, 132px); aspect-ratio: 1; }
+.pr-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.pr-ring__track { fill: none; stroke: rgba(255, 255, 255, 0.1); stroke-width: 7; }
+.pr-ring__value {
+  fill: none;
+  stroke: #b06bf0;
+  stroke-width: 7;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 6px rgba(176, 107, 240, 0.75));
+  transition: stroke-dashoffset 900ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.pr-ring__label {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  font-family: var(--rd-font-display, monospace);
+}
+.pr-ring__pct { font-size: clamp(15px, 1.7vw, 21px); color: #f2f0e6; }
+.pr-ring__word { font-size: 8px; letter-spacing: 2px; color: #b06bf0; margin-top: 5px; }
+
+.pr-steps { list-style: none; margin: 0; padding: 0; width: 100%; display: flex; flex-direction: column; gap: 8px; }
+.pr-step { display: flex; align-items: center; gap: 9px; font-size: 13px; color: #6f6875; }
+.pr-step[data-done='true'] { color: #e8e4ea; }
+
+/* ── Footer ──────────────────────────────────────────────────── */
+
+.pr-foot { position: relative; display: flex; justify-content: center; }
+
+.pr-mission {
+  width: min(620px, 100%);
+  text-align: center;
+  padding: 12px 20px 14px;
+  border: 2px solid rgba(150, 92, 214, 0.55);
+  border-radius: 4px;
+  background: rgba(14, 8, 22, 0.86);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  box-shadow: 0 0 26px rgba(150, 92, 214, 0.2);
+}
+
+.pr-mission__title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  margin: 0 0 8px;
+  font-family: var(--rd-font-display, monospace);
+  font-size: clamp(10px, 1.1vw, 13px);
+  letter-spacing: 2px;
+  color: #c682ff;
+}
+.pr-mission__title::before,
+.pr-mission__title::after { content: '✦'; font-size: 9px; }
+.pr-mission__body { margin: 0 0 10px; font-size: 14px; line-height: 1.55; color: #ddd6e2; }
+
+/* The one button that matters on this screen, so it is allowed to be loud. */
+.pr-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 11px;
+  min-width: min(420px, 100%);
+  padding: 14px 26px;
+  border: 2px solid #ffd8a0;
+  border-radius: 3px;
+  font-family: var(--rd-font-display, monospace);
+  font-size: clamp(12px, 1.35vw, 17px);
+  letter-spacing: 2px;
+  color: #2a0d02;
+  text-decoration: none;
+  cursor: pointer;
+  background: linear-gradient(180deg, #ffa53d 0%, #f2701c 52%, #d1520c 100%);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.45), 0 5px 0 #7d2f05, 0 10px 26px rgba(0, 0, 0, 0.6);
+  transition: transform 120ms ease, filter 120ms ease, box-shadow 120ms ease;
+}
+.pr-cta:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); }
+.pr-cta:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.4), 0 1px 0 #7d2f05;
+}
+.pr-cta:disabled { filter: grayscale(0.65) brightness(0.7); cursor: not-allowed; }
+.pr-cta:focus-visible { outline: 3px solid #ffe9c2; outline-offset: 3px; }
+
+/* Igniting the portal is a different act from stepping through it. */
+.pr-cta--ignite {
+  border-color: #e5c2ff;
+  color: #1b0630;
+  background: linear-gradient(180deg, #cf8bff 0%, #a24ee8 52%, #7a2bbd 100%);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.45), 0 5px 0 #4a1476, 0 10px 26px rgba(0, 0, 0, 0.6);
+}
+
+.pr-back {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 16px;
+  border: 2px solid rgba(255, 255, 255, 0.22);
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.55);
+  font-family: var(--rd-font-display, monospace);
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: #d6d0d8;
+  text-decoration: none;
+}
+.pr-back:hover { border-color: rgba(255, 255, 255, 0.45); color: #fff; }
 
 /* ── The portal ──────────────────────────────────────────────── */
 
@@ -47,38 +313,33 @@
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   grid-template-rows: repeat(5, 1fr);
-  width: min(268px, 66vw);
+  height: min(56vh, 460px);
   aspect-ratio: 4 / 5;
   gap: 2px;
-  filter: drop-shadow(0 14px 28px rgba(0, 0, 0, 0.7));
+  filter: drop-shadow(0 18px 34px rgba(0, 0, 0, 0.75));
 }
 
-/* Obsidian. Two gradients: a diagonal sheen, then a coarse mottle so the block
-   does not read as flat plastic at this size. */
 .pr-block {
   position: relative;
   background:
     linear-gradient(145deg, #241a33 0%, #150e21 55%, #0d0817 100%),
     repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.03) 0 3px, transparent 3px 7px);
-  box-shadow:
-    inset 1px 1px 0 rgba(255, 255, 255, 0.06),
-    inset -1px -1px 0 rgba(0, 0, 0, 0.55);
-  opacity: 0.34;
-  transform: translateY(4px);
+  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.06), inset -1px -1px 0 rgba(0, 0, 0, 0.55);
+  opacity: 0.3;
+  transform: translateY(5px);
   transition: opacity 420ms ease, transform 420ms cubic-bezier(0.2, 0.9, 0.3, 1.2), box-shadow 420ms ease;
 }
 
-/* A block whose requirement is satisfied: dropped into place and lit from within. */
 .pr-block[data-lit='true'] {
   opacity: 1;
   transform: translateY(0);
   box-shadow:
     inset 1px 1px 0 rgba(255, 255, 255, 0.1),
     inset -1px -1px 0 rgba(0, 0, 0, 0.6),
-    0 0 10px rgba(150, 92, 214, 0.34);
+    0 0 12px rgba(150, 92, 214, 0.36);
+  transition-delay: calc(var(--pr-index, 0) * 34ms);
 }
 
-/* The purple vein that only shows once the block is set. */
 .pr-block[data-lit='true']::after {
   content: '';
   position: absolute;
@@ -86,42 +347,43 @@
   background: radial-gradient(circle, rgba(186, 122, 255, 0.5), transparent 70%);
 }
 
-/* Staggered so the frame assembles in reading order rather than all at once. */
-.pr-block[data-lit='true'] { transition-delay: calc(var(--pr-index, 0) * 34ms); }
-
-/* ── The opening ─────────────────────────────────────────────── */
-
 .pr-gate {
   grid-area: 2 / 2 / 5 / 4;
   position: relative;
   overflow: hidden;
-  background: #07040d;
-  box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.9);
+  /* Dead black until it is lit. No purple anywhere in here before ignition —
+     the whole point of the animation is that the colour arrives with it. */
+  background: radial-gradient(ellipse at 50% 50%, #0b0a10 0%, #040308 80%);
+  box-shadow: inset 0 0 26px rgba(0, 0, 0, 0.98);
 }
 
-/* Two counter-drifting gradient sheets is what sells the swirl — one alone just
-   looks like a scrolling texture. */
+/* Two counter-drifting sheets is what sells the swirl; one alone reads as a
+   scrolling texture. The conic banding gives the surface grain. */
 .pr-gate::before,
 .pr-gate::after {
   content: '';
   position: absolute;
   inset: -55%;
   opacity: 0;
-  transition: opacity 600ms ease;
+  transition: opacity 900ms ease 250ms;
 }
 
 .pr-gate::before {
+  z-index: 0;
   background:
-    radial-gradient(ellipse at 30% 35%, rgba(198, 130, 255, 0.95), transparent 58%),
-    radial-gradient(ellipse at 72% 68%, rgba(126, 62, 201, 0.9), transparent 60%),
-    radial-gradient(ellipse at 50% 50%, rgba(232, 200, 255, 0.55), transparent 42%);
+    radial-gradient(ellipse at 32% 30%, rgba(163, 74, 245, 0.9), transparent 42%),
+    radial-gradient(ellipse at 70% 66%, rgba(96, 32, 176, 0.95), transparent 44%),
+    radial-gradient(ellipse at 55% 48%, rgba(226, 178, 255, 0.7), transparent 22%),
+    radial-gradient(ellipse at 22% 78%, rgba(58, 16, 110, 0.9), transparent 40%);
   animation: pr-swirl-a 7s linear infinite;
 }
 
 .pr-gate::after {
+  z-index: 1;
   background:
-    radial-gradient(ellipse at 65% 30%, rgba(88, 30, 150, 0.85), transparent 55%),
-    radial-gradient(ellipse at 28% 74%, rgba(160, 96, 235, 0.75), transparent 58%);
+    radial-gradient(ellipse at 62% 26%, rgba(140, 58, 226, 0.8), transparent 40%),
+    radial-gradient(ellipse at 26% 70%, rgba(198, 130, 255, 0.72), transparent 38%),
+    repeating-radial-gradient(circle at 46% 52%, rgba(226, 190, 255, 0.09) 0 6px, transparent 6px 17px);
   mix-blend-mode: screen;
   animation: pr-swirl-b 11s linear infinite reverse;
 }
@@ -131,25 +393,20 @@
   50%  { transform: rotate(180deg) scale(1.16); }
   100% { transform: rotate(360deg) scale(1.06); }
 }
-
 @keyframes pr-swirl-b {
-  0%   { transform: rotate(0deg)   scale(1.2)  translateX(2%); }
-  100% { transform: rotate(360deg) scale(1.2)  translateX(-2%); }
+  0%   { transform: rotate(0deg)   scale(1.2) translateX(2%); }
+  100% { transform: rotate(360deg) scale(1.2) translateX(-2%); }
 }
 
-/* Ready: the opening is alive but not open — a held breath. */
-.pr-portal[data-state='ready'] .pr-gate::before { opacity: 0.26; }
-.pr-portal[data-state='ready'] .pr-gate { animation: pr-breathe 2.6s ease-in-out infinite; }
+.pr-portal[data-state='ready'] .pr-gate { animation: pr-breathe 2.8s ease-in-out infinite; }
 
 @keyframes pr-breathe {
-  0%, 100% { box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.9), inset 0 0 26px rgba(150, 92, 214, 0.22); }
-  50%      { box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.9), inset 0 0 44px rgba(186, 122, 255, 0.5); }
+  0%, 100% { box-shadow: inset 0 0 26px rgba(0, 0, 0, 0.98), inset 0 0 18px rgba(255, 120, 60, 0.12); }
+  50%      { box-shadow: inset 0 0 26px rgba(0, 0, 0, 0.98), inset 0 0 34px rgba(255, 140, 70, 0.26); }
 }
 
 .pr-portal:is([data-state='igniting'], [data-state='repaired']) .pr-gate::before { opacity: 1; }
 .pr-portal:is([data-state='igniting'], [data-state='repaired']) .pr-gate::after { opacity: 0.85; }
-
-/* ── Ignition ────────────────────────────────────────────────── */
 
 .pr-flash {
   position: absolute;
@@ -158,116 +415,79 @@
   opacity: 0;
   background: radial-gradient(circle, rgba(240, 220, 255, 0.95), rgba(168, 96, 240, 0.4) 38%, transparent 68%);
 }
-
 .pr-portal[data-state='igniting'] .pr-flash { animation: pr-flash 1.6s cubic-bezier(0.15, 0.8, 0.2, 1) forwards; }
 .pr-portal[data-state='igniting'] { animation: pr-shake 0.5s ease-in-out 2; }
 
 @keyframes pr-flash {
-  0%   { opacity: 0;    transform: scale(0.4); }
-  18%  { opacity: 1;    transform: scale(1.1); }
-  100% { opacity: 0;    transform: scale(1.5); }
+  0%   { opacity: 0; transform: scale(0.4); }
+  18%  { opacity: 1; transform: scale(1.1); }
+  100% { opacity: 0; transform: scale(1.5); }
 }
-
 @keyframes pr-shake {
   0%, 100% { transform: translate(0, 0); }
-  25%      { transform: translate(-2px, 1px); }
-  75%      { transform: translate(2px, -1px); }
+  25%      { transform: translate(-3px, 1px); }
+  75%      { transform: translate(3px, -1px); }
 }
 
-/* ── Embers ──────────────────────────────────────────────────── */
-
-.pr-motes { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
-
+.pr-motes { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
 .pr-mote {
   position: absolute;
-  bottom: 12%;
+  bottom: 10%;
   width: 3px;
   height: 3px;
   background: #d9b6ff;
   box-shadow: 0 0 6px rgba(198, 130, 255, 0.9);
   opacity: 0;
 }
-
 .pr-portal[data-state='repaired'] .pr-mote {
   animation: pr-rise 4.2s ease-in infinite;
   animation-delay: var(--pr-delay, 0s);
 }
-
 @keyframes pr-rise {
   0%   { opacity: 0;    transform: translateY(0) scale(0.6); }
   15%  { opacity: 0.95; }
-  100% { opacity: 0;    transform: translateY(-150px) translateX(var(--pr-drift, 0px)) scale(1.1); }
+  100% { opacity: 0;    transform: translateY(-190px) translateX(var(--pr-drift, 0px)) scale(1.1); }
 }
-
-/* ── Caption ─────────────────────────────────────────────────── */
 
 .pr-caption {
-  font-family: var(--rd-font-display, var(--font-minecraft), monospace);
-  font-size: 11px;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  text-align: center;
-  color: var(--rd-ink-dim, #a9b1a6);
-}
-
-.pr-portal[data-state='repaired'] ~ .pr-caption,
-.pr-portal[data-state='igniting'] ~ .pr-caption { color: #c682ff; }
-
-/* ── Requirements ────────────────────────────────────────────── */
-
-.pr-reqs { display: flex; flex-direction: column; gap: 10px; }
-
-.pr-req {
   display: flex;
   align-items: center;
-  gap: 11px;
-  padding: 10px 12px;
-  border: 2px solid var(--rd-edge, #37472f);
-  background: rgba(0, 0, 0, 0.32);
-}
-
-.pr-req[data-met='true'] {
-  border-color: rgba(150, 92, 214, 0.6);
-  background: rgba(120, 70, 180, 0.14);
-}
-
-.pr-req__label { flex: 1; min-width: 0; font-size: 13px; }
-.pr-req__part {
-  font-family: var(--rd-font-display, var(--font-minecraft), monospace);
-  font-size: 8px;
-  letter-spacing: 1px;
+  justify-content: center;
+  gap: 12px;
+  margin: 0;
+  font-family: var(--rd-font-display, monospace);
+  font-size: clamp(10px, 1.05vw, 13px);
+  letter-spacing: 3px;
   text-transform: uppercase;
-  color: var(--rd-ink-dim, #a9b1a6);
-  display: block;
-  margin-top: 3px;
+  color: #a9b1a6;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.95);
 }
-.pr-req__count {
-  font-variant-numeric: tabular-nums;
-  font-size: 13px;
-  white-space: nowrap;
-  color: var(--rd-ink, #f2f0e6);
-}
+.pr-caption::before,
+.pr-caption::after { content: '✦'; font-size: 9px; opacity: 0.8; }
+.pr-portal[data-state='repaired'] + .pr-caption,
+.pr-portal[data-state='igniting'] + .pr-caption { color: #c682ff; }
 
-.pr-meter { height: 4px; margin-top: 7px; background: rgba(0, 0, 0, 0.5); overflow: hidden; }
-.pr-meter__fill {
-  height: 100%;
-  background: linear-gradient(90deg, #7e3ec9, #c682ff);
-  transition: width 700ms cubic-bezier(0.2, 0.8, 0.2, 1);
+/* ── Narrow / short screens ──────────────────────────────────── */
+
+@media (max-width: 1100px), (max-height: 620px) {
+  .pr-page { min-height: 0; overflow: visible; grid-template-rows: none; }
+  .pr-stage { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .pr-centre { order: -1; }
+  .pr-portal { height: min(46vh, 340px); }
+  .pr-status { position: static; margin-top: 12px; }
+  .pr-back { position: static; margin: 14px auto 0; }
+  .pr-foot { flex-direction: column; align-items: center; }
 }
 
 /* ── Reduced motion ──────────────────────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {
-  .pr-block,
-  .pr-meter__fill { transition: none; }
-
+  .pr-block, .pr-ring__value, .pr-cta { transition: none; }
   .pr-gate,
   .pr-gate::before,
   .pr-gate::after,
   .pr-flash,
   .pr-portal,
   .pr-mote { animation: none !important; }
-
-  /* The repaired portal still has to look repaired without the swirl. */
   .pr-portal[data-state='repaired'] .pr-gate::before { opacity: 1; }
 }

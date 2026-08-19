@@ -1,13 +1,20 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
-import { Check, X, Flame, RefreshCw, Sparkles } from 'lucide-react';
-import { Panel, Btn, Loading, Pill } from '@/components/admin/nether-ui';
+import { ArrowLeft, Check, Flame, RefreshCw, Sword } from 'lucide-react';
 import { roundChrome } from '@/components/game/custom-round-ui/round-presentation';
 import { PortalFrame } from '@/components/day2/portal/PortalFrame';
 import { stageFor } from '@/components/day2/portal/portal-layout';
+// The kit and the palette are imported here, not left to a layout. `/portal`
+// lives in the (day2) group, which has no layout, so it loaded neither — every
+// token resolved to nothing, panels went transparent and the text fell back to
+// the global near-black on a dark scene.
+import '@/app/theme-kit.css';
+import '@/app/(game)/biome.css';
 import '@/components/game/custom-round-ui/round-ui.css';
+import './portal-repair.css';
 
 interface Day2Status {
   portal: {
@@ -23,40 +30,56 @@ const DIAMONDS_REQUIRED = 15;
 /** Matches the ignition animation in portal-repair.css. */
 const IGNITION_MS = 1600;
 
-function Requirement({
-  met,
-  label,
-  course,
-  have,
-  need,
-}: {
-  met: boolean;
-  label: string;
-  course: string;
+/* Two of the three materials have no sprite in /public, so they are drawn here
+   rather than borrowing an unrelated icon. */
+function CoreIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 2 3 7v10l9 5 9-5V7z" fill="#3b1d63" stroke="#a86bf0" strokeWidth="1.4" />
+      <path d="M12 2v20M3 7l9 5 9-5" stroke="#c9a0ff" strokeWidth="1" opacity=".75" fill="none" />
+      <circle cx="12" cy="12" r="2.6" fill="#e0c2ff" />
+    </svg>
+  );
+}
+
+function FragmentIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M13 2 5 13h5l-2 9 10-12h-5z" fill="#7a2bbd" stroke="#d9b6ff" strokeWidth="1.3" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+interface Material {
+  key: string;
+  name: string;
+  sub: string;
   have: number;
   need: number;
-}) {
-  const pct = Math.min(100, Math.round((have / need) * 100));
+  icon: React.ReactNode;
+}
+
+function ProgressRing({ percent }: { percent: number }) {
+  const radius = 44;
+  const circumference = 2 * Math.PI * radius;
   return (
-    <li className="pr-req" data-met={String(met)}>
-      {met ? (
-        <Check size={15} style={{ color: '#c682ff', flexShrink: 0 }} />
-      ) : (
-        <X size={15} style={{ color: '#e05b4b', flexShrink: 0 }} />
-      )}
-      <div className="pr-req__label">
-        {label}
-        <span className="pr-req__part">{course}</span>
-        {need > 1 && (
-          <div className="pr-meter">
-            <div className="pr-meter__fill" style={{ width: `${pct}%` }} />
-          </div>
-        )}
+    <div className="pr-ring">
+      <svg viewBox="0 0 100 100">
+        <circle className="pr-ring__track" cx="50" cy="50" r={radius} />
+        <circle
+          className="pr-ring__value"
+          cx="50"
+          cy="50"
+          r={radius}
+          strokeDasharray={circumference}
+          strokeDashoffset={circumference * (1 - percent / 100)}
+        />
+      </svg>
+      <div className="pr-ring__label">
+        <div className="pr-ring__pct">{percent}%</div>
+        <div className="pr-ring__word">COMPLETE</div>
       </div>
-      <span className="pr-req__count">
-        {Math.min(have, need)}/{need}
-      </span>
-    </li>
+    </div>
   );
 }
 
@@ -66,12 +89,13 @@ function Requirement({
  * The physical games are run and judged in the room; organizers credit Diamonds
  * and the Portal Fragment from /admin/resources. There is deliberately no
  * activity list or result-entry form here — a team entering its own results is
- * exactly what the event does not want.
+ * exactly what the event does not want, and it is why this screen is so short
+ * on words.
  *
  * The repair is one server-validated call. Nothing about eligibility is decided
- * here: the button only appears once the server says `ready`, and the endpoint
- * re-checks regardless. The ignition animation runs *after* the server has
- * confirmed, so it can never show a portal that is not actually open.
+ * here: the button only appears once the server says every material is held, and
+ * the endpoint re-checks regardless. The ignition animation runs *after* the
+ * server has confirmed, so it can never show a portal that is not open.
  */
 export function PortalRepairUI() {
   const [status, setStatus] = useState<Day2Status | null>(null);
@@ -97,14 +121,17 @@ export function PortalRepairUI() {
 
   useEffect(() => {
     void fetchStatus();
-    // Organizer grants land out of band, so the requirements have to keep up.
+    // Organizer grants land out of band, so the materials have to keep up.
     const interval = window.setInterval(fetchStatus, 5000);
     return () => window.clearInterval(interval);
   }, [fetchStatus]);
 
-  useEffect(() => () => {
-    if (igniteTimer.current) window.clearTimeout(igniteTimer.current);
-  }, []);
+  useEffect(
+    () => () => {
+      if (igniteTimer.current) window.clearTimeout(igniteTimer.current);
+    },
+    [],
+  );
 
   const handleRepair = async () => {
     setRepairing(true);
@@ -113,16 +140,16 @@ export function PortalRepairUI() {
       const res = await fetch('/api/team/portal/repair', { method: 'POST' });
       const data = await res.json();
       if (!data.success) {
-        setError(data.error || 'Failed to repair the portal.');
+        setError(data.error || 'The server refused the repair.');
         return;
       }
-      // Server said yes — now play the ignition, then settle into the repaired
-      // state once the refetch has landed underneath it.
+      // Server said yes — play the ignition, then settle into the repaired state
+      // once the refetch has landed underneath it.
       setIgniting(true);
       igniteTimer.current = window.setTimeout(() => setIgniting(false), IGNITION_MS);
       await fetchStatus();
     } catch {
-      setError('An unexpected error occurred.');
+      setError('Could not reach the server.');
     } finally {
       setRepairing(false);
     }
@@ -131,144 +158,183 @@ export function PortalRepairUI() {
   const { themeClass } = roundChrome(4);
   const portal = status?.portal;
 
-  const hasCore = (portal?.nether_core_count ?? 0) >= 1;
+  const cores = portal?.nether_core_count ?? 0;
+  const diamonds = portal?.diamond_count ?? 0;
+  const hasCore = cores >= 1;
   const hasFragment = Boolean(portal?.has_fragment);
-  const hasDiamonds = (portal?.diamond_count ?? 0) >= DIAMONDS_REQUIRED;
-  const isReady = hasCore && hasFragment && hasDiamonds;
+  const hasDiamonds = diamonds >= DIAMONDS_REQUIRED;
+  const isRepaired = Boolean(portal?.is_repaired);
+  const stage = stageFor({ hasCore, hasFragment, hasDiamonds }, { isRepaired, isIgniting: igniting });
 
-  const stage = stageFor(
-    { hasCore, hasFragment, hasDiamonds },
-    { isRepaired: Boolean(portal?.is_repaired), isIgniting: igniting },
-  );
+  const materials: Material[] = [
+    { key: 'core', name: 'Nether Core', sub: 'Activates the base', have: cores, need: 1, icon: <CoreIcon /> },
+    {
+      key: 'fragment',
+      name: 'Portal Fragment',
+      sub: 'Raises the pillars',
+      have: hasFragment ? 1 : 0,
+      need: 1,
+      icon: <FragmentIcon />,
+    },
+    {
+      key: 'diamond',
+      name: 'Diamonds',
+      sub: 'Caps the lintel',
+      have: diamonds,
+      need: DIAMONDS_REQUIRED,
+      icon: <Image src="/diamond.svg" alt="" width={26} height={26} />,
+    },
+  ];
+
+  // Four steps, the last being the repair itself — holding every material is not
+  // the same as having lit the portal.
+  const steps = [
+    { label: 'Base activated', done: hasCore },
+    { label: 'Pillars restored', done: hasFragment },
+    { label: 'Lintel capped', done: hasDiamonds },
+    { label: 'Portal stabilized', done: isRepaired },
+  ];
+  const percent = Math.round((steps.filter((step) => step.done).length / steps.length) * 100);
+
+  const missing = materials.filter((material) => material.have < material.need).length;
+  // An igniting portal is already past every gate, so the status reads warm
+  // rather than falling back to the collecting tone mid-animation.
+  const armed = isRepaired || stage === 'igniting' || stage === 'ready';
+  const tone = stage === 'igniting' ? 'ready' : isRepaired ? 'repaired' : armed ? 'ready' : 'waiting';
 
   return (
-    <main className={`biome round-ui-scene ${themeClass}`} style={{ minHeight: '100vh' }}>
+    <main className={`biome round-ui-scene ${themeClass}`}>
       <div className="round-ui-scene__backdrop" aria-hidden="true" />
       <div className="round-ui-scene__shade" aria-hidden="true" />
       <div className="round-ui-scene__scrim" aria-hidden="true" />
 
-      <div style={{ maxWidth: 760, margin: '0 auto', padding: '28px 16px 48px' }}>
-        <header style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
-          <Flame size={22} style={{ color: 'var(--accent-primary)' }} />
-          <div style={{ marginRight: 'auto' }}>
-            <div className="n-stat-label">Round 4</div>
-            <h1 style={{ fontSize: 20, letterSpacing: 1.5, textTransform: 'uppercase', color: 'var(--text-onDark)' }}>
-              Nether Portal Repair
-            </h1>
+      <div className="pr-page">
+        <header className="pr-head">
+          <span className="pr-head__eyebrow">
+            <Flame size={15} /> ROUND 4
+          </span>
+          <h1 className="pr-head__title">NETHER PORTAL REPAIR</h1>
+          <p className="pr-head__sub">
+            {stage === 'igniting'
+              ? 'The obsidian is catching.'
+              : isRepaired
+                ? 'The portal is restored. The path to The End is open.'
+                : stage === 'ready'
+                  ? 'Every material is in hand. Light it.'
+                  : 'Organizers credit what your team wins in the hall.'}
+          </p>
+          <div className="pr-status" data-tone={tone}>
+            {isRepaired && stage !== 'igniting' && <Check size={13} />}
+            {stage === 'igniting' ? 'IGNITING' : isRepaired ? 'REPAIRED' : stage === 'ready' ? 'READY' : 'COLLECTING'}
           </div>
-          {portal && (
-            <Pill tone={portal.is_repaired ? 'ok' : isReady ? 'live' : 'idle'}>
-              {portal.is_repaired ? 'Repaired' : isReady ? 'Ready' : 'Collecting'}
-            </Pill>
-          )}
         </header>
 
-        {loading && !portal ? (
-          <Panel>
-            <Loading label="Checking your portal" />
-          </Panel>
-        ) : !portal ? (
-          <Panel title="Portal unavailable">
-            <p style={{ fontSize: 12, marginBottom: 12 }}>
-              We could not load your portal status. This page retries on its own every few seconds.
-            </p>
-            <Btn onClick={() => void fetchStatus()}>
-              <RefreshCw size={12} /> Try again
-            </Btn>
-          </Panel>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <Panel>
-              <div className="pr-stage">
-                <PortalFrame
-                  hasCore={hasCore}
-                  hasFragment={hasFragment}
-                  hasDiamonds={hasDiamonds}
-                  stage={stage}
-                />
-              </div>
-            </Panel>
+        <div className="pr-stage">
+          <section className="pr-panel">
+            <h2 className="pr-panel__title">REQUIRED MATERIALS</h2>
+            <ul className="pr-mats">
+              {materials.map((material) => {
+                const met = material.have >= material.need;
+                return (
+                  <li key={material.key} className="pr-mat" data-met={String(met)}>
+                    <span className="pr-mat__icon">{material.icon}</span>
+                    <span>
+                      <span className="pr-mat__name">{material.name}</span>
+                      <span className="pr-mat__sub">{material.sub}</span>
+                    </span>
+                    <span className="pr-mat__right">
+                      <span className="pr-mat__count">
+                        {Math.min(material.have, material.need)}/{material.need}
+                      </span>
+                      {met && <Check size={14} style={{ color: '#6cdc8a' }} />}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
 
-            <Panel title="Requirements">
-              <ul className="pr-reqs" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-                <Requirement
-                  met={hasCore}
-                  label="Nether Core"
-                  course="Lays the base"
-                  have={portal.nether_core_count}
-                  need={1}
-                />
-                <Requirement
-                  met={hasFragment}
-                  label="Portal Fragment"
-                  course="Raises the pillars"
-                  have={portal.has_fragment ? 1 : 0}
-                  need={1}
-                />
-                <Requirement
-                  met={hasDiamonds}
-                  label="Diamonds"
-                  course="Caps the lintel"
-                  have={portal.diamond_count}
-                  need={DIAMONDS_REQUIRED}
-                />
-              </ul>
-              <p className="n-panel-sub" style={{ marginTop: 12 }}>
-                Nothing is consumed by the repair. These are checked, not spent.
-              </p>
-            </Panel>
-
-            <Panel title="How you earn these">
-              <p style={{ fontSize: 12, lineHeight: 1.6 }}>
-                The Round 4 games happen in the room, not on this screen. Organizers credit whatever your team earns —
-                Diamonds, and the Portal Fragment — straight to your inventory, and it shows up in your resource
-                history. There is nothing to submit here.
-              </p>
-            </Panel>
-
-            {error && (
-              <Panel>
-                <p style={{ fontSize: 12, color: '#ff9db0' }}>{error}</p>
-              </Panel>
-            )}
-
-            <Panel title={portal.is_repaired ? 'The portal is open' : 'Repair the portal'}>
-              {portal.is_repaired ? (
-                <>
-                  <p style={{ fontSize: 12, marginBottom: 12 }}>
-                    Your Nether Portal is repaired. The End is open — craft the Diamond Pickaxe there, then face the
-                    Ender Dragon.
-                  </p>
-                  <Link
-                    href="/round5"
-                    className="n-btn n-btn-primary"
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                  >
-                    <Sparkles size={12} /> Enter The End
-                  </Link>
-                </>
-              ) : isReady ? (
-                <>
-                  <p style={{ fontSize: 12, marginBottom: 12 }}>
-                    Everything the portal needs is in your inventory. Repairing it unlocks Round 5.
-                  </p>
-                  <Btn variant="primary" onClick={() => void handleRepair()} disabled={repairing || igniting}>
-                    <Flame size={12} /> {repairing || igniting ? 'Igniting…' : 'Repair Portal'}
-                  </Btn>
-                </>
-              ) : (
-                <p style={{ fontSize: 12 }}>
-                  Still short of at least one requirement. This page updates itself as organizers credit your team —
-                  you do not need to reload.
-                </p>
-              )}
-            </Panel>
-
-            <Link href="/dashboard" className="n-btn n-btn-secondary" style={{ alignSelf: 'flex-start' }}>
-              Back to dashboard
-            </Link>
+          <div className="pr-centre">
+            <PortalFrame hasCore={hasCore} hasFragment={hasFragment} hasDiamonds={hasDiamonds} stage={stage} />
           </div>
-        )}
+
+          <section className="pr-panel">
+            <h2 className="pr-panel__title">REPAIR PROGRESS</h2>
+            <div className="pr-progress">
+              <ProgressRing percent={percent} />
+              <ul className="pr-steps">
+                {steps.map((step) => (
+                  <li key={step.label} className="pr-step" data-done={String(step.done)}>
+                    <Check size={14} style={{ color: step.done ? '#6cdc8a' : '#4a4550', flexShrink: 0 }} />
+                    {step.label}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
+        </div>
+
+        <footer className="pr-foot">
+          <Link href="/dashboard" className="pr-back">
+            <ArrowLeft size={13} /> BACK TO DASHBOARD
+          </Link>
+
+          <div className="pr-mission">
+            {loading && !portal ? (
+              <p className="pr-mission__body" style={{ margin: 0 }}>
+                Checking your portal…
+              </p>
+            ) : !portal ? (
+              <>
+                <h2 className="pr-mission__title">PORTAL UNAVAILABLE</h2>
+                <p className="pr-mission__body">This page retries on its own every few seconds.</p>
+                <button type="button" className="pr-cta pr-cta--ignite" onClick={() => void fetchStatus()}>
+                  <RefreshCw size={16} /> TRY AGAIN
+                </button>
+              </>
+            ) : stage === 'igniting' ? (
+              <>
+                <h2 className="pr-mission__title">IGNITING</h2>
+                <p className="pr-mission__body">The obsidian is catching. Stand back.</p>
+                <button type="button" className="pr-cta pr-cta--ignite" disabled>
+                  <Flame size={18} /> IGNITING…
+                </button>
+              </>
+            ) : isRepaired ? (
+              <>
+                <h2 className="pr-mission__title">MISSION COMPLETE</h2>
+                <p className="pr-mission__body">
+                  The End awaits. Craft the Diamond Pickaxe, then face the Ender Dragon.
+                </p>
+                <Link href="/round5" className="pr-cta">
+                  <Sword size={18} /> ENTER THE END
+                </Link>
+              </>
+            ) : stage === 'ready' ? (
+              <>
+                <h2 className="pr-mission__title">READY TO IGNITE</h2>
+                <p className="pr-mission__body">
+                  {error || 'Nothing is consumed — your materials are checked, not spent.'}
+                </p>
+                <button
+                  type="button"
+                  className="pr-cta pr-cta--ignite"
+                  onClick={() => void handleRepair()}
+                  disabled={repairing || igniting}
+                >
+                  <Flame size={18} /> {repairing || igniting ? 'IGNITING…' : 'REPAIR PORTAL'}
+                </button>
+              </>
+            ) : (
+              <>
+                <h2 className="pr-mission__title">MATERIALS MISSING</h2>
+                <p className="pr-mission__body" style={{ marginBottom: 0 }}>
+                  {error || `Waiting on ${missing} material${missing === 1 ? '' : 's'}. This screen updates itself.`}
+                </p>
+              </>
+            )}
+          </div>
+        </footer>
       </div>
     </main>
   );
