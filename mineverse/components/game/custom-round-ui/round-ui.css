@@ -1292,6 +1292,29 @@
 
 .round-ui__card-text--bad { color: var(--rd-bad); }
 
+/*
+ * A coding question on the board.
+ *
+ * The board column is sized for a sentence, not a program, so it shows the first
+ * few lines of the draft and hands off to the full-window editor.
+ */
+.round-ui__code-preview {
+  margin: 0 0 10px;
+  padding: 9px 11px;
+  max-height: 108px;
+  overflow: hidden;
+  border: 2px solid var(--rd-board-line);
+  border-radius: 2px;
+  background: var(--rd-board-sunk);
+  color: var(--rd-board-dim);
+  font-family: var(--rd-font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.round-ui__open-editor { width: 100%; justify-content: center; }
+
 /* ── Inventory ───────────────────────────────────────────────── */
 
 /* Wrapping flex rather than a two-column grid: when the action buttons no

@@ -1,6 +1,7 @@
 'use client';
 
 import { readDraft, writeDraft, purgeForeignDrafts } from '@/lib/client/answer-drafts';
+import { runtimesFor } from '@/lib/gameplay/code/runtimes';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -262,7 +263,7 @@ export function CaveRoundShell() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(codeQuestion
-          ? { question_id: target.id, code: answer, language: target.language_options?.[0] ?? null }
+          ? { question_id: target.id, code: answer, language: runtimesFor(target.language_options)[0]?.id ?? null }
           : { question_id: target.id, answer_text: answer }),
       });
       const data = await response.json();
