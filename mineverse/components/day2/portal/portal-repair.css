@@ -319,32 +319,115 @@
   filter: drop-shadow(0 18px 34px rgba(0, 0, 0, 0.75));
 }
 
+/*
+ * Obsidian, drawn as actual pixels rather than a soft gradient.
+ *
+ * Each `conic-gradient(colour 0 0)` is a flat fill; sized to one cell of a 4x4
+ * grid and pinned with `background-position`, it paints exactly one square. Ten
+ * of them over a base colour give the block its speckle, and because every edge
+ * is a hard stop the result stays crisp at any size — no blur, no texture file.
+ *
+ * The palette is Minecraft's: a near-black violet base with a few lighter
+ * flecks. Nothing here glows. Obsidian is inert; the light in this scene comes
+ * from the portal it frames.
+ */
 .pr-block {
+  --ob-base: #140b21;
+  --ob-mid: #26183c;
+  --ob-lit: #3a2657;
+  --ob-dark: #0b0613;
+
   position: relative;
-  background:
-    linear-gradient(145deg, #241a33 0%, #150e21 55%, #0d0817 100%),
-    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.03) 0 3px, transparent 3px 7px);
-  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.06), inset -1px -1px 0 rgba(0, 0, 0, 0.55);
-  opacity: 0.3;
+  background-color: var(--ob-base);
+  background-image:
+    conic-gradient(var(--ob-lit) 0 0),
+    conic-gradient(var(--ob-mid) 0 0),
+    conic-gradient(var(--ob-lit) 0 0),
+    conic-gradient(var(--ob-mid) 0 0),
+    conic-gradient(var(--ob-dark) 0 0),
+    conic-gradient(var(--ob-dark) 0 0),
+    conic-gradient(var(--ob-mid) 0 0),
+    conic-gradient(var(--ob-lit) 0 0),
+    conic-gradient(var(--ob-dark) 0 0),
+    conic-gradient(var(--ob-mid) 0 0);
+  background-size: 25% 25%;
+  background-repeat: no-repeat;
+  background-position:
+    0% 0%,
+    66.7% 0%,
+    33.3% 33.3%,
+    100% 33.3%,
+    33.3% 0%,
+    0% 66.7%,
+    66.7% 66.7%,
+    100% 100%,
+    33.3% 100%,
+    0% 100%;
+
+  /* The bevel that makes it a block rather than a tile. */
+  box-shadow:
+    inset 2px 2px 0 rgba(255, 255, 255, 0.07),
+    inset -2px -2px 0 rgba(0, 0, 0, 0.6);
+
+  /* Unbuilt courses are ghosted back, not recoloured — the block is the same
+     obsidian either way, it simply is not there yet. */
+  opacity: 0.22;
+  filter: saturate(0.5) brightness(0.7);
   transform: translateY(5px);
-  transition: opacity 420ms ease, transform 420ms cubic-bezier(0.2, 0.9, 0.3, 1.2), box-shadow 420ms ease;
+  transition:
+    opacity 420ms ease,
+    filter 420ms ease,
+    transform 420ms cubic-bezier(0.2, 0.9, 0.3, 1.2),
+    box-shadow 420ms ease;
+}
+
+/*
+ * One speckle layout tiled across fourteen blocks reads as a checkerboard, not
+ * as stone. Shifting the same ten pixels to different cells on every third block
+ * breaks the repeat without needing a second pattern.
+ */
+.pr-block:nth-child(3n + 2) {
+  background-position:
+    33.3% 0%,
+    0% 33.3%,
+    100% 0%,
+    66.7% 66.7%,
+    0% 0%,
+    66.7% 33.3%,
+    33.3% 100%,
+    0% 100%,
+    100% 66.7%,
+    66.7% 100%;
+}
+
+.pr-block:nth-child(3n) {
+  background-position:
+    100% 0%,
+    33.3% 33.3%,
+    0% 66.7%,
+    66.7% 100%,
+    66.7% 0%,
+    0% 0%,
+    100% 33.3%,
+    33.3% 66.7%,
+    0% 33.3%,
+    100% 100%;
 }
 
 .pr-block[data-lit='true'] {
   opacity: 1;
+  filter: none;
   transform: translateY(0);
-  box-shadow:
-    inset 1px 1px 0 rgba(255, 255, 255, 0.1),
-    inset -1px -1px 0 rgba(0, 0, 0, 0.6),
-    0 0 12px rgba(150, 92, 214, 0.36);
   transition-delay: calc(var(--pr-index, 0) * 34ms);
 }
 
-.pr-block[data-lit='true']::after {
-  content: '';
-  position: absolute;
-  inset: 26%;
-  background: radial-gradient(circle, rgba(186, 122, 255, 0.5), transparent 70%);
+/* Only the blocks bordering a live portal catch its light, and they catch it on
+   the edge facing in — a centred glow made every block look like a lamp. */
+.pr-portal:is([data-state='igniting'], [data-state='repaired']) .pr-block {
+  box-shadow:
+    inset 2px 2px 0 rgba(255, 255, 255, 0.07),
+    inset -2px -2px 0 rgba(0, 0, 0, 0.6),
+    0 0 14px rgba(150, 92, 214, 0.3);
 }
 
 .pr-gate {
@@ -375,6 +458,7 @@
     radial-gradient(ellipse at 70% 66%, rgba(96, 32, 176, 0.95), transparent 44%),
     radial-gradient(ellipse at 55% 48%, rgba(226, 178, 255, 0.7), transparent 22%),
     radial-gradient(ellipse at 22% 78%, rgba(58, 16, 110, 0.9), transparent 40%);
+  filter: blur(1.5px);
   animation: pr-swirl-a 7s linear infinite;
 }
 
@@ -383,7 +467,11 @@
   background:
     radial-gradient(ellipse at 62% 26%, rgba(140, 58, 226, 0.8), transparent 40%),
     radial-gradient(ellipse at 26% 70%, rgba(198, 130, 255, 0.72), transparent 38%),
-    repeating-radial-gradient(circle at 46% 52%, rgba(226, 190, 255, 0.09) 0 6px, transparent 6px 17px);
+    repeating-radial-gradient(circle at 46% 52%,
+      rgba(226, 190, 255, 0) 0px,
+      rgba(226, 190, 255, 0.1) 9px,
+      rgba(226, 190, 255, 0) 20px);
+  filter: blur(5px);
   mix-blend-mode: screen;
   animation: pr-swirl-b 11s linear infinite reverse;
 }
