@@ -35,7 +35,7 @@ export async function getSafeQuestionsForRound(teamId: string, roundId: number) 
   // questions before the duel.
   const { data: questions, error: questionsError } = await db
     .from('questions')
-    .select('id, round_id, type, prompt, content, order_index, language_options, time_limit_seconds, reward')
+    .select('id, round_id, type, prompt, content, order_index, language_options, sample_test_cases, time_limit_seconds, reward')
     .eq('round_id', roundId)
     .is('guardian_name', null)
     .neq('type', 'pvp')

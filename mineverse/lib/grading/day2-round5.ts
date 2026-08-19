@@ -1,6 +1,9 @@
 ﻿import { z } from 'zod';
 import { supabaseServer } from '@/lib/supabase/server';
 import { checkDeterministicAnswer, hasDeterministicKey } from '@/lib/gameplay/grading/deterministic';
+// The same comparison the editor shows a team. Sharing it is the only way to
+// guarantee a sample that passes in the editor passes when it is marked.
+import { normalizeOutput } from '@/lib/gameplay/code/compare';
 import { getActiveChorusBonus } from '@/lib/day2/events/service';
 import type { Day2ResourceDelta } from '@/lib/day2/events/resources';
 
@@ -84,16 +87,6 @@ const PISTON_RUNTIMES: Record<string, { language: string; file: string }> = {
   c: { language: 'c', file: 'main.c' },
   java: { language: 'java', file: 'Main.java' },
 };
-
-/** Line endings and trailing spaces differ per runtime; the answer does not. */
-function normalizeOutput(value: unknown) {
-  return String(value ?? '')
-    .replace(/\r\n/g, '\n')
-    .split('\n')
-    .map((line) => line.trimEnd())
-    .join('\n')
-    .trim();
-}
 
 async function gradeWithPiston(submission: any, question: any) {
   const endpoint = process.env.PISTON_API_URL;

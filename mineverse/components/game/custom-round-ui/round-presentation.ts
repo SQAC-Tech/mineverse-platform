@@ -72,6 +72,8 @@ export interface ShellQuestion {
   submission_status: string | null;
   submission_revision?: number | null;
   language_options?: string[];
+  /** Worked examples for a coding question. Never the hidden grading cases. */
+  sample_test_cases?: Array<{ stdin: string; stdout: string; explanation?: string }>;
   pays?: Record<string, number>;
 }
 

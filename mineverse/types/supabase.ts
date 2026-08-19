@@ -1619,6 +1619,7 @@ export type Database = {
           round_id: number
           rubric: Json | null
           runtime_meta: Json | null
+          sample_test_cases: Json
           time_limit_seconds: number | null
           type: string
         }
@@ -1639,6 +1640,7 @@ export type Database = {
           round_id: number
           rubric?: Json | null
           runtime_meta?: Json | null
+          sample_test_cases?: Json
           time_limit_seconds?: number | null
           type: string
         }
@@ -1659,6 +1661,7 @@ export type Database = {
           round_id?: number
           rubric?: Json | null
           runtime_meta?: Json | null
+          sample_test_cases?: Json
           time_limit_seconds?: number | null
           type?: string
         }

@@ -844,6 +844,7 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
         <CodeWorkspace
           question={codingQuestion}
           roundName={chrome.name}
+          themeClass={chrome.themeClass}
           clock={`${timer.hours}:${timer.minutes}:${timer.seconds}`}
           clockWarning={remainingSeconds !== null && remainingSeconds <= 300}
           draft={drafts[codingQuestion.id] ?? ''}

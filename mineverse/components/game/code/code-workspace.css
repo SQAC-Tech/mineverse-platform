@@ -17,9 +17,34 @@
   z-index: 200;
   display: grid;
   grid-template-rows: auto 1fr;
-  background: #080a0f;
-  color: #dfe5db;
-  font-family: ui-sans-serif, system-ui, 'Segoe UI', Roboto, sans-serif;
+  isolation: isolate;
+  background: var(--rd-void, #080a0f);
+  color: var(--rd-ink, #dfe5db);
+  font-family: var(--rd-font-body, ui-sans-serif, system-ui, 'Segoe UI', Roboto, sans-serif);
+}
+
+/*
+ * The round's own scene, behind the workspace.
+ *
+ * The editor is a place to concentrate, so the artwork is pushed a long way
+ * back — far darker than the round board's own treatment — and everything that
+ * carries text sits on an opaque panel over it. It is there to say which biome
+ * you are in, not to be looked at.
+ */
+.cw-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background-image: var(--rd-scene);
+  background-position: center;
+  background-size: cover;
+}
+
+.cw-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(180deg, rgba(4, 5, 9, 0.9), rgba(4, 5, 9, 0.95));
 }
 
 /* ── Top bar ─────────────────────────────────────────────────── */
@@ -29,8 +54,10 @@
   align-items: center;
   gap: 12px;
   padding: 9px 14px;
-  border-bottom: 1px solid #1d242e;
-  background: #0d1016;
+  border-bottom: 2px solid var(--rd-edge, #1d242e);
+  background: rgba(9, 11, 16, 0.92);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
 }
 
 .cw-bar__title {
@@ -66,7 +93,7 @@
   font-size: 13px;
   color: #c9d4c2;
 }
-.cw-clock[data-warn='true'] { color: #ffb27a; border-color: #6a4326; }
+.cw-clock[data-warn='true'] { color: var(--rd-gold, #ffb27a); border-color: var(--rd-accent-deep, #6a4326); }
 
 /* ── Buttons ─────────────────────────────────────────────────── */
 
@@ -75,10 +102,10 @@
   align-items: center;
   gap: 7px;
   padding: 7px 13px;
-  border: 1px solid #2a333d;
+  border: 1px solid var(--rd-edge-lit, #2a333d);
   border-radius: 3px;
-  background: #141a22;
-  color: #dfe5db;
+  background: rgba(20, 26, 34, 0.9);
+  color: var(--rd-ink, #dfe5db);
   font: inherit;
   font-size: 12.5px;
   cursor: pointer;
@@ -86,11 +113,16 @@
 }
 .cw-btn:hover:not(:disabled) { background: #1c242e; border-color: #3b4753; }
 .cw-btn:disabled { opacity: 0.45; cursor: not-allowed; }
-.cw-btn:focus-visible { outline: 2px solid #f2c14e; outline-offset: 2px; }
+.cw-btn:focus-visible { outline: 2px solid var(--rd-gold, #f2c14e); outline-offset: 2px; }
 
-.cw-btn--run { background: #1f3d2a; border-color: #2f6b45; color: #b6f0c6; }
+.cw-btn--run { background: var(--rd-good-deep, #1f3d2a); border-color: var(--rd-good, #2f6b45); color: #dcffe6; }
 .cw-btn--run:hover:not(:disabled) { background: #274d35; }
-.cw-btn--submit { background: #7a4a12; border-color: #b0700f; color: #ffe3b0; font-weight: 600; }
+.cw-btn--submit {
+  background: var(--rd-accent-deep, #7a4a12);
+  border-color: var(--rd-accent, #b0700f);
+  color: var(--rd-ink, #ffe3b0);
+  font-weight: 600;
+}
 .cw-btn--submit:hover:not(:disabled) { background: #8f5714; }
 .cw-btn--icon { padding: 7px 9px; }
 
@@ -133,7 +165,8 @@
 .cw-problem {
   overflow-y: auto;
   padding: 18px 20px 28px;
-  background: #0b0e13;
+  background: rgba(8, 10, 15, 0.86);
+  border-right: 1px solid var(--rd-edge, #1d242e);
 }
 
 .cw-problem__head {
@@ -165,8 +198,8 @@
 .cw-problem pre {
   margin: 0 0 14px;
   padding: 12px 14px;
-  border: 1px solid #1d242e;
-  border-left: 3px solid #2f6b45;
+  border: 1px solid var(--rd-edge, #1d242e);
+  border-left: 3px solid var(--rd-accent, #2f6b45);
   border-radius: 3px;
   background: #0d1016;
   overflow-x: auto;
@@ -198,12 +231,12 @@
   gap: 8px;
   flex-wrap: wrap;
   padding: 8px 12px;
-  border-bottom: 1px solid #1d242e;
-  background: #0d1016;
+  border-bottom: 1px solid var(--rd-edge, #1d242e);
+  background: rgba(11, 14, 20, 0.9);
 }
 .cw-toolbar__spacer { margin-left: auto; }
 
-.cw-editor { min-height: 0; position: relative; }
+.cw-editor { min-height: 0; position: relative; background: #0d1016; }
 .cw-loading { display: grid; place-items: center; height: 100%; font-size: 13px; color: #7f8a94; }
 
 /* ── Console ─────────────────────────────────────────────────── */
@@ -211,13 +244,17 @@
 .cw-console {
   display: flex;
   flex-direction: column;
-  border-top: 1px solid #1d242e;
-  background: #0b0e13;
-  /* Tall enough to read a stack trace, short enough that the editor stays the
-     main event. Resized by the same drag handle as the columns would be. */
-  height: clamp(140px, var(--cw-console, 30%), 60vh);
+  border-top: 2px solid var(--rd-edge, #1d242e);
+  background: rgba(8, 10, 15, 0.94);
+  /*
+   * Tall enough to show a case without scrolling — verdict, input, expected and
+   * actual is four short blocks — and short enough that the editor stays the
+   * main event. Sized against the viewport, not a percentage: this row is
+   * `auto` in the grid above, so a percentage height had nothing to resolve
+   * against and silently collapsed to the 140px floor.
+   */
+  height: clamp(190px, 28vh, 46vh);
 }
-.cw-console[data-open='false'] { height: auto; }
 
 .cw-console__tabs {
   display: flex;
@@ -227,9 +264,14 @@
   border-bottom: 1px solid #1d242e;
 }
 
-.cw-tab {
+/* One chip per sample case, coloured by its last result — the failure is one
+   click away instead of buried in a wall of output. */
+.cw-case {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: 5px 11px;
-  border: none;
+  border: 1px solid transparent;
   border-radius: 3px;
   background: none;
   color: #7f8a94;
@@ -237,8 +279,59 @@
   font-size: 12px;
   cursor: pointer;
 }
-.cw-tab[data-active='true'] { background: #1c242e; color: #f2f0e6; }
-.cw-tab:focus-visible { outline: 2px solid #f2c14e; outline-offset: 1px; }
+.cw-case[data-active='true'] { background: rgba(28, 36, 46, 0.9); color: var(--rd-ink, #f2f0e6); }
+.cw-case[data-state='pass'] { color: #7fd99a; }
+.cw-case[data-state='fail'] { color: #ff9d8a; }
+.cw-case[data-state='pass'][data-active='true'] { border-color: #2f6b45; }
+.cw-case[data-state='fail'][data-active='true'] { border-color: #8a3a3a; }
+.cw-case:focus-visible { outline: 2px solid var(--rd-gold, #f2c14e); outline-offset: 1px; }
+.cw-case--custom { margin-left: 4px; border-left: 1px solid var(--rd-edge, #1d242e); border-radius: 0 3px 3px 0; padding-left: 12px; }
+
+.cw-summary {
+  margin-left: auto;
+  font-size: 11.5px;
+  color: #ff9d8a;
+}
+.cw-summary[data-ok='true'] { color: #7fd99a; }
+
+.cw-problem__sub {
+  margin: 20px 0 10px;
+  font-family: var(--rd-font-display, monospace);
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--rd-accent, #7f8a94);
+}
+
+.cw-example {
+  margin-bottom: 12px;
+  padding: 11px 13px;
+  border: 1px solid var(--rd-edge, #1d242e);
+  border-radius: 3px;
+  background: rgba(13, 16, 22, 0.85);
+}
+.cw-example__label {
+  margin: 0 0 8px;
+  font-family: var(--rd-font-display, monospace);
+  font-size: 8px;
+  letter-spacing: 2px;
+  color: #7f8a94;
+}
+.cw-example dl { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0; }
+.cw-example dt { font-size: 11.5px; color: #7f8a94; }
+.cw-example dd {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  color: #d6e0d4;
+  white-space: pre-wrap;
+}
+.cw-example__why { margin: 9px 0 0; font-size: 12.5px; line-height: 1.55; color: #97a39a; }
+
+.cw-custom { display: flex; flex-direction: column; gap: 10px; height: 100%; }
+.cw-custom .cw-stdin { min-height: 62px; flex: 0 0 auto; }
+.cw-custom__out { min-height: 0; overflow: auto; }
+.cw-case-detail { display: flex; flex-direction: column; }
 
 .cw-console__body { flex: 1; min-height: 0; overflow: auto; padding: 10px 12px; }
 
