@@ -1,5 +1,6 @@
 import { supabaseServer } from '@/lib/supabase/server';
 import { DEV_UNLOCK_ALL_ROUNDS, noteDevUnlockBypass } from '@/lib/gameplay/dev-mode';
+import { isDemoTeamId, noteDemoBypass } from '@/lib/gameplay/demo-teams';
 
 export async function verifyTeamRoundAccess(teamId: string, roundId: number): Promise<{ hasAccess: boolean; error?: string }> {
   // 1. Check if the round is active
@@ -16,6 +17,13 @@ export async function verifyTeamRoundAccess(teamId: string, roundId: number): Pr
   // Dev unlock skips the lock checks only; the caller already verified the session.
   if (DEV_UNLOCK_ALL_ROUNDS) {
     noteDevUnlockBypass(`team ${teamId} round ${roundId}`);
+    return { hasAccess: true };
+  }
+
+  // Scoped to named team codes, so testing a round does not require flipping
+  // `rounds.status`, which would open it for every real team at once.
+  if (await isDemoTeamId(teamId)) {
+    noteDemoBypass(`team ${teamId} round ${roundId}`);
     return { hasAccess: true };
   }
 

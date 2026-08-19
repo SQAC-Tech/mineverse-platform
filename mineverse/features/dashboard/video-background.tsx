@@ -4,19 +4,24 @@ import Image from 'next/image';
 import { useRef, useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 
-import { RoundPortals, type DashboardRound } from '@/features/dashboard/round-portals';
+import { ProgressPanel } from '@/features/dashboard/progress-panel';
+import { ResourceLedger } from '@/features/dashboard/resource-ledger';
+import type { CraftedItem, DashboardProgress, DashboardRound } from '@/features/dashboard/types';
 import { supabaseClient } from '@/lib/supabase/client';
 
 export function VideoBackground() {
   const router = useRouter();
 
-  // ── Round data driving the four portals ───────────────────────
+  // ── Round data driving the map modal's biome buttons ──────────
   const [rounds, setRounds] = useState<DashboardRound[]>([]);
   const [devUnlock, setDevUnlock] = useState(false);
 
   // ── Team identity & resources ─────────────────────────────────
   const [teamName, setTeamName] = useState<string | null>(null);
   const [resources, setResources] = useState<Record<string, number>>({});
+  const [crafted, setCrafted] = useState<CraftedItem[]>([]);
+  const [progress, setProgress] = useState<DashboardProgress | null>(null);
+  const [showLedger, setShowLedger] = useState(false);
 
   // ── Toast notification ────────────────────────────────────────
   const [toast, setToast] = useState<{ icon: string; title: string; subtitle: string; key: number } | null>(null);
@@ -65,8 +70,10 @@ export function VideoBackground() {
       if (json.success) {
         setRounds(json.rounds ?? []);
         setDevUnlock(Boolean(json.dev_unlock));
-        if (json.team?.name) setTeamName(json.team.name);
+        if (json.team?.team_name) setTeamName(json.team.team_name);
         if (json.resources) setResources(json.resources);
+        if (json.crafted) setCrafted(json.crafted);
+        if (json.progress) setProgress(json.progress);
       }
     } catch {
       // The portals still render; they stay locked until a fetch succeeds.
@@ -152,6 +159,15 @@ export function VideoBackground() {
           </div>
         ))}
       </div>
+
+      <ProgressPanel
+        crafted={crafted}
+        progress={progress}
+        devUnlock={devUnlock}
+        onOpenLedger={() => setShowLedger(true)}
+      />
+
+      {showLedger && <ResourceLedger onClose={() => setShowLedger(false)} />}
 
       {/* DASHBOARD TITLE — dashboard.webp */}
       <div style={{
@@ -818,6 +834,27 @@ export function VideoBackground() {
           gap: 7px;
           min-width: 180px;
         }
+        .hud-link {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          margin-top: 4px;
+          padding: 6px 8px;
+          border: 2px solid #6a6a6a;
+          border-top-color: #8f8f8f;
+          border-left-color: #8f8f8f;
+          border-bottom-color: #2a2a2a;
+          border-right-color: #2a2a2a;
+          background: rgba(70, 70, 70, 0.9);
+          color: #ffff55;
+          font-size: 9px;
+          letter-spacing: 1px;
+          text-decoration: none;
+          cursor: var(--mv-cursor-hand-closed, pointer);
+        }
+        .hud-link:hover { background: rgba(96, 96, 96, 0.95); color: #ffffff; }
+
         @media (max-width: 600px) {
           .stats-hud {
             top: auto;

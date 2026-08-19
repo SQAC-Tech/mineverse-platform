@@ -1,0 +1,104 @@
+/*
+ * The `.biome` palette.
+ *
+ * app/theme-kit.css builds every component off custom properties and says the
+ * palettes live in "app/(game)/round/biome.css" — a file that never existed. So
+ * `.biome` pages resolved `--bg-void`, `--bg-panel`, `--accent-primary` and the
+ * rest to nothing: panels lost their background and borders, buttons lost their
+ * fill, and the page rendered as bare text over the scene image.
+ *
+ * Rather than invent a sixth palette, this bridges onto the `--rd-*` tokens that
+ * components/game/custom-round-ui/round-ui.css already defines per biome. A page
+ * that sets `round-ui--nether` gets a red-lit kit; `round-ui--end` gets a violet
+ * one; and a new biome needs no changes here. The fallbacks after each comma are
+ * the forest values, so a page that forgets its theme class still renders.
+ */
+
+.biome {
+  --bg-void: var(--rd-void, #0b1509);
+  --bg-panel: var(--rd-panel, linear-gradient(155deg, #17231a 0%, #0b120c 100%));
+  --bg-panel-raised: var(--rd-glass, rgba(9, 18, 9, 0.42));
+
+  --accent-primary: var(--rd-accent, #7ad64e);
+  --accent-primary-hover: var(--rd-accent, #7ad64e);
+  --accent-secondary: var(--rd-edge, #37472f);
+  --accent-muted: var(--rd-edge-lit, #5f7a4b);
+  --accent-danger: var(--rd-bad, #e05b4b);
+
+  --text-onDark: var(--rd-ink, #f2f0e6);
+  --text-onLava: var(--rd-accent-ink, #0d1a08);
+  --text-portal: var(--rd-ink-dim, #a9b1a6);
+
+  --ok: var(--rd-good, #6cc244);
+  --warn: var(--rd-gold, #f2c14e);
+
+  /* Rounds keep the pixel display font — this is the arcade side of the app,
+     not the admin panel, where it was dropped for readability. */
+  --font-display: var(--rd-font-display, var(--font-minecraft), 'Press Start 2P', monospace);
+}
+
+/*
+ * A panel on a scene page is a reading surface sitting on top of artwork, so it
+ * has to be genuinely opaque. `--rd-panel` is a translucent-looking gradient
+ * tuned for the shells, where it sits on a flat void colour; over a lit Nether
+ * cavern the same gradient let the scene through and the text became unreadable.
+ * The flat colour underneath is what makes it solid.
+ */
+.biome .n-panel {
+  background-color: #0c0910;
+  background-image: var(--rd-panel, linear-gradient(155deg, #17231a 0%, #0b120c 100%));
+  border: 2px solid var(--rd-edge-lit, #5f7a4b);
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.85);
+}
+
+.biome .n-panel-head {
+  border-bottom-color: var(--rd-edge, #37472f);
+}
+
+/* The kit's default panel title is dim by design — legible on a flat admin
+   background, lost on this one. */
+.biome .n-panel-title {
+  color: var(--rd-ink, #f2f0e6);
+}
+
+/* Anything outside a panel — the page header, the caption under the portal —
+   still sits directly on the scene, so it carries its own shadow. */
+.biome > div > header,
+.biome .pr-caption {
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.95), 0 0 2px rgba(0, 0, 0, 0.9);
+}
+
+/*
+ * Typography, opt-in rather than opt-out.
+ *
+ * theme-kit sets the display font on the whole surface, which is right for the
+ * admin panel's sans stack but wrong here: the rounds' display font is Press
+ * Start 2P, and round-ui.css says it plainly — that font turns to mush below
+ * about 14px. Every paragraph and every form control was rendering in it.
+ *
+ * So the body font is the default, and the pixel font is applied to the short
+ * uppercase labels it was designed for. Listing them beats an element-based
+ * blanket rule, which outranked component classes like `.pr-caption` and stole
+ * their font back.
+ */
+.biome {
+  font-family: var(--rd-font-body, ui-sans-serif, system-ui, 'Segoe UI', Roboto, sans-serif);
+}
+
+.biome :is(
+  h1, h2, h3,
+  .n-panel-title,
+  .n-stat-label,
+  .n-stat-value,
+  .n-btn,
+  .n-pill,
+  .n-label,
+  .pr-caption,
+  .pr-req__part
+) {
+  font-family: var(--rd-font-display, var(--font-minecraft), 'Press Start 2P', monospace);
+}
+
+/* Press Start 2P needs the room. These are the smallest places it appears. */
+.biome :is(.n-panel-title, .n-stat-label) { font-size: 12px; line-height: 1.5; }
+.biome .n-btn { font-size: 11px; line-height: 1.5; }

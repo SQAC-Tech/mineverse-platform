@@ -2,30 +2,35 @@
 
 ## Sequence
 
-1. `/dashboard` renders `VideoBackground`, which loops `dashvid.mp4` with a crossfade.
-2. Dragging the slider to the right end crossfades **straight into `transitioin_from_dashboard_to_fourseason.mp4`**.
-3. When it ends it holds on its final frame — the four-season screen — and the four
-   `RoundPortals` cards fade in over the video's four panels.
-4. Each card routes to `/round/<id>`, which renders the Phase 2 `RoundShell`
-   (questions, resources, crafting, and the PvP panel on round 3).
+1. `/dashboard` renders `VideoBackground` over a static `background1.webp`.
+2. Clicking Steve opens the **map modal**. That modal is the round navigation:
+   one biome button per round, revealed as the previous round completes, each
+   driven by `can_enter` from `/api/dashboard/data`.
+3. Choosing a biome plays `transition1.mp4` and then routes to `/round<id>`.
 
-The old `vid2.mp4` hand-off and its "Play Video 3" button were removed — there is
-one transition now, not two.
+`round-portals.tsx` — an overlay of cards laid over
+`transitioin_from_dashboard_to_fourseason.mp4` — was the previous design. The
+slider and that video were removed in `c351930` and the component was left
+imported but never rendered, along with the dev-mode banner inside it. Both are
+gone now; the banner moved to `progress-panel.tsx` where it can actually be seen.
 
-## Aligning the portals with the video
+## What is on the screen
 
-`round-portals.tsx` positions each card by the horizontal centre of its panel:
+| Piece | File | Shows |
+|---|---|---|
+| Stats HUD (top right) | `video-background.tsx` | team name and the seven resource balances |
+| Progress panel (top left) | `progress-panel.tsx` | crafted items, PvP eligibility, Day 2 status, portal requirements, the dev-mode warning, and links to `/portal`, `/qualification` and `/leaderboard` |
+| Map modal | `video-background.tsx` | the biome buttons that enter each round |
+| Resource history | `resource-ledger.tsx` | paginated `resource_ledger`, opened from the progress panel |
 
-```ts
-const PANEL_CENTERS_PCT = [16.5, 38.5, 61.5, 83.5];
-```
+All of them read one snapshot from `GET /api/dashboard/data`. That route is
+deliberately a single query set rather than the dashboard fanning out to
+`/api/team/craft/recipes`, `/day2/status` and the rest — those guard on Day 2
+qualification and return 403s that a status page should not be treating as
+errors.
 
-These are percentages of viewport width. If `transitioin_from_dashboard_to_fourseason.mp4` is re-cut and the panels
-move, adjust these four numbers — nothing else needs to change. Vertical position
-is `bottom: 11%` on `.portal-card`.
-
-Below 900px wide the overlay becomes a scrollable vertical stack instead, because
-the video panels are too small to sit cards on.
+Everything here is display-only. Dashboard state is never permission to act:
+each linked page and every mutation re-checks on the server.
 
 ## Dev mode
 
@@ -35,17 +40,17 @@ Set in `.env.local`:
 NEXT_PUBLIC_DEV_UNLOCK_ALL_ROUNDS=true
 ```
 
-This unlocks all four rounds without an admin unlocking them in round control. It
+This unlocks every round without an admin unlocking them in round control. It
 is read in one place (`lib/gameplay/dev-mode.ts`) and honoured by both server-side
 access checks, so the button state and the API always agree:
 
 - `lib/gameplay/questions/access.ts` — Dev 4 routes (questions, submissions)
 - `lib/gameplay/utils/access.ts` — Dev 3 routes (guardians, structures, marketplace, choices)
+- `lib/gameplay/round-access.ts` — the round pages themselves
 
 It bypasses **only the round lock**. A valid team session is still required, and
-resource mutations, idempotency, and grading are untouched. Cards unlocked this way
-show a `dev unlock` badge and the screen shows a "Dev mode" banner, so it is never
-ambiguous whether the flag is on.
+resource mutations, idempotency, and grading are untouched. The progress panel
+shows a "Dev mode" warning while the flag is on, so it is never ambiguous.
 
 **Never set this in production.** It is opt-in and absent by default; the server
 logs a warning on every bypass.
@@ -64,8 +69,12 @@ to recombine round status and per-team lock state:
 The dashboard polls this every 10s and also refetches on the `round_status`
 broadcast an admin sends when unlocking a round.
 
-## Note
+## Access
 
-`app/round1/page.tsx` is the pre-Phase-2 prototype with hardcoded questions. Nothing
-links to it any more — the portals go to `/round/1`. It is left in place rather than
-deleted in case its visuals are still wanted.
+Every round page calls `requireRoundAccess(roundId)` before rendering anything. It
+redirects to `/login` without a session and to `/dashboard` without access, and it
+delegates to `verifyTeamRoundAccess` — the same helper the round APIs use — so a
+page and the endpoints it calls cannot disagree about who is let in.
+
+That is a redirect for the sake of the user, not a security boundary. Every
+mutation re-validates on its own.

@@ -57,11 +57,16 @@ export async function getSafeQuestionsForRound(teamId: string, roundId: number) 
     for (const submission of submissions ?? []) submissionsByQuestion.set(submission.question_id, submission);
   }
 
+  // The team's own code, so the client can namespace its local answer drafts.
+  // Shared lab machines otherwise hand the next team the previous team's typing.
+  const { data: team } = await db.from('teams').select('team_code').eq('id', teamId).maybeSingle();
+
   return {
     ok: true as const,
     data: {
       round_id: roundId,
       round_name: access.round.name,
+      team_code: team?.team_code ?? null,
       ends_at: access.round.ends_at,
       server_time: new Date().toISOString(),
       questions: (questions ?? []).map((question: QuestionRow) => serializeSafeQuestion(question, submissionsByQuestion.get(question.id))),

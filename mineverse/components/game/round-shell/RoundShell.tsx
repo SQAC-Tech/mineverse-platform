@@ -14,6 +14,14 @@ import { ChoicePanel } from '@/components/game/choices/ChoicePanel';
 import { getRoundConfig } from '@/lib/gameplay/round-config';
 import { Panel, Btn, Pill, Loading } from '@/components/admin/nether-ui';
 import { useProctorSession } from '@/components/game/proctor/ProctorProvider';
+import { roundChrome } from '@/components/game/custom-round-ui/round-presentation';
+// The kit and the palette are imported here, not left to a layout. `/portal`
+// lives in the (day2) group, which has no layout, so it loaded neither — every
+// token resolved to nothing, panels went transparent and the text fell back to
+// the global near-black on a dark scene.
+import '@/app/theme-kit.css';
+import '@/app/(game)/biome.css';
+import '@/components/game/custom-round-ui/round-ui.css';
 
 interface RoundShellProps { roundId: number }
 
@@ -35,6 +43,8 @@ interface RoundQuestion {
 interface RoundData {
   round_id: number;
   round_name: string;
+  /** This team's own code, used to namespace local answer drafts. */
+  team_code: string | null;
   ends_at: string | null;
   server_time: string;
   questions: RoundQuestion[];
@@ -244,6 +254,7 @@ export function RoundShell({ roundId }: RoundShellProps) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 0 }}>
               <QuestionList
                 roundId={roundId}
+                teamCode={round?.team_code ?? null}
                 questions={round?.questions ?? []}
                 onSubmitted={() => { void fetchRound(); refreshAll(); }}
                 locked={timeUp}
@@ -342,8 +353,16 @@ function Shell({
   header?: React.ReactNode;
   children: React.ReactNode;
 }) {
+  // Only the palette is borrowed from the biome shells, not their layout — this
+  // shell scrolls. Without it Round 5 rendered on the bare admin theme, because
+  // `.biome-end` has never existed in any stylesheet.
+  const { themeClass } = roundChrome(roundId);
+
   return (
-    <main className={`biome biome-${biome}`} style={{ minHeight: '100vh' }}>
+    <main className={`biome biome-${biome} round-ui-scene ${themeClass}`} style={{ minHeight: '100vh' }}>
+      <div className="round-ui-scene__backdrop" aria-hidden="true" />
+      <div className="round-ui-scene__shade" aria-hidden="true" />
+      <div className="round-ui-scene__scrim" aria-hidden="true" />
       <div style={{ maxWidth: 1240, margin: '0 auto', padding: '20px 16px 40px' }}>
         <header
           style={{

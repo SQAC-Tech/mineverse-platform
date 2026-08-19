@@ -1,0 +1,581 @@
+/*
+ * Round 4 — the Nether Portal repair.
+ *
+ * One screen, no scrolling. The portal is the subject and stands free in the
+ * middle of it; the two side panels and the footer card sit around it rather
+ * than boxing it in. Below 1100px there is no room for three columns, so it
+ * stacks and the page is allowed to scroll — a phone cannot honour the layout
+ * and pretending otherwise just clips content.
+ *
+ * The frame is 4x5 obsidian blocks with a 2x3 opening, the shape a portal is
+ * built in, and each requirement owns a course of it: the core lays the base,
+ * the fragment raises the pillars, the diamonds cap the lintel. So the drawing
+ * carries the status — a team short of diamonds sees a portal with no top.
+ *
+ * `data-state` on `.pr-portal`: collecting | ready | igniting | repaired.
+ *
+ * Every animation here is decorative; the panels state the same facts in words,
+ * which is what lets the reduced-motion block at the bottom switch all of it off.
+ */
+
+.pr-page {
+  position: relative;
+  min-height: 100dvh;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 4px;
+  padding: 14px clamp(14px, 3vw, 36px) 16px;
+  overflow: hidden;
+}
+
+/* ── Header ──────────────────────────────────────────────────── */
+
+.pr-head { text-align: center; position: relative; }
+
+.pr-head__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--rd-font-display, monospace);
+  font-size: clamp(10px, 1.1vw, 13px);
+  letter-spacing: 3px;
+  color: #ff6b4a;
+}
+
+.pr-head__title {
+  margin: 6px 0 0;
+  font-family: var(--rd-font-display, monospace);
+  font-size: clamp(22px, 4.2vw, 46px);
+  line-height: 1.1;
+  letter-spacing: 2px;
+  color: #f2f0e6;
+  text-shadow: 0 3px 0 rgba(0, 0, 0, 0.9), 0 0 24px rgba(255, 107, 74, 0.35);
+}
+
+/* The rule either side of the subtitle is drawn, not typed, so it scales. */
+.pr-head__sub {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin: 10px 0 0;
+  font-size: clamp(12px, 1.3vw, 15px);
+  color: #d9cfcb;
+}
+
+.pr-head__sub::before,
+.pr-head__sub::after {
+  content: '';
+  width: clamp(30px, 7vw, 96px);
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #ff6b4a);
+}
+.pr-head__sub::after { background: linear-gradient(270deg, transparent, #ff6b4a); }
+
+.pr-status {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 15px;
+  border: 2px solid currentColor;
+  border-radius: 3px;
+  font-family: var(--rd-font-display, monospace);
+  font-size: clamp(9px, 0.95vw, 11px);
+  letter-spacing: 2px;
+  background: rgba(0, 0, 0, 0.55);
+}
+.pr-status[data-tone='repaired'] { color: #6cdc8a; box-shadow: 0 0 18px rgba(108, 220, 138, 0.3); }
+.pr-status[data-tone='ready']    { color: #ff9d4a; box-shadow: 0 0 18px rgba(255, 157, 74, 0.3); }
+.pr-status[data-tone='waiting']  { color: #a9b1a6; }
+
+/* ── Stage: panel | portal | panel ───────────────────────────── */
+
+.pr-stage {
+  display: grid;
+  grid-template-columns: minmax(240px, 300px) minmax(0, 1fr) minmax(240px, 300px);
+  align-items: center;
+  gap: clamp(12px, 2.5vw, 40px);
+  min-height: 0;
+}
+
+.pr-centre {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  min-height: 0;
+}
+
+/* Sits the portal on something so it does not compete with the lava behind. */
+.pr-centre::before {
+  content: '';
+  position: absolute;
+  inset: -6% -14%;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% 46%, rgba(70, 24, 108, 0.42), rgba(4, 2, 8, 0.55) 56%, transparent 76%);
+}
+.pr-centre > * { position: relative; }
+
+/* ── Panels ──────────────────────────────────────────────────── */
+
+.pr-panel {
+  border: 2px solid rgba(255, 107, 74, 0.42);
+  border-radius: 4px;
+  background: rgba(10, 6, 12, 0.82);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  box-shadow: 0 0 22px rgba(255, 90, 60, 0.14), inset 0 0 30px rgba(0, 0, 0, 0.6);
+  padding: 14px;
+}
+
+.pr-panel__title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  margin: 0 0 12px;
+  font-family: var(--rd-font-display, monospace);
+  font-size: clamp(8px, 0.8vw, 10px);
+  letter-spacing: 2px;
+  white-space: nowrap;
+  color: #ff6b4a;
+}
+.pr-panel__title::before,
+.pr-panel__title::after { content: '◆'; font-size: 8px; opacity: 0.85; }
+
+/* ── Materials ───────────────────────────────────────────────── */
+
+.pr-mats { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+
+.pr-mat {
+  display: grid;
+  grid-template-columns: 42px 1fr auto;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.42);
+}
+.pr-mat[data-met='true'] {
+  border-color: rgba(150, 92, 214, 0.5);
+  background: rgba(70, 34, 110, 0.24);
+}
+
+.pr-mat__icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.5);
+}
+.pr-mat__icon img,
+.pr-mat__icon svg { width: 26px; height: 26px; }
+
+.pr-mat__name { display: block; font-size: 14px; font-weight: 600; color: #f2f0e6; line-height: 1.2; }
+.pr-mat__sub { display: block; font-size: 11.5px; color: #a29aa6; margin-top: 3px; }
+.pr-mat__right { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
+.pr-mat__count {
+  font-family: var(--rd-font-display, monospace);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: #f2c14e;
+}
+.pr-mat[data-met='true'] .pr-mat__count { color: #6cdc8a; }
+
+/* ── Progress ────────────────────────────────────────────────── */
+
+.pr-progress { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+
+.pr-ring { position: relative; width: clamp(104px, 11vw, 132px); aspect-ratio: 1; }
+.pr-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.pr-ring__track { fill: none; stroke: rgba(255, 255, 255, 0.1); stroke-width: 7; }
+.pr-ring__value {
+  fill: none;
+  stroke: #b06bf0;
+  stroke-width: 7;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 6px rgba(176, 107, 240, 0.75));
+  transition: stroke-dashoffset 900ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.pr-ring__label {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  font-family: var(--rd-font-display, monospace);
+}
+.pr-ring__pct { font-size: clamp(15px, 1.7vw, 21px); color: #f2f0e6; }
+.pr-ring__word { font-size: 8px; letter-spacing: 2px; color: #b06bf0; margin-top: 5px; }
+
+.pr-steps { list-style: none; margin: 0; padding: 0; width: 100%; display: flex; flex-direction: column; gap: 8px; }
+.pr-step { display: flex; align-items: center; gap: 9px; font-size: 13px; color: #6f6875; }
+.pr-step[data-done='true'] { color: #e8e4ea; }
+
+/* ── Footer ──────────────────────────────────────────────────── */
+
+.pr-foot { position: relative; display: flex; justify-content: center; }
+
+.pr-mission {
+  width: min(620px, 100%);
+  text-align: center;
+  padding: 12px 20px 14px;
+  border: 2px solid rgba(150, 92, 214, 0.55);
+  border-radius: 4px;
+  background: rgba(14, 8, 22, 0.86);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  box-shadow: 0 0 26px rgba(150, 92, 214, 0.2);
+}
+
+.pr-mission__title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  margin: 0 0 8px;
+  font-family: var(--rd-font-display, monospace);
+  font-size: clamp(10px, 1.1vw, 13px);
+  letter-spacing: 2px;
+  color: #c682ff;
+}
+.pr-mission__title::before,
+.pr-mission__title::after { content: '✦'; font-size: 9px; }
+.pr-mission__body { margin: 0 0 10px; font-size: 14px; line-height: 1.55; color: #ddd6e2; }
+
+/* The one button that matters on this screen, so it is allowed to be loud. */
+.pr-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 11px;
+  min-width: min(420px, 100%);
+  padding: 14px 26px;
+  border: 2px solid #ffd8a0;
+  border-radius: 3px;
+  font-family: var(--rd-font-display, monospace);
+  font-size: clamp(12px, 1.35vw, 17px);
+  letter-spacing: 2px;
+  color: #2a0d02;
+  text-decoration: none;
+  cursor: pointer;
+  background: linear-gradient(180deg, #ffa53d 0%, #f2701c 52%, #d1520c 100%);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.45), 0 5px 0 #7d2f05, 0 10px 26px rgba(0, 0, 0, 0.6);
+  transition: transform 120ms ease, filter 120ms ease, box-shadow 120ms ease;
+}
+.pr-cta:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); }
+.pr-cta:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.4), 0 1px 0 #7d2f05;
+}
+.pr-cta:disabled { filter: grayscale(0.65) brightness(0.7); cursor: not-allowed; }
+.pr-cta:focus-visible { outline: 3px solid #ffe9c2; outline-offset: 3px; }
+
+/* Igniting the portal is a different act from stepping through it. */
+.pr-cta--ignite {
+  border-color: #e5c2ff;
+  color: #1b0630;
+  background: linear-gradient(180deg, #cf8bff 0%, #a24ee8 52%, #7a2bbd 100%);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.45), 0 5px 0 #4a1476, 0 10px 26px rgba(0, 0, 0, 0.6);
+}
+
+.pr-back {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 16px;
+  border: 2px solid rgba(255, 255, 255, 0.22);
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.55);
+  font-family: var(--rd-font-display, monospace);
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: #d6d0d8;
+  text-decoration: none;
+}
+.pr-back:hover { border-color: rgba(255, 255, 255, 0.45); color: #fff; }
+
+/* ── The portal ──────────────────────────────────────────────── */
+
+.pr-portal {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(5, 1fr);
+  height: min(56vh, 460px);
+  aspect-ratio: 4 / 5;
+  gap: 2px;
+  filter: drop-shadow(0 18px 34px rgba(0, 0, 0, 0.75));
+}
+
+/*
+ * Obsidian, drawn as actual pixels rather than a soft gradient.
+ *
+ * Each `conic-gradient(colour 0 0)` is a flat fill; sized to one cell of a 4x4
+ * grid and pinned with `background-position`, it paints exactly one square. Ten
+ * of them over a base colour give the block its speckle, and because every edge
+ * is a hard stop the result stays crisp at any size — no blur, no texture file.
+ *
+ * The palette is Minecraft's: a near-black violet base with a few lighter
+ * flecks. Nothing here glows. Obsidian is inert; the light in this scene comes
+ * from the portal it frames.
+ */
+.pr-block {
+  --ob-base: #140b21;
+  --ob-mid: #26183c;
+  --ob-lit: #3a2657;
+  --ob-dark: #0b0613;
+
+  position: relative;
+  background-color: var(--ob-base);
+  background-image:
+    conic-gradient(var(--ob-lit) 0 0),
+    conic-gradient(var(--ob-mid) 0 0),
+    conic-gradient(var(--ob-lit) 0 0),
+    conic-gradient(var(--ob-mid) 0 0),
+    conic-gradient(var(--ob-dark) 0 0),
+    conic-gradient(var(--ob-dark) 0 0),
+    conic-gradient(var(--ob-mid) 0 0),
+    conic-gradient(var(--ob-lit) 0 0),
+    conic-gradient(var(--ob-dark) 0 0),
+    conic-gradient(var(--ob-mid) 0 0);
+  background-size: 25% 25%;
+  background-repeat: no-repeat;
+  background-position:
+    0% 0%,
+    66.7% 0%,
+    33.3% 33.3%,
+    100% 33.3%,
+    33.3% 0%,
+    0% 66.7%,
+    66.7% 66.7%,
+    100% 100%,
+    33.3% 100%,
+    0% 100%;
+
+  /* The bevel that makes it a block rather than a tile. */
+  box-shadow:
+    inset 2px 2px 0 rgba(255, 255, 255, 0.07),
+    inset -2px -2px 0 rgba(0, 0, 0, 0.6);
+
+  /* Unbuilt courses are ghosted back, not recoloured — the block is the same
+     obsidian either way, it simply is not there yet. */
+  opacity: 0.22;
+  filter: saturate(0.5) brightness(0.7);
+  transform: translateY(5px);
+  transition:
+    opacity 420ms ease,
+    filter 420ms ease,
+    transform 420ms cubic-bezier(0.2, 0.9, 0.3, 1.2),
+    box-shadow 420ms ease;
+}
+
+/*
+ * One speckle layout tiled across fourteen blocks reads as a checkerboard, not
+ * as stone. Shifting the same ten pixels to different cells on every third block
+ * breaks the repeat without needing a second pattern.
+ */
+.pr-block:nth-child(3n + 2) {
+  background-position:
+    33.3% 0%,
+    0% 33.3%,
+    100% 0%,
+    66.7% 66.7%,
+    0% 0%,
+    66.7% 33.3%,
+    33.3% 100%,
+    0% 100%,
+    100% 66.7%,
+    66.7% 100%;
+}
+
+.pr-block:nth-child(3n) {
+  background-position:
+    100% 0%,
+    33.3% 33.3%,
+    0% 66.7%,
+    66.7% 100%,
+    66.7% 0%,
+    0% 0%,
+    100% 33.3%,
+    33.3% 66.7%,
+    0% 33.3%,
+    100% 100%;
+}
+
+.pr-block[data-lit='true'] {
+  opacity: 1;
+  filter: none;
+  transform: translateY(0);
+  transition-delay: calc(var(--pr-index, 0) * 34ms);
+}
+
+/* Only the blocks bordering a live portal catch its light, and they catch it on
+   the edge facing in — a centred glow made every block look like a lamp. */
+.pr-portal:is([data-state='igniting'], [data-state='repaired']) .pr-block {
+  box-shadow:
+    inset 2px 2px 0 rgba(255, 255, 255, 0.07),
+    inset -2px -2px 0 rgba(0, 0, 0, 0.6),
+    0 0 14px rgba(150, 92, 214, 0.3);
+}
+
+.pr-gate {
+  grid-area: 2 / 2 / 5 / 4;
+  position: relative;
+  overflow: hidden;
+  /* Dead black until it is lit. No purple anywhere in here before ignition —
+     the whole point of the animation is that the colour arrives with it. */
+  background: radial-gradient(ellipse at 50% 50%, #0b0a10 0%, #040308 80%);
+  box-shadow: inset 0 0 26px rgba(0, 0, 0, 0.98);
+}
+
+/* Two counter-drifting sheets is what sells the swirl; one alone reads as a
+   scrolling texture. The conic banding gives the surface grain. */
+.pr-gate::before,
+.pr-gate::after {
+  content: '';
+  position: absolute;
+  inset: -55%;
+  opacity: 0;
+  transition: opacity 900ms ease 250ms;
+}
+
+.pr-gate::before {
+  z-index: 0;
+  background:
+    radial-gradient(ellipse at 32% 30%, rgba(163, 74, 245, 0.9), transparent 42%),
+    radial-gradient(ellipse at 70% 66%, rgba(96, 32, 176, 0.95), transparent 44%),
+    radial-gradient(ellipse at 55% 48%, rgba(226, 178, 255, 0.7), transparent 22%),
+    radial-gradient(ellipse at 22% 78%, rgba(58, 16, 110, 0.9), transparent 40%);
+  filter: blur(1.5px);
+  animation: pr-swirl-a 7s linear infinite;
+}
+
+.pr-gate::after {
+  z-index: 1;
+  background:
+    radial-gradient(ellipse at 62% 26%, rgba(140, 58, 226, 0.8), transparent 40%),
+    radial-gradient(ellipse at 26% 70%, rgba(198, 130, 255, 0.72), transparent 38%),
+    repeating-radial-gradient(circle at 46% 52%,
+      rgba(226, 190, 255, 0) 0px,
+      rgba(226, 190, 255, 0.1) 9px,
+      rgba(226, 190, 255, 0) 20px);
+  filter: blur(5px);
+  mix-blend-mode: screen;
+  animation: pr-swirl-b 11s linear infinite reverse;
+}
+
+@keyframes pr-swirl-a {
+  0%   { transform: rotate(0deg)   scale(1.06); }
+  50%  { transform: rotate(180deg) scale(1.16); }
+  100% { transform: rotate(360deg) scale(1.06); }
+}
+@keyframes pr-swirl-b {
+  0%   { transform: rotate(0deg)   scale(1.2) translateX(2%); }
+  100% { transform: rotate(360deg) scale(1.2) translateX(-2%); }
+}
+
+.pr-portal[data-state='ready'] .pr-gate { animation: pr-breathe 2.8s ease-in-out infinite; }
+
+@keyframes pr-breathe {
+  0%, 100% { box-shadow: inset 0 0 26px rgba(0, 0, 0, 0.98), inset 0 0 18px rgba(255, 120, 60, 0.12); }
+  50%      { box-shadow: inset 0 0 26px rgba(0, 0, 0, 0.98), inset 0 0 34px rgba(255, 140, 70, 0.26); }
+}
+
+.pr-portal:is([data-state='igniting'], [data-state='repaired']) .pr-gate::before { opacity: 1; }
+.pr-portal:is([data-state='igniting'], [data-state='repaired']) .pr-gate::after { opacity: 0.85; }
+
+.pr-flash {
+  position: absolute;
+  inset: -30%;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(circle, rgba(240, 220, 255, 0.95), rgba(168, 96, 240, 0.4) 38%, transparent 68%);
+}
+.pr-portal[data-state='igniting'] .pr-flash { animation: pr-flash 1.6s cubic-bezier(0.15, 0.8, 0.2, 1) forwards; }
+.pr-portal[data-state='igniting'] { animation: pr-shake 0.5s ease-in-out 2; }
+
+@keyframes pr-flash {
+  0%   { opacity: 0; transform: scale(0.4); }
+  18%  { opacity: 1; transform: scale(1.1); }
+  100% { opacity: 0; transform: scale(1.5); }
+}
+@keyframes pr-shake {
+  0%, 100% { transform: translate(0, 0); }
+  25%      { transform: translate(-3px, 1px); }
+  75%      { transform: translate(3px, -1px); }
+}
+
+.pr-motes { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+.pr-mote {
+  position: absolute;
+  bottom: 10%;
+  width: 3px;
+  height: 3px;
+  background: #d9b6ff;
+  box-shadow: 0 0 6px rgba(198, 130, 255, 0.9);
+  opacity: 0;
+}
+.pr-portal[data-state='repaired'] .pr-mote {
+  animation: pr-rise 4.2s ease-in infinite;
+  animation-delay: var(--pr-delay, 0s);
+}
+@keyframes pr-rise {
+  0%   { opacity: 0;    transform: translateY(0) scale(0.6); }
+  15%  { opacity: 0.95; }
+  100% { opacity: 0;    transform: translateY(-190px) translateX(var(--pr-drift, 0px)) scale(1.1); }
+}
+
+.pr-caption {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 0;
+  font-family: var(--rd-font-display, monospace);
+  font-size: clamp(10px, 1.05vw, 13px);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: #a9b1a6;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.95);
+}
+.pr-caption::before,
+.pr-caption::after { content: '✦'; font-size: 9px; opacity: 0.8; }
+.pr-portal[data-state='repaired'] + .pr-caption,
+.pr-portal[data-state='igniting'] + .pr-caption { color: #c682ff; }
+
+/* ── Narrow / short screens ──────────────────────────────────── */
+
+@media (max-width: 1100px), (max-height: 620px) {
+  .pr-page { min-height: 0; overflow: visible; grid-template-rows: none; }
+  .pr-stage { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .pr-centre { order: -1; }
+  .pr-portal { height: min(46vh, 340px); }
+  .pr-status { position: static; margin-top: 12px; }
+  .pr-back { position: static; margin: 14px auto 0; }
+  .pr-foot { flex-direction: column; align-items: center; }
+}
+
+/* ── Reduced motion ──────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .pr-block, .pr-ring__value, .pr-cta { transition: none; }
+  .pr-gate,
+  .pr-gate::before,
+  .pr-gate::after,
+  .pr-flash,
+  .pr-portal,
+  .pr-mote { animation: none !important; }
+  .pr-portal[data-state='repaired'] .pr-gate::before { opacity: 1; }
+}

@@ -1,5 +1,6 @@
 'use client';
 
+import { readDraft, writeDraft, clearDraft, readLanguage, writeLanguage, purgeForeignDrafts } from '@/lib/client/answer-drafts';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { Send, Check, AlertTriangle, Save } from 'lucide-react';
@@ -23,18 +24,12 @@ interface Question {
 
 interface QuestionListProps {
   roundId: number;
+  /** Namespaces this device's drafts. Without it nothing is read or written. */
+  teamCode: string | null;
   questions: Question[];
   onSubmitted: () => void | Promise<void>;
   /** The round timer has run out; answers can no longer be revised. */
   locked?: boolean;
-}
-
-function draftKey(roundId: number, questionId: string) {
-  return `mineverse:round:${roundId}:question:${questionId}:draft`;
-}
-
-function languageKey(roundId: number, questionId: string) {
-  return `mineverse:round:${roundId}:question:${questionId}:language`;
 }
 
 const FINAL_STATUSES = ['locked', 'graded', 'manual_review'];
@@ -48,7 +43,7 @@ function languageLabel(id: string) {
   return LANGUAGE_LABELS[id.toLowerCase()] ?? id;
 }
 
-export function QuestionList({ roundId, questions, onSubmitted, locked }: QuestionListProps) {
+export function QuestionList({ roundId, teamCode, questions, onSubmitted, locked }: QuestionListProps) {
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   // The grader runs the code in whatever language is submitted, so this has to be
   // the team's choice — sending the first option always ran C++ code as Python.
@@ -56,31 +51,33 @@ export function QuestionList({ roundId, questions, onSubmitted, locked }: Questi
   const [submitting, setSubmitting] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Drafts survive a reload or an accidental navigation mid-round.
+  // Drafts survive a reload or an accidental navigation mid-round. The purge is
+  // what keeps a shared lab machine from handing this team the last one's answers.
   useEffect(() => {
+    purgeForeignDrafts(teamCode);
     const loaded: Record<string, string> = {};
     const loadedLanguages: Record<string, string> = {};
     for (const question of questions) {
-      loaded[question.id] = window.localStorage.getItem(draftKey(roundId, question.id)) ?? '';
-      const savedLanguage = window.localStorage.getItem(languageKey(roundId, question.id));
+      loaded[question.id] = readDraft(teamCode, roundId, question.id);
+      const savedLanguage = readLanguage(teamCode, roundId, question.id);
       if (savedLanguage && question.language_options.includes(savedLanguage)) {
         loadedLanguages[question.id] = savedLanguage;
       }
     }
     setDrafts(loaded);
     setLanguages(loadedLanguages);
-  }, [roundId, questions]);
+  }, [roundId, teamCode, questions]);
 
   const setLanguage = (questionId: string, value: string) => {
     setLanguages((current) => ({ ...current, [questionId]: value }));
-    window.localStorage.setItem(languageKey(roundId, questionId), value);
+    writeLanguage(teamCode, roundId, questionId, value);
   };
 
   const ordered = useMemo(() => [...questions].sort((a, b) => a.order_index - b.order_index), [questions]);
 
   const setDraft = (questionId: string, value: string) => {
     setDrafts((current) => ({ ...current, [questionId]: value }));
-    window.localStorage.setItem(draftKey(roundId, questionId), value);
+    writeDraft(teamCode, roundId, questionId, value);
   };
 
   const submit = async (question: Question) => {
@@ -111,7 +108,7 @@ export function QuestionList({ roundId, questions, onSubmitted, locked }: Questi
 
       toast.success(question.submission_status ? 'Answer revised' : 'Answer submitted');
       // Only clear the local draft once the server has it.
-      window.localStorage.removeItem(draftKey(roundId, question.id));
+      clearDraft(teamCode, roundId, question.id);
       await onSubmitted();
     } catch {
       setError('Could not reach the server. Your draft is saved on this device.');

@@ -1,5 +1,6 @@
 'use client';
 
+import { readDraft, writeDraft, purgeForeignDrafts } from '@/lib/client/answer-drafts';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -66,10 +67,6 @@ const resourceMeta = RESOURCE_META;
 /** Statuses the server will no longer accept a revision for. */
 const FINAL_STATUSES = ['locked', 'graded', 'manual_review'];
 
-function draftKey(roundId: number, questionId: string) {
-  return `mineverse:round:${roundId}:question:${questionId}:draft`;
-}
-
 function formatDuration(seconds: number) {
   const safeSeconds = Math.max(0, seconds);
   return {
@@ -119,6 +116,8 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [resources, setResources] = useState<ResourcesData | null>(null);
   const [team, setTeam] = useState<TeamInfo | null>(null);
+  // Drafts are stored per team, so nothing is read or written until this lands.
+  const teamCode = team?.team_code ?? null;
   const [history, setHistory] = useState<LedgerEntry[]>([]);
   const [endsAt, setEndsAt] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string | null>(null);
@@ -188,12 +187,14 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
   }, []);
 
   useEffect(() => {
+    // Clears anything left by a previous team on this machine before reading.
+    purgeForeignDrafts(teamCode);
     const loaded: Record<string, string> = {};
     for (const question of questions) {
-      loaded[question.id] = window.localStorage.getItem(draftKey(roundId, question.id)) ?? '';
+      loaded[question.id] = readDraft(teamCode, roundId, question.id);
     }
     setDrafts(loaded);
-  }, [questions, roundId]);
+  }, [questions, roundId, teamCode]);
 
   // One tab per question type this round actually has, so Round 3's Debugging
   // questions stop being filed under "Aptitudes".
@@ -240,7 +241,7 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
 
   const changeDraft = (questionId: string, value: string) => {
     setDrafts((current) => ({ ...current, [questionId]: value }));
-    window.localStorage.setItem(draftKey(roundId, questionId), value);
+    writeDraft(teamCode, roundId, questionId, value);
   };
 
   const saveAnswer = async (question: Question) => {

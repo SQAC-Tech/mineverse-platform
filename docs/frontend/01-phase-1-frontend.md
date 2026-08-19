@@ -55,9 +55,14 @@ Step 2: **6-digit OTP** input + **ENTER DASHBOARD** button → `POST /api/auth/l
 
 ## `/dashboard` and `/dashboard/qr` — Team view
 
-**Files:** `app/dashboard/layout.tsx` (shared header/sidebar + logout), `app/dashboard/page.tsx` → `features/dashboard/dashboard-view.tsx`; `app/dashboard/qr/page.tsx` → `features/dashboard/team-qr-view.tsx`.
+**Files:** `app/dashboard/layout.tsx` (session guard), `app/dashboard/page.tsx` → `features/dashboard/video-background.tsx`; `app/dashboard/qr/page.tsx` → `features/dashboard/team-qr-view.tsx`.
 
-`/dashboard` shows: "Welcome, {team name}", then a card per round with a status badge (Locked / Active / Completed). Round data comes from `GET /api/dashboard/data`. This is also where the **realtime pattern** lives — the round cards subscribe to the Supabase `round_status` broadcast channel so an admin unlocking a round updates every team's screen live, with a 10-second poll as a fallback (see [../backend/00-how-the-backend-works.md §6](../backend/00-how-the-backend-works.md#6-realtime-how-the-dashboard-updates-without-refreshing)).
+> The Phase 1 card grid described below was replaced by the scene in
+> `video-background.tsx`. `dashboard-view.tsx` was deleted in August 2026 —
+> nothing had imported it for a long time and it would have crashed if anything
+> had. The data flow and the realtime pattern are unchanged.
+
+`/dashboard` shows the team name and resources in a HUD, a portal card per round, and a progress panel with crafted items, PvP/Day 2 status and portal requirements. Round data comes from `GET /api/dashboard/data`. This is also where the **realtime pattern** lives — the round cards subscribe to the Supabase `round_status` broadcast channel so an admin unlocking a round updates every team's screen live, with a 10-second poll as a fallback (see [../backend/00-how-the-backend-works.md §6](../backend/00-how-the-backend-works.md#6-realtime-how-the-dashboard-updates-without-refreshing)).
 
 `/dashboard/qr` re-displays the team's attendance QR (fetched fresh, not cached client-side) so a team can pull it back up if they closed the original email.
 

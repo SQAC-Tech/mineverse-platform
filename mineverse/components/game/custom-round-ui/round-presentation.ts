@@ -179,9 +179,7 @@ const CHROME: Record<number, Omit<RoundChrome, 'name'>> = {
   },
   3: {
     eyebrow: 'ROUND 3', day: 'Day 1', mode: 'Elimination', Icon: Mountain, themeClass: 'round-ui--mountain',
-    // No Round 3 art has been produced yet, so the panels fall back to icons
-    // rather than showing another round's guardian.
-    guardianArt: null, eventArt: null,
+    guardianArt: '/round3/guardian-blaze.webp', eventArt: '/round3/event-gold-rush.webp',
     eventIdleText: 'The peaks are still. Organizers announce world events.',
   },
   4: {

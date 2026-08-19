@@ -15,7 +15,13 @@
  * for display text only. Dense UI text falls back to the system sans.
  */
 
-.round-ui {
+/*
+ * Base tokens, shared by the full-screen biome shells (`.round-ui`) and by the
+ * scrolling pages that borrow only the palette (`.round-ui-scene`). These lived
+ * on `.round-ui` alone, so a scene page resolved --rd-ink, --rd-gold and the
+ * fonts to nothing and fell back to whatever each consumer had hardcoded.
+ */
+:is(.round-ui, .round-ui-scene) {
   --rd-ink: #f2f0e6;
   --rd-ink-dim: #a9b1a6;
   --rd-gold: #f2c14e;
@@ -29,7 +35,9 @@
 
   --rd-gap: 10px;
   --rd-slot: 3px;
+}
 
+.round-ui {
   /* The round is a single screen: the page itself never scrolls. Anything that
      cannot fit scrolls inside its own column instead (see __board/__rail). */
   position: relative;
@@ -124,7 +132,7 @@
   --rd-accent: #ff6b4a;
   --rd-accent-deep: #66190f;
   --rd-accent-ink: #1c0604;
-  --rd-scene: url('/nether_bg.jpg');
+  --rd-scene: url('/round4/round 4 bg image.webp');
   --rd-scene-shade: linear-gradient(180deg, rgba(14, 4, 5, 0.46), rgba(14, 4, 5, 0.2) 38%, rgba(10, 3, 4, 0.82));
   --rd-frame: url('/round2/stone-board-texture.svg');
   --rd-frame-edge: #5c3330;
@@ -137,6 +145,78 @@
   --rd-board-sunk: rgba(60, 30, 24, 0.16);
   --rd-glass: rgba(20, 6, 8, 0.46);
   --rd-glass-edge: rgba(255, 122, 90, 0.28);
+}
+
+/* Round 5, The End. End-stone board, obsidian panels, end-crystal purple as the
+   accent — the one round whose scene is lit from the crystals rather than a sun. */
+.round-ui--end {
+  --rd-void: #0a0714;
+  --rd-panel: linear-gradient(155deg, #1c1430 0%, #0c0818 100%);
+  --rd-edge: #392c58;
+  --rd-edge-lit: #5f4a8c;
+  --rd-accent: #c489f5;
+  --rd-accent-deep: #3f2168;
+  --rd-accent-ink: #120720;
+  --rd-scene: url('/round5/round 5 bg image.webp');
+  --rd-scene-shade: linear-gradient(180deg, rgba(6, 4, 14, 0.42), rgba(6, 4, 14, 0.18) 38%, rgba(4, 2, 10, 0.82));
+  --rd-frame: url('/round2/stone-board-texture.svg');
+  --rd-frame-edge: #4a3d6b;
+  --rd-board: linear-gradient(180deg, #e8e2c0 0%, #d8d0a6 55%, #c6bd8d 100%);
+  --rd-board-ink: #2a2416;
+  --rd-board-dim: #574d31;
+  --rd-board-line: #a2966a;
+  --rd-board-tile: rgba(252, 248, 226, 0.5);
+  --rd-board-tile-edge: #a89b6f;
+  --rd-board-sunk: rgba(58, 50, 28, 0.16);
+  --rd-glass: rgba(12, 6, 22, 0.46);
+  --rd-glass-edge: rgba(196, 137, 245, 0.3);
+}
+
+/*
+ * Round 5's scene, painted onto the older `RoundShell`.
+ *
+ * That shell scrolls, so it cannot take `.round-ui` itself — the layout below
+ * pins the page to 100dvh and hides overflow. It borrows the palette and these
+ * two layers instead. `isolation` is what makes the negative z-indexes land on
+ * top of the `.biome` void colour rather than behind it, same as `.round-ui`.
+ */
+.biome.round-ui-scene {
+  position: relative;
+  isolation: isolate;
+}
+
+.round-ui-scene__backdrop,
+.round-ui-scene__shade {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+.round-ui-scene__backdrop {
+  z-index: -2;
+  background-image: var(--rd-scene);
+  background-position: center;
+  background-size: cover;
+}
+
+/*
+ * Two layers, not one. `--rd-scene-shade` is tuned for the full-screen shells,
+ * where content sits inside opaque panels and the scene is meant to stay vivid.
+ * A scrolling page puts text straight over the artwork, and the Nether scene in
+ * particular is bright enough to swallow it, so this adds a flat scrim under the
+ * biome gradient. Readability wins over the pretty version of the picture.
+ */
+.round-ui-scene__shade {
+  z-index: -1;
+  background: var(--rd-scene-shade);
+}
+
+.round-ui-scene__scrim {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: rgba(4, 2, 6, 0.62);
 }
 
 /*
