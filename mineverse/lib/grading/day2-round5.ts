@@ -4,6 +4,10 @@ import { checkDeterministicAnswer, hasDeterministicKey } from '@/lib/gameplay/gr
 // The same comparison the editor shows a team. Sharing it is the only way to
 // guarantee a sample that passes in the editor passes when it is marked.
 import { normalizeOutput } from '@/lib/gameplay/code/compare';
+// The same catalog the editor offers. A language a team could select but the
+// grader did not know would fail a correct submission after the round, with
+// nothing on screen to explain it.
+import { resolveRuntime } from '@/lib/gameplay/code/runtimes';
 import { getActiveChorusBonus } from '@/lib/day2/events/service';
 import type { Day2ResourceDelta } from '@/lib/day2/events/resources';
 
@@ -73,27 +77,12 @@ async function parkManualReview(params: {
   await db.from('submissions').update({ status: 'manual_review' }).eq('id', params.submission.id);
 }
 
-/**
- * Piston's own language names, and the file name each runtime needs. The seed
- * files use short ids like `cpp`; the compiled runtimes also need a real filename,
- * Java most of all — it compiles `Main.java` and then runs the `Main` class.
- */
-const PISTON_RUNTIMES: Record<string, { language: string; file: string }> = {
-  python: { language: 'python', file: 'main.py' },
-  py: { language: 'python', file: 'main.py' },
-  python3: { language: 'python', file: 'main.py' },
-  cpp: { language: 'c++', file: 'main.cpp' },
-  'c++': { language: 'c++', file: 'main.cpp' },
-  c: { language: 'c', file: 'main.c' },
-  java: { language: 'java', file: 'Main.java' },
-};
-
 async function gradeWithPiston(submission: any, question: any) {
   const endpoint = process.env.PISTON_API_URL;
   if (!endpoint) return { ok: false as const, error: 'PISTON_UNCONFIGURED' };
   if (!submission.code || !submission.language) return { ok: false as const, error: 'CODE_OR_LANGUAGE_MISSING' };
 
-  const runtime = PISTON_RUNTIMES[String(submission.language).trim().toLowerCase()];
+  const runtime = resolveRuntime(submission.language);
   if (!runtime) return { ok: false as const, error: `PISTON_LANGUAGE_UNSUPPORTED: ${submission.language}` };
 
   const cases = Array.isArray(question.hidden_test_cases) ? question.hidden_test_cases : [];
@@ -114,7 +103,7 @@ async function gradeWithPiston(submission: any, question: any) {
           ...(apiKey ? { Authorization: apiKey } : {}),
         },
         body: JSON.stringify({
-          language: runtime.language,
+          language: runtime.piston,
           version: question.runtime_meta?.piston_version ?? '*',
           files: [{ name: runtime.file, content: submission.code }],
           stdin: (testCase as any).stdin ?? '',

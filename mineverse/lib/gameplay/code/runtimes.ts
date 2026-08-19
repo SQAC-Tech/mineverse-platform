@@ -69,6 +69,20 @@ export const RUNTIMES: Record<string, Runtime> = {
     monaco: 'c',
     starter: ['#include <stdio.h>', '', 'int main(void) {', '    /* your code here */', '    return 0;', '}', ''].join('\n'),
   },
+  javascript: {
+    id: 'javascript',
+    label: 'JavaScript',
+    piston: 'javascript',
+    file: 'main.js',
+    monaco: 'javascript',
+    starter: [
+      '// Read from standard input, print the answer to standard output.',
+      "const data = require('fs').readFileSync(0, 'utf8').trim();",
+      '',
+      '// your code here',
+      '',
+    ].join('\n'),
+  },
   java: {
     id: 'java',
     label: 'Java',
@@ -96,6 +110,9 @@ const ALIASES: Record<string, string> = {
   py: 'python',
   python3: 'python',
   'c++': 'cpp',
+  js: 'javascript',
+  node: 'javascript',
+  nodejs: 'javascript',
 };
 
 export function resolveRuntime(language: string | null | undefined): Runtime | null {

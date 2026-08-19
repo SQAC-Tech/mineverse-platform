@@ -15,10 +15,22 @@ import { RUNTIMES, resolveRuntime, runtimesFor } from '../../../lib/gameplay/cod
 const grader = readFileSync(join(__dirname, '..', '..', '..', 'lib', 'grading', 'day2-round5.ts'), 'utf8');
 
 describe('runtime catalog', () => {
-  it.each(Object.values(RUNTIMES))('$label maps to a Piston language the grader also knows', (runtime) => {
-    // The grader's table is keyed by the same ids and values.
-    expect(grader).toContain(`language: '${runtime.piston}'`);
-    expect(grader).toContain(`file: '${runtime.file}'`);
+  it('is the very catalog the grader resolves against', () => {
+    // Not a matching copy — the same import. A language the editor offers and
+    // the grader does not know would fail a correct submission after the round,
+    // with nothing on screen to explain why.
+    expect(grader).toContain("import { resolveRuntime } from '@/lib/gameplay/code/runtimes'");
+    expect(grader).toContain('resolveRuntime(submission.language)');
+    expect(grader).not.toMatch(/PISTON_RUNTIMES/);
+  });
+
+  it("sends Piston the catalog's own language id and filename", () => {
+    expect(grader).toContain('language: runtime.piston');
+    expect(grader).toContain('name: runtime.file');
+  });
+
+  it('offers every language the event promised', () => {
+    expect(Object.keys(RUNTIMES).sort()).toEqual(['c', 'cpp', 'java', 'javascript', 'python']);
   });
 
   it('compiles Java as Main.java, which is what Piston runs', () => {
@@ -46,11 +58,15 @@ describe('resolveRuntime', () => {
     ['C++', 'cpp'],
     ['  Java  ', 'java'],
     ['c', 'c'],
+    ['javascript', 'javascript'],
+    ['js', 'javascript'],
+    ['node', 'javascript'],
+    ['NodeJS', 'javascript'],
   ])('resolves %s to %s', (input, expected) => {
     expect(resolveRuntime(input)?.id).toBe(expected);
   });
 
-  it.each([null, undefined, '', 'rust', 'javascript'])('rejects %p', (input) => {
+  it.each([null, undefined, '', 'rust', 'go', 'ruby'])('rejects %p', (input) => {
     expect(resolveRuntime(input)).toBeNull();
   });
 });
@@ -58,6 +74,16 @@ describe('resolveRuntime', () => {
 describe('runtimesFor', () => {
   it('keeps the order the question lists', () => {
     expect(runtimesFor(['java', 'python', 'c']).map((r) => r.id)).toEqual(['java', 'python', 'c']);
+  });
+
+  it('resolves the five the coding questions now offer', () => {
+    expect(runtimesFor(['python', 'cpp', 'c', 'java', 'javascript']).map((r) => r.id)).toEqual([
+      'python',
+      'cpp',
+      'c',
+      'java',
+      'javascript',
+    ]);
   });
 
   it('collapses aliases so one runtime cannot appear twice', () => {
