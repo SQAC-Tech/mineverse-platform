@@ -1228,6 +1228,70 @@
   padding: 4px;
 }
 
+/*
+ * Round 5's rail: the End Merchant's trades and the Final Boss gates.
+ *
+ * The Day 1 choices are picture cards in a two-column grid. These are lines of
+ * text — a trade reads as "give this, get that" — so they stack and run left to
+ * right instead.
+ */
+.round-ui__choices--stack { grid-template-columns: 1fr; gap: 7px; }
+
+.round-ui__choices--stack .round-ui__choice {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  text-transform: none;
+  text-align: left;
+}
+
+.round-ui__choices--stack .round-ui__choice span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.round-ui__choices--stack .round-ui__choice b {
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.round-ui__choices--stack .round-ui__choice small {
+  font-family: var(--rd-font-body);
+  font-size: 11px;
+  letter-spacing: 0;
+  color: var(--rd-ink-dim);
+}
+
+.round-ui__choice:disabled { opacity: 0.5; cursor: progress; }
+
+/* Prerequisites, named one by one. A single "locked" tells a team nothing. */
+.round-ui__reqs {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.round-ui__reqs li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--rd-font-body);
+  font-size: 12px;
+  color: var(--rd-ink-dim);
+}
+
+.round-ui__reqs li[data-met='true'] { color: var(--rd-ink); }
+.round-ui__reqs li[data-met='true'] svg { color: var(--rd-good); }
+.round-ui__reqs li[data-met='false'] svg { color: var(--rd-edge-lit); }
+
+.round-ui__card-text--bad { color: var(--rd-bad); }
+
 /* ── Inventory ───────────────────────────────────────────────── */
 
 /* Wrapping flex rather than a two-column grid: when the action buttons no

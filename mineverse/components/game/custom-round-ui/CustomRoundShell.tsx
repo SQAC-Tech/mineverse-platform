@@ -23,6 +23,8 @@ import { GuardianArena } from './GuardianArena';
 import { NotificationTray, type LedgerEntry } from './NotificationTray';
 import { WorldEvent } from './WorldEvent';
 import { PvpPanel } from '../pvp/PvpPanel';
+import { EndRail } from '@/components/day2/end-round/EndRail';
+import type { CraftedItem, DashboardProgress } from '@/features/dashboard/types';
 import {
   RESOURCE_META,
   buildQuestionTabs,
@@ -30,6 +32,7 @@ import {
   promptBlocks,
   questionTypeLabel,
   roundChrome,
+  roundChoice,
   roundCraft,
   roundGuardian,
   roundObjective,
@@ -116,6 +119,10 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [resources, setResources] = useState<ResourcesData | null>(null);
   const [team, setTeam] = useState<TeamInfo | null>(null);
+  // Round 5 needs to know what the team has crafted and how far Day 2 has got.
+  // The dashboard snapshot already carries both, so no extra request.
+  const [progress, setProgress] = useState<DashboardProgress | null>(null);
+  const [crafted, setCrafted] = useState<CraftedItem[]>([]);
   // Drafts are stored per team, so nothing is read or written until this lands.
   const teamCode = team?.team_code ?? null;
   const [history, setHistory] = useState<LedgerEntry[]>([]);
@@ -157,6 +164,8 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
     }
     if (teamResult.status === 'fulfilled' && teamResult.value.success) {
       setTeam(teamResult.value.team ?? null);
+      setProgress(teamResult.value.progress ?? null);
+      setCrafted(teamResult.value.crafted ?? []);
     }
     if (historyResult.status === 'fulfilled' && historyResult.value.success) {
       setHistory(historyResult.value.data.entries ?? []);
@@ -204,6 +213,7 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
   const guardian = roundGuardian(roundId);
   const craft = roundCraft(roundId);
   const isPvp = roundPvp(roundId);
+  const choice = roundChoice(roundId);
 
   // The tab set only exists once questions load, so the selection follows it.
   useEffect(() => {
@@ -670,6 +680,12 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
               )}
 
               {isPvp && <PvpPanel />}
+
+              {/* The End is the only round with a merchant and a boss. Both are
+                  driven off the round catalog rather than a hardcoded id. */}
+              {choice === 'end_merchant' && (
+                <EndRail progress={progress} crafted={crafted} onTraded={() => void refresh()} />
+              )}
             </aside>
           ) : (
             <button

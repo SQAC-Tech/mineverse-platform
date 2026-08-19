@@ -248,3 +248,14 @@ export function roundCraft(roundId: number) {
 export function roundPvp(roundId: number) {
   return ROUND_CONFIGS[roundId]?.pvp ?? false;
 }
+
+/**
+ * The choice event that resolves in this round, if any.
+ *
+ * `end_merchant` is deliberately not in the Day 1 CHOICES catalog — it has its
+ * own Day 2 route and its own panel — so callers switch on the key rather than
+ * handing it to ChoicePanel, which cannot serve it.
+ */
+export function roundChoice(roundId: number) {
+  return ROUND_CONFIGS[roundId]?.choice ?? null;
+}

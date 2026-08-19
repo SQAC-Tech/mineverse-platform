@@ -38,11 +38,18 @@ export interface PortalProgress {
   missing: string[];
 }
 
+export interface EndMerchantProgress {
+  /** The End Merchant is a one-time trade; this is the ledger saying it happened. */
+  traded: boolean;
+  reason: string | null;
+}
+
 export interface DashboardProgress {
   qualified_for_day2: boolean;
   elimination_reason: string | null;
   pvp_eligible: boolean;
   nether_core_count: number;
+  end_merchant: EndMerchantProgress;
   portal: PortalProgress;
 }
 
