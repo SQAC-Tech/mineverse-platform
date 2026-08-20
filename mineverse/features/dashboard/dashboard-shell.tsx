@@ -11,6 +11,7 @@ import { roundChrome } from '@/components/game/custom-round-ui/round-presentatio
 import { Rulebook } from '@/features/dashboard/rulebook';
 import { WorldMap } from '@/features/dashboard/world-map';
 import { SteveAvatar } from '@/features/dashboard/steve-avatar';
+import { CraftingTable } from '@/features/dashboard/crafting-table';
 import { loadoutFrom } from '@/features/dashboard/gear';
 import type { CraftedItem, DashboardProgress, DashboardRound, DashboardTeam } from '@/features/dashboard/types';
 import { supabaseClient } from '@/lib/supabase/client';
@@ -104,6 +105,12 @@ export function DashboardShell() {
     if (open) return open;
     return [...playable].reverse().find((round) => round.completed_at) ?? null;
   }, [rounds]);
+
+  /* The crafting log as bare item ids, which is what the gate check wants. */
+  const craftedItems = useMemo(
+    () => crafted.filter((entry) => entry.crafted).map((entry) => entry.item),
+    [crafted],
+  );
 
   // The biome's own icon, from the catalog the round header draws with.
   const RoundIcon = roundChrome(activeRound?.round_id ?? 1).Icon;
@@ -216,6 +223,16 @@ export function DashboardShell() {
             <span>Defeat guardians</span>
           </div>
         </section>
+
+        {/* Bottom-right, mirroring Steve. Crafting is not round-scoped — the
+            craft route only needs a session — so the bench belongs here too. */}
+        <CraftingTable
+          balance={resources}
+          crafted={craftedItems}
+          qualifiedForDay2={progress?.qualified_for_day2 ?? false}
+          portalRepaired={progress?.portal?.is_repaired ?? false}
+          onCrafted={load}
+        />
       </main>
 
       {/* ── Inventory ── */}

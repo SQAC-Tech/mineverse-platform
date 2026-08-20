@@ -1,48 +1,19 @@
 import { supabaseServer } from '@/lib/supabase/server';
-import type { ResourceDelta } from '@/lib/gameplay/resources/service';
+import { CRAFT_RECIPES, type CraftItem } from '@/lib/gameplay/crafting/rules';
 
 const db = supabaseServer as any;
 
-export type CraftItem = 'wooden_pickaxe' | 'stone_pickaxe' | 'iron_armor' | 'diamond_pickaxe';
-
-export interface CraftRecipe {
-  item: CraftItem;
-  label: string;
-  base_cost: ResourceDelta;
-  unlock_round_id: number | null;
-  marks_pvp_eligible: boolean;
-}
-
-export const CRAFT_RECIPES: Record<CraftItem, CraftRecipe> = {
-  wooden_pickaxe: {
-    item: 'wooden_pickaxe',
-    label: 'Wooden Pickaxe',
-    base_cost: { wood: 60 },
-    unlock_round_id: 2,
-    marks_pvp_eligible: false,
-  },
-  stone_pickaxe: {
-    item: 'stone_pickaxe',
-    label: 'Stone Pickaxe',
-    base_cost: { wood: 10, stone: 45, iron: 25 },
-    unlock_round_id: 3,
-    marks_pvp_eligible: false,
-  },
-  iron_armor: {
-    item: 'iron_armor',
-    label: 'Iron Armor',
-    base_cost: { iron: 40, gold: 25 },
-    unlock_round_id: null,
-    marks_pvp_eligible: true,
-  },
-  diamond_pickaxe: {
-    item: 'diamond_pickaxe',
-    label: 'Diamond Pickaxe',
-    base_cost: { iron: 25, gold: 20, diamond: 100, emerald: 10 },
-    unlock_round_id: null,
-    marks_pvp_eligible: false,
-  },
-};
+/*
+ * Recipes now live in `rules.ts`, which has no database import, so the dashboard
+ * crafting table and the rulebook can read the same costs this service charges.
+ * There were two identical hand-maintained copies and nothing keeping them so.
+ *
+ * Note that neither copy is what actually charges a team: `craft_team_item` in
+ * the database hardcodes the costs and the prerequisite chain, and that is the
+ * authority. These exist to show a team what it will be charged before it is.
+ */
+export type { CraftItem, CraftRecipe } from '@/lib/gameplay/crafting/rules';
+export { CRAFT_RECIPES } from '@/lib/gameplay/crafting/rules';
 
 /**
  * Base cost is the cost. The Forge and Master Forge structures used to discount
