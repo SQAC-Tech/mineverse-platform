@@ -1675,6 +1675,56 @@ export type Database = {
           },
         ]
       }
+      relay_screening_attempts: {
+        Row: {
+          created_at: string
+          id: string
+          is_completed: boolean
+          started_at: string
+          submitted_at: string | null
+          team_id: string
+          word_assigned: string
+          year1_answer: string | null
+          year1_status: string
+          year2_answer: string | null
+          year2_status: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_completed?: boolean
+          started_at?: string
+          submitted_at?: string | null
+          team_id: string
+          word_assigned: string
+          year1_answer?: string | null
+          year1_status?: string
+          year2_answer?: string | null
+          year2_status?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_completed?: boolean
+          started_at?: string
+          submitted_at?: string | null
+          team_id?: string
+          word_assigned?: string
+          year1_answer?: string | null
+          year1_status?: string
+          year2_answer?: string | null
+          year2_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "relay_screening_attempts_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: true
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       resource_ledger: {
         Row: {
           actor_id: string | null

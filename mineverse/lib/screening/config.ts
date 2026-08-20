@@ -30,6 +30,27 @@ export interface GauntletPuzzleConfig {
   expectedAnswer: string;
 }
 
+/**
+ * The Enchantment Cipher: shift every letter forward by the number of letters.
+ *
+ * Lives here rather than in service.ts because Puzzle 3's fallback answer is
+ * derived from it. It used to be a hardcoded "FPYI" — the cipher of "BLUE"
+ * from an earlier version of the puzzle — while the prompt beside it asked for
+ * NETHER BIOME. `gradePuzzle` overrides both with the team's assigned image, so
+ * the mismatch only surfaced on an attempt with no image, but a fallback that
+ * disagrees with its own prompt is a trap either way.
+ */
+export function applyCipher(text: string): string {
+  const lettersOnly = text.toUpperCase().replace(/[^A-Z]/g, '');
+  const shift = lettersOnly.length;
+  let result = '';
+  for (let i = 0; i < lettersOnly.length; i++) {
+    const shifted = (lettersOnly.charCodeAt(i) - 65 + shift) % 26;
+    result += String.fromCharCode(shifted + 65);
+  }
+  return result;
+}
+
 export const GAUNTLET_PUZZLES: GauntletPuzzleConfig[] = [
   {
     id: 1,
@@ -56,7 +77,7 @@ export const GAUNTLET_PUZZLES: GauntletPuzzleConfig[] = [
     prompt: "You hold a lamp forged in the NETHER BIOME, its eerie light revealing encrypted runes on the gate.\n\nThe Golem's voice echoes heavily:\n\n'The key lies in the origin of your light, but you must discard the physical vessel itself. Take only the two-word name of its home. Shift each letter of those words forward by the total number of characters they contain.'\n\nWhat is the final password?",
     errorMessage: "The cipher remains sealed. Try again.",
     successMessage: "Gate Opened. Server connection established.",
-    expectedAnswer: "FPYI",
+    expectedAnswer: applyCipher('NETHER BIOME'),
   },
 ];
 

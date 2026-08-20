@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getSession } from '@/lib/auth/session';
 import { rateLimit } from '@/lib/rate-limit';
-import { getAttemptForPlayer, saveAnswer, submitAttempt } from '@/lib/screening/service';
+import { getAttemptForPlayer, saveAnswer, saveGauntletAnswer, submitAttempt } from '@/lib/screening/service';
 
 /** The live paper, with correct answers and difficulty stripped. */
 export async function GET() {
@@ -21,8 +21,6 @@ export async function GET() {
 
   return NextResponse.json({ success: true, data: result.data });
 }
-
-import { saveGauntletAnswer } from '@/lib/screening/service';
 
 const gauntletAnswerSchema = z.object({
   puzzle_id: z.number().int().min(1).max(3),
