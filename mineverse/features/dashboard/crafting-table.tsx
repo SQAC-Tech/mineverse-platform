@@ -49,13 +49,9 @@ export function CraftingTable(props: CraftingTableProps) {
         aria-label="Open the crafting table"
         title="Crafting table"
       >
-        {/* Three faces of one block. Drawn rather than shipped as art so it can
-            take the page's own lighting and scale to any size. */}
-        <span className="ct-block__cube" aria-hidden="true">
-          <span className="ct-block__face ct-block__face--top" />
-          <span className="ct-block__face ct-block__face--front" />
-          <span className="ct-block__face ct-block__face--side" />
-        </span>
+        {/* The rendered block from public/, trimmed of its transparent padding.
+            A CSS cube was here first; the real art reads better at this size. */}
+        <img className="ct-block__art" src="/crafting-table.webp" alt="" aria-hidden="true" />
         <span className="ct-block__label">CRAFT</span>
       </button>
 

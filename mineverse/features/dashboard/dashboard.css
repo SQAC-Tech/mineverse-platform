@@ -499,101 +499,44 @@
 /* ── The crafting table ──────────────────────────────────────── */
 
 /*
- * A crafting table block in the corner, drawn rather than shipped as art.
+ * The block in the corner, mirroring Steve at the opposite one, so the two
+ * bottom corners of the stage are a character and a workbench.
  *
- * Three faces on a 3D transform: the top carries the 2x2 crafting grid, the
- * front the planks-and-tools face, the side plain planks. It mirrors Steve at
- * the opposite corner, so the two bottom corners of the stage are a character
- * and a workbench.
+ * The art is the rendered block from public/, trimmed of its transparent
+ * padding — it occupied 213x228 of a 677x369 canvas, so untrimmed the CSS box
+ * would have been mostly nothing and impossible to position against.
  */
 .ct-block {
-  --ct-size: clamp(62px, 6.8vw, 100px);
-
   position: absolute;
   right: clamp(4px, 1.4vw, 26px);
   bottom: clamp(2px, 1vh, 14px);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 9px;
+  gap: 6px;
   padding: 0;
   border: 0;
   background: none;
   cursor: var(--mv-cursor-pickaxe, pointer);
-  /* Without a perspective the faces' translateZ has no depth and the three of
-     them stack flat — a brown rectangle rather than a block. The drop shadow
-     lives here rather than on the cube for the same reason: any `filter` on an
-     element forces `transform-style: flat` on it, which would undo the block. */
-  perspective: 460px;
-  filter: drop-shadow(0 10px 16px rgba(0, 0, 0, 0.7));
 }
 
-.ct-block__cube {
-  position: relative;
+.ct-block__art {
   display: block;
-  width: var(--ct-size);
-  height: var(--ct-size);
-  transform-style: preserve-3d;
-  /* Tilted just enough to read as a block without becoming a diagram. */
-  transform: rotateX(-24deg) rotateY(-36deg);
-  transition: transform 0.22s ease;
-}
-
-.ct-block:hover .ct-block__cube,
-.ct-block:focus-visible .ct-block__cube {
-  transform: rotateX(-24deg) rotateY(-36deg) translateY(-6px) scale(1.05);
-}
-
-.ct-block:active .ct-block__cube {
-  transform: rotateX(-24deg) rotateY(-36deg) translateY(-1px) scale(0.99);
-}
-
-.ct-block__face {
-  position: absolute;
-  inset: 0;
+  width: clamp(64px, 7vw, 108px);
+  height: auto;
   image-rendering: pixelated;
+  filter: drop-shadow(0 10px 16px rgba(0, 0, 0, 0.7));
+  transition: transform 0.18s ease, filter 0.18s ease;
 }
 
-/* Oak planks: horizontal seams over a warm brown. */
-.ct-block__face--front,
-.ct-block__face--side {
-  background:
-    repeating-linear-gradient(180deg, rgba(0, 0, 0, 0.28) 0 2px, transparent 2px 25%),
-    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.16) 0 2px, transparent 2px 33%),
-    linear-gradient(180deg, #a97c46 0%, #8b6337 100%);
-  box-shadow: inset 0 0 0 2px #4b3018;
+.ct-block:hover .ct-block__art,
+.ct-block:focus-visible .ct-block__art {
+  transform: translateY(-6px) scale(1.06);
+  filter: drop-shadow(0 14px 20px rgba(0, 0, 0, 0.75)) brightness(1.12);
 }
 
-.ct-block__face--front {
-  transform: translateZ(calc(var(--ct-size) / 2));
-}
-
-/* The tool panel on the front face. */
-.ct-block__face--front::before {
-  content: '';
-  position: absolute;
-  top: 14%;
-  left: 14%;
-  width: 72%;
-  height: 34%;
-  background: linear-gradient(90deg, #56391c 0 46%, transparent 46% 54%, #56391c 54%);
-  box-shadow: inset 0 0 0 2px #3b2412;
-}
-
-.ct-block__face--side {
-  transform: rotateY(90deg) translateZ(calc(var(--ct-size) / 2));
-  filter: brightness(0.72);
-}
-
-/* The top: the 2x2 crafting grid the block is recognised by. */
-.ct-block__face--top {
-  background:
-    linear-gradient(90deg, transparent 0 12%, #4b3018 12% 15%, transparent 15% 49%, #4b3018 49% 52%, transparent 52% 86%, #4b3018 86% 89%, transparent 89%),
-    linear-gradient(180deg, transparent 0 12%, #4b3018 12% 15%, transparent 15% 49%, #4b3018 49% 52%, transparent 52% 86%, #4b3018 86% 89%, transparent 89%),
-    linear-gradient(160deg, #c49a5f 0%, #a97c46 100%);
-  transform: rotateX(90deg) translateZ(calc(var(--ct-size) / 2));
-  filter: brightness(1.12);
-  box-shadow: inset 0 0 0 2px #4b3018;
+.ct-block:active .ct-block__art {
+  transform: translateY(-1px) scale(1);
 }
 
 .ct-block__label {
@@ -609,8 +552,14 @@
   color: #fff;
 }
 
-/* ── The crafting grid ───────────────────────────────────────── */
+/* ── The crafting window ─────────────────────────────────────── */
 
+/*
+ * Minecraft's own inventory GUI: silver, and beveled rather than shaded — a
+ * hard white edge top-left and a hard grey edge bottom-right, no blur anywhere.
+ * The slots already looked like this (they are the hotbar's), so the window now
+ * matches the thing inside it instead of framing it in nether red.
+ */
 .ct__backdrop {
   position: fixed;
   inset: 0;
@@ -623,17 +572,25 @@
 }
 
 .ct {
+  --ct-face: #c6c6c6;
+  --ct-lit: #ffffff;
+  --ct-shade: #555555;
+  --ct-sunk: #8b8b8b;
+  --ct-ink: #3f3f3f;
+  --ct-ink-dim: #6b6b6b;
+
   display: flex;
   flex-direction: column;
   width: min(680px, 100%);
   max-height: 100%;
-  border: 3px solid var(--d-edge);
-  border-top-color: var(--d-edge-lit);
-  border-left-color: var(--d-edge-lit);
-  border-bottom-color: var(--d-edge-dark);
-  border-right-color: var(--d-edge-dark);
-  background: linear-gradient(160deg, #2a1013 0%, #170809 100%);
-  box-shadow: inset 0 0 40px rgba(255, 107, 74, 0.08), 0 20px 60px rgba(0, 0, 0, 0.8);
+  border: 4px solid var(--ct-face);
+  border-top-color: var(--ct-lit);
+  border-left-color: var(--ct-lit);
+  border-bottom-color: var(--ct-shade);
+  border-right-color: var(--ct-shade);
+  background: var(--ct-face);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+  color: var(--ct-ink);
   animation: rb-open 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
@@ -642,17 +599,30 @@
   align-items: center;
   gap: 9px;
   padding: 12px 14px;
-  border-bottom: 2px solid rgba(255, 107, 74, 0.22);
-  color: var(--d-ember);
+  color: var(--ct-ink);
 }
 
 .ct__head b {
   flex: 1;
-  color: #ffd9c8;
+  color: var(--ct-ink);
   font-family: var(--d-font);
   font-size: 11px;
   font-weight: 400;
   letter-spacing: 1.8px;
+}
+
+/* Every raised control is the same three-line bevel. */
+.ct__close,
+.ct__recipe,
+.ct__craft {
+  border: 2px solid var(--ct-sunk);
+  border-top-color: var(--ct-lit);
+  border-left-color: var(--ct-lit);
+  border-bottom-color: var(--ct-shade);
+  border-right-color: var(--ct-shade);
+  background: #b4b4b4;
+  color: var(--ct-ink);
+  cursor: pointer;
 }
 
 .ct__close {
@@ -660,22 +630,18 @@
   place-items: center;
   width: 28px;
   height: 28px;
-  border: 2px solid rgba(255, 122, 90, 0.4);
-  background: rgba(16, 5, 6, 0.7);
-  color: #ffb9a4;
-  cursor: pointer;
 }
 
-.ct__close:hover {
-  border-color: var(--d-ember);
-  color: #fff;
+.ct__close:hover,
+.ct__recipe:hover {
+  background: #cfcfcf;
 }
 
 .ct__body {
   display: grid;
   grid-template-columns: minmax(0, 150px) minmax(0, 1fr);
   gap: clamp(10px, 2vw, 20px);
-  padding: clamp(12px, 2vh, 20px) clamp(12px, 2vw, 20px);
+  padding: clamp(6px, 1.2vh, 12px) clamp(12px, 2vw, 20px) clamp(12px, 2vh, 20px);
   min-height: 0;
 }
 
@@ -691,23 +657,20 @@
   align-items: center;
   gap: 7px;
   padding: 9px 10px;
-  border: 2px solid rgba(120, 55, 48, 0.55);
-  background: rgba(20, 8, 9, 0.7);
-  color: #d8bab2;
   font-size: 11px;
   text-align: left;
-  cursor: pointer;
 }
 
-.ct__recipe:hover {
-  border-color: rgba(255, 122, 90, 0.55);
-  color: #fff;
-}
-
+/* Pressed in, not lit up: the selected recipe inverts its bevel, which is how
+   a toggled Minecraft button reads. */
 .ct__recipe--on {
-  border-color: var(--d-ember);
-  background: rgba(70, 24, 20, 0.85);
-  color: #fff;
+  border-top-color: var(--ct-shade);
+  border-left-color: var(--ct-shade);
+  border-bottom-color: var(--ct-lit);
+  border-right-color: var(--ct-lit);
+  background: #9d9d9d;
+  color: #1f1f1f;
+  font-weight: 700;
 }
 
 .ct__recipe-name {
@@ -717,12 +680,12 @@
 
 .ct__ok {
   flex-shrink: 0;
-  color: #6cc244;
+  color: #2f6c22;
 }
 
 .ct__lock {
   flex-shrink: 0;
-  color: #8a7a76;
+  color: #6b6b6b;
 }
 
 /* Grid, arrow, result — the crafting window's three parts, left to right. */
@@ -739,8 +702,12 @@
   grid-template-columns: repeat(3, 1fr);
   gap: 4px;
   padding: 5px;
-  border: 3px solid #6f7570;
-  background: #3f4441;
+  border: 3px solid var(--ct-sunk);
+  border-top-color: var(--ct-shade);
+  border-left-color: var(--ct-shade);
+  border-bottom-color: var(--ct-lit);
+  border-right-color: var(--ct-lit);
+  background: #a8a8a8;
 }
 
 .ct-slot {
@@ -749,9 +716,10 @@
   place-items: center;
   width: clamp(36px, 4.6vw, 48px);
   aspect-ratio: 1;
-  border: 3px solid #1d201e;
-  background: linear-gradient(135deg, #8b8f8c 0%, #626764 100%);
-  box-shadow: inset 2px 2px 0 #b9bdba, inset -2px -2px 0 #383c3a;
+  border: 3px solid var(--ct-sunk, #8b8b8b);
+  background: #8b8b8b;
+  /* Sunk, not raised: dark inside the top-left, light inside the bottom-right. */
+  box-shadow: inset 2px 2px 0 #373737, inset -2px -2px 0 #ffffff;
 }
 
 .ct-slot img {
@@ -759,7 +727,7 @@
   height: 60%;
   object-fit: contain;
   image-rendering: pixelated;
-  filter: drop-shadow(2px 3px 0 rgba(0, 0, 0, 0.55));
+  filter: drop-shadow(2px 3px 0 rgba(0, 0, 0, 0.4));
 }
 
 .ct-slot b {
@@ -770,30 +738,31 @@
   font-family: var(--d-font);
   font-size: 10px;
   font-weight: 400;
-  text-shadow: 2px 2px 0 #000;
+  text-shadow: 2px 2px 0 #3f3f3f;
 }
 
 /* An ingredient the team cannot cover yet, marked on the slot itself and not
    only in the sentence underneath. */
 .ct-slot--short {
-  border-color: #7a2a22;
-  box-shadow: inset 2px 2px 0 #b9bdba, inset -2px -2px 0 #383c3a, 0 0 12px rgba(224, 91, 75, 0.6);
+  background: #a86a63;
+  box-shadow: inset 2px 2px 0 #5c2b25, inset -2px -2px 0 #e8c4bf;
 }
 
 .ct-slot--short b {
-  color: #ff9a8a;
+  color: #4a120b;
+  text-shadow: 1px 1px 0 rgba(255, 255, 255, 0.5);
 }
 
 .ct-slot--done {
-  border-color: #2f6c22;
-  box-shadow: inset 2px 2px 0 #b9bdba, inset -2px -2px 0 #383c3a, 0 0 14px rgba(108, 194, 68, 0.55);
+  background: #7fa86a;
+  box-shadow: inset 2px 2px 0 #35502a, inset -2px -2px 0 #d6e8ca;
 }
 
 .ct__arrow {
   flex-shrink: 0;
   width: 34px;
   height: 12px;
-  background: #b9bdba;
+  background: var(--ct-shade);
   clip-path: polygon(0 34%, 64% 34%, 64% 0, 100% 50%, 64% 100%, 64% 66%, 0 66%);
 }
 
@@ -811,11 +780,11 @@
 .ct__result-glyph {
   font-size: clamp(20px, 2.6vw, 28px);
   line-height: 1;
-  filter: drop-shadow(2px 3px 0 rgba(0, 0, 0, 0.6));
+  filter: drop-shadow(2px 3px 0 rgba(0, 0, 0, 0.35));
 }
 
 .ct__result-name {
-  color: var(--d-gold);
+  color: var(--ct-ink);
   font-family: var(--d-font);
   font-size: 8px;
   letter-spacing: 0.8px;
@@ -828,7 +797,7 @@
   align-items: center;
   gap: 10px;
   padding: 12px 14px;
-  border-top: 2px solid rgba(255, 107, 74, 0.22);
+  border-top: 2px solid var(--ct-sunk);
 }
 
 .ct__status {
@@ -838,68 +807,74 @@
   gap: 7px;
   margin: 0;
   min-width: 180px;
-  color: #c9aca5;
+  color: var(--ct-ink-dim);
   font-size: 11.5px;
   line-height: 1.4;
 }
 
 .ct__status--done {
-  color: #9fe07f;
+  color: #2f6c22;
 }
 
 .ct__status--locked {
-  color: #d9c07a;
+  color: #8a6414;
 }
 
 .ct__status--short {
-  color: #ff9a8a;
+  color: #a02c1c;
 }
 
 .ct__error {
   flex: 1 1 100%;
   margin: 0;
   padding: 8px 10px;
-  border-left: 3px solid #e05b4b;
-  background: rgba(224, 91, 75, 0.14);
-  color: #ffc4ba;
+  border-left: 3px solid #a02c1c;
+  background: #d8b4ae;
+  color: #4a120b;
   font-size: 11.5px;
 }
 
+/* The one green thing in a silver window, because it is the one thing that
+   commits. */
 .ct__craft {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 11px 20px;
-  border: 3px solid #8fdc68;
-  border-bottom-color: #1c3c14;
-  border-right-color: #1c3c14;
-  background: linear-gradient(180deg, #3f8a2c 0%, #2a6119 55%, #1c3f11 100%);
+  border-color: #3f7a2c;
+  border-top-color: #9ee07c;
+  border-left-color: #9ee07c;
+  border-bottom-color: #1d3f12;
+  border-right-color: #1d3f12;
+  background: #4a8f33;
   color: #fff;
   font-family: var(--d-font);
   font-size: 10px;
   letter-spacing: 1.4px;
-  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.7);
-  cursor: pointer;
-  box-shadow: 0 5px 0 #122a0b;
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.5);
 }
 
 .ct__craft:hover:not(:disabled) {
-  background: linear-gradient(180deg, #4da336 0%, #35761f 55%, #234e15 100%);
+  background: #58a83d;
 }
 
 .ct__craft:active:not(:disabled) {
-  transform: translateY(3px);
-  box-shadow: 0 2px 0 #122a0b;
+  border-top-color: #1d3f12;
+  border-left-color: #1d3f12;
+  border-bottom-color: #9ee07c;
+  border-right-color: #9ee07c;
 }
 
 .ct__craft:disabled {
-  border-color: #5a5f58;
-  border-bottom-color: #23261f;
-  border-right-color: #23261f;
-  background: linear-gradient(180deg, #4a4f47 0%, #34382f 100%);
-  color: #9aa094;
+  border-color: var(--ct-sunk);
+  border-top-color: #d8d8d8;
+  border-left-color: #d8d8d8;
+  border-bottom-color: var(--ct-shade);
+  border-right-color: var(--ct-shade);
+  background: #a0a0a0;
+  color: #6b6b6b;
   cursor: not-allowed;
-  box-shadow: 0 5px 0 #1a1c16;
+  text-shadow: none;
 }
 
 /* ── The map ─────────────────────────────────────────────────── */
