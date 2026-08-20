@@ -86,15 +86,32 @@
 
 /* ── Top chrome ──────────────────────────────────────────────── */
 
+/* 1fr / auto / 1fr, so the wordmark sits on the page's centre line rather than
+   wherever the two sides balance out. The sides are free to differ in width. */
 .dash__top {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
   gap: clamp(8px, 1.2vw, 16px);
 }
 
+.dash__top-left {
+  display: flex;
+  justify-content: flex-start;
+  min-width: 0;
+}
+
+.dash__top-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+}
+
 .dash__brand {
-  flex-shrink: 0;
-  width: clamp(150px, 17vw, 285px);
+  justify-self: center;
+  width: clamp(130px, 15vw, 250px);
 }
 
 .dash__brand img {
@@ -104,21 +121,7 @@
   filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.75));
 }
 
-.dash__top-mid {
-  display: flex;
-  flex: 1;
-  align-items: center;
-  justify-content: center;
-  gap: clamp(8px, 1.2vw, 16px);
-  min-width: 0;
-}
 
-.dash__top-end {
-  display: flex;
-  flex-shrink: 0;
-  align-items: center;
-  gap: 8px;
-}
 
 .d-chip {
   display: flex;
@@ -259,6 +262,8 @@
 /* ── Stage ───────────────────────────────────────────────────── */
 
 .dash__stage {
+  --cta: clamp(280px, 34vw, 460px);
+
   position: relative;
   display: grid;
   place-items: center;
@@ -320,8 +325,6 @@
  * two buttons, which made it look attached to neither.
  */
 .dash__centre {
-  --cta: clamp(280px, 34vw, 460px);
-
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -403,9 +406,12 @@
      the word swimming in a long empty bar; `auto` keeps it snug and lands near
      40% of ENTER WORLD on its own. Declared after `.d-enter` on purpose — equal
      specificity, so `width: 100%` there would otherwise win. */
+  position: absolute;
+  bottom: 0;
+  left: 50%;
   width: auto;
   max-width: calc(var(--cta) * 0.5);
-  margin-top: clamp(16px, 2.6vh, 30px);
+  transform: translateX(-50%);
   padding: clamp(9px, 1.4vh, 15px) clamp(16px, 1.8vw, 28px);
   font-size: clamp(10px, 1.1vw, 15px);
   border-color: #e8bd7d;
@@ -426,6 +432,7 @@
 }
 
 .d-enter--rules:active {
+  transform: translateX(-50%) translateY(4px);
   box-shadow:
     inset 0 0 30px rgba(245, 205, 145, 0.32),
     0 0 34px rgba(190, 130, 60, 0.4),
@@ -457,8 +464,24 @@
   }
 }
 
+/* Hangs off the bottom of the button rather than sitting under it in flow, so
+   the button alone decides where the centre is. */
+.dash__enter-below {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(8px, 1.3vh, 14px);
+  padding-top: clamp(8px, 1.2vh, 13px);
+  width: max-content;
+  max-width: min(92vw, 900px);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
 .dash__enter-sub {
-  margin-top: clamp(7px, 1.1vh, 12px);
   color: var(--d-purple);
   font-family: var(--d-font);
   font-size: clamp(8px, 0.95vw, 12px);
@@ -472,7 +495,6 @@
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  margin-top: clamp(11px, 1.7vh, 19px);
   gap: 4px 16px;
   color: #f6d47c;
   font-family: var(--d-font);
@@ -1400,19 +1422,17 @@
   /* Full-bleed primary on a phone. `--cta` drives both, so the secondary stays
      half its width without a second rule. */
   .dash__centre {
-    --cta: 100%;
-
     width: 100%;
+  }
+
+  .dash__stage {
+    --cta: 100%;
   }
 
   /* --cta is a percentage here, so the max-width cap resolves against the
      column rather than a pixel size. That is still half, which is what we want. */
   .d-enter--rules {
     max-width: 50%;
-  }
-
-  .dash__top-mid {
-    justify-content: flex-end;
   }
 
   .d-chip--team {
@@ -1467,10 +1487,6 @@
     font-size: 0;
     padding: 6px;
     gap: 0;
-  }
-
-  .dash__top-mid {
-    justify-content: flex-start;
   }
 
 }

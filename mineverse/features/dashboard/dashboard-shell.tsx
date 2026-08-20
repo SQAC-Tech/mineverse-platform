@@ -131,12 +131,12 @@ export function DashboardShell() {
       <div className="dash__shade" aria-hidden="true" />
 
       {/* ── Top chrome ── */}
+      {/* Three zones: team on the left, wordmark in the middle, round on the
+          right. A 1fr/auto/1fr grid rather than flex, so the wordmark is
+          centred on the page and not on whatever the two sides happen to
+          weigh. */}
       <header className="dash__top">
-        <div className="dash__brand">
-          <img src="/font.svg" alt="Mineverse" />
-        </div>
-
-        <div className="dash__top-mid">
+        <div className="dash__top-left">
           <div className="d-panel d-chip d-chip--team">
             <span className="d-chip__icon">
               <Shield size={18} />
@@ -150,7 +150,13 @@ export function DashboardShell() {
               <span className="d-chip__value">{team?.team_code ?? '—'}</span>
             </span>
           </div>
+        </div>
 
+        <div className="dash__brand">
+          <img src="/font.svg" alt="Mineverse" />
+        </div>
+
+        <div className="dash__top-right">
           <div className="d-round">
             <span className="d-round__icon">
               <RoundIcon size={21} />
@@ -162,9 +168,7 @@ export function DashboardShell() {
               <span className="d-round__name">{activeRound?.name ?? 'Standby'}</span>
             </span>
           </div>
-        </div>
 
-        <div className="dash__top-end">
           {devUnlock && (
             <span className="d-dev">
               <Flame size={11} /> DEV MODE
@@ -205,24 +209,28 @@ export function DashboardShell() {
                 style={{ left: mote.left, top: mote.top, animationDelay: mote.delay }}
               />
             ))}
-          </div>
 
-          {/* Caption for the button above it, which is why it sits between the
-              two rather than under the pair. */}
-          <div className="dash__enter-sub">✧ OPEN MINEVERSE MAP ✧</div>
+            {/* Out of flow, hanging under the button. In the column these two
+                counted toward the centring and pushed ENTER WORLD about 30px
+                above the stage's middle; absolute, the button is the only thing
+                being centred and lands on the line. */}
+            <div className="dash__enter-below">
+              <div className="dash__enter-sub">✧ OPEN MINEVERSE MAP ✧</div>
 
-          <button type="button" className="d-enter d-enter--rules" onClick={() => setShowRules(true)}>
-            RULEBOOK
-          </button>
-
-          {/* Straight on the background, no panel behind it. */}
-          <div className="dash__steps">
-            <span>Explore</span>
-            <span>Complete challenges</span>
-            <span>Earn resources</span>
-            <span>Defeat guardians</span>
+              {/* Straight on the background, no panel behind it. */}
+              <div className="dash__steps">
+                <span>Explore</span>
+                <span>Complete challenges</span>
+                <span>Earn resources</span>
+                <span>Defeat guardians</span>
+              </div>
+            </div>
           </div>
         </section>
+
+        <button type="button" className="d-enter d-enter--rules" onClick={() => setShowRules(true)}>
+          RULEBOOK
+        </button>
 
         {/* Bottom-right, mirroring Steve. Crafting is not round-scoped — the
             craft route only needs a session — so the bench belongs here too. */}
