@@ -1,17 +1,18 @@
 'use client';
 
-import { readDraft, writeDraft, purgeForeignDrafts } from '@/lib/client/answer-drafts';
+import { readDraft, writeDraft, readLanguage, writeLanguage, purgeForeignDrafts } from '@/lib/client/answer-drafts';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ChevronLeft,
   ChevronRight,
-  PanelRightClose,
-  PanelRightOpen,
   Clock3,
   CloudRain,
+  Code2,
   Flag,
   LockKeyhole,
+  PanelRightClose,
+  PanelRightOpen,
   Save,
   Swords,
   Trophy,
@@ -23,6 +24,10 @@ import { GuardianArena } from './GuardianArena';
 import { NotificationTray, type LedgerEntry } from './NotificationTray';
 import { WorldEvent } from './WorldEvent';
 import { PvpPanel } from '../pvp/PvpPanel';
+import { EndRail } from '@/components/day2/end-round/EndRail';
+import { CodeWorkspace } from '@/components/game/code/CodeWorkspace';
+import { runtimesFor } from '@/lib/gameplay/code/runtimes';
+import type { CraftedItem, DashboardProgress } from '@/features/dashboard/types';
 import {
   RESOURCE_META,
   buildQuestionTabs,
@@ -30,6 +35,7 @@ import {
   promptBlocks,
   questionTypeLabel,
   roundChrome,
+  roundChoice,
   roundCraft,
   roundGuardian,
   roundObjective,
@@ -38,6 +44,7 @@ import {
   type ShellQuestion,
 } from './round-presentation';
 import './round-ui.css';
+import { Hotbar } from '@/components/game/inventory/Hotbar';
 
 interface CustomRoundShellProps {
   roundId: number;
@@ -116,6 +123,15 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [resources, setResources] = useState<ResourcesData | null>(null);
   const [team, setTeam] = useState<TeamInfo | null>(null);
+  // Round 5 needs to know what the team has crafted and how far Day 2 has got.
+  // The dashboard snapshot already carries both, so no extra request.
+  const [progress, setProgress] = useState<DashboardProgress | null>(null);
+  // Which language the team picked, per question. This used to be assumed to be
+  // the first option, so a team writing C++ was graded as Python.
+  const [languages, setLanguages] = useState<Record<string, string>>({});
+  /** The coding question currently open in the full-window editor. */
+  const [codingId, setCodingId] = useState<string | null>(null);
+  const [crafted, setCrafted] = useState<CraftedItem[]>([]);
   // Drafts are stored per team, so nothing is read or written until this lands.
   const teamCode = team?.team_code ?? null;
   const [history, setHistory] = useState<LedgerEntry[]>([]);
@@ -157,6 +173,8 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
     }
     if (teamResult.status === 'fulfilled' && teamResult.value.success) {
       setTeam(teamResult.value.team ?? null);
+      setProgress(teamResult.value.progress ?? null);
+      setCrafted(teamResult.value.crafted ?? []);
     }
     if (historyResult.status === 'fulfilled' && historyResult.value.success) {
       setHistory(historyResult.value.data.entries ?? []);
@@ -190,20 +208,35 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
     // Clears anything left by a previous team on this machine before reading.
     purgeForeignDrafts(teamCode);
     const loaded: Record<string, string> = {};
+    const loadedLanguages: Record<string, string> = {};
     for (const question of questions) {
       loaded[question.id] = readDraft(teamCode, roundId, question.id);
+      const saved = readLanguage(teamCode, roundId, question.id);
+      // Only honour a language the question still offers.
+      if (saved && (question.language_options ?? []).includes(saved)) loadedLanguages[question.id] = saved;
     }
     setDrafts(loaded);
+    setLanguages(loadedLanguages);
   }, [questions, roundId, teamCode]);
 
   // One tab per question type this round actually has, so Round 3's Debugging
   // questions stop being filed under "Aptitudes".
   const tabs = useMemo(() => buildQuestionTabs(questions), [questions]);
   const chrome = roundChrome(roundId);
+  /**
+   * Only a whole program gets the full-window editor. `code_completion` asks for
+   * one expression to drop into a blank, and a judge UI around a single line is
+   * more in the way than the field it replaces.
+   */
+  const usesEditor = (question: { type: string }) => question.type === 'coding';
+
+  const codingQuestion = questions.find((question) => question.id === codingId) ?? null;
+
   const objective = roundObjective(roundId);
   const guardian = roundGuardian(roundId);
   const craft = roundCraft(roundId);
   const isPvp = roundPvp(roundId);
+  const choice = roundChoice(roundId);
 
   // The tab set only exists once questions load, so the selection follows it.
   useEffect(() => {
@@ -254,12 +287,15 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
     setSaving(true);
     try {
       const isCode = question.type === 'coding' || question.type === 'code_completion';
+      // The team's actual choice, falling back to the question's first option
+      // only when it never made one.
+      const chosen = languages[question.id] ?? runtimesFor(question.language_options)[0]?.id ?? null;
       const response = await fetch('/api/submissions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(
           isCode
-            ? { question_id: question.id, code: answer, language: question.language_options?.[0] ?? null }
+            ? { question_id: question.id, code: answer, language: chosen }
             : { question_id: question.id, answer_text: answer },
         ),
       });
@@ -554,15 +590,32 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
                     {currentQuestion.title && <p className="round-ui__question-title">{currentQuestion.title}</p>}
                     <QuestionPrompt question={currentQuestion} />
                     <label className="round-ui__field-label" htmlFor={`answer-${currentQuestion.id}`}>Your answer</label>
-                    <textarea
-                      id={`answer-${currentQuestion.id}`}
-                      className="round-ui__field"
-                      rows={currentQuestion.type === 'coding' || currentQuestion.type === 'code_completion' ? 7 : 4}
-                      value={drafts[currentQuestion.id] ?? ''}
-                      disabled={readOnly}
-                      onChange={(event) => changeDraft(currentQuestion.id, event.target.value)}
-                      placeholder={isRoundLocked ? 'The round has ended.' : currentIsFinal ? 'This answer is final.' : 'Type your answer here…'}
-                    />
+                    {usesEditor(currentQuestion) ? (
+                      <>
+                        {/* A program does not fit in this column, so the board
+                            shows the first lines and the editor takes the window. */}
+                        <pre className="round-ui__code-preview" aria-label="Your code so far">
+                          {(drafts[currentQuestion.id] ?? '').split('\n').slice(0, 6).join('\n') || 'No code yet.'}
+                        </pre>
+                        <button
+                          type="button"
+                          className="round-ui__btn round-ui__btn--go round-ui__open-editor"
+                          onClick={() => setCodingId(currentQuestion.id)}
+                        >
+                          <Code2 size={14} /> Open code editor
+                        </button>
+                      </>
+                    ) : (
+                      <textarea
+                        id={`answer-${currentQuestion.id}`}
+                        className="round-ui__field"
+                        rows={4}
+                        value={drafts[currentQuestion.id] ?? ''}
+                        disabled={readOnly}
+                        onChange={(event) => changeDraft(currentQuestion.id, event.target.value)}
+                        placeholder={isRoundLocked ? 'The round has ended.' : currentIsFinal ? 'This answer is final.' : 'Type your answer here…'}
+                      />
+                    )}
                     {currentIsFinal ? (
                       <p className="round-ui__locked-note">
                         <LockKeyhole size={14} aria-hidden="true" /> This answer is final and can no longer be changed.
@@ -670,6 +723,12 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
               )}
 
               {isPvp && <PvpPanel />}
+
+              {/* The End is the only round with a merchant and a boss. Both are
+                  driven off the round catalog rather than a hardcoded id. */}
+              {choice === 'end_merchant' && (
+                <EndRail progress={progress} crafted={crafted} onTraded={() => void refresh()} />
+              )}
             </aside>
           ) : (
             <button
@@ -698,24 +757,7 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
                 <b>YOUR INVENTORY</b>
                 <span>{resources?.pending_grading ? 'Rewards pending grading' : 'Live resource balance'}</span>
               </div>
-              <div className="round-ui__hotbar" aria-label="Inventory hotbar">
-                {Array.from({ length: 9 }).map((_, index) => {
-                  const slot = index + 1;
-                  const item = resourceMeta[index];
-                  return (
-                    <button
-                      key={item?.key ?? `empty-${slot}`}
-                      type="button"
-                      title={item?.label ?? 'Empty slot'}
-                      aria-label={item ? `${item.label}: ${resources?.balance?.[item.key] ?? 0}` : 'Empty inventory slot'}
-                      className={activeSlot === slot ? 'round-ui__slot round-ui__slot--active' : 'round-ui__slot'}
-                      onClick={() => setActiveSlot(slot)}
-                    >
-                      {item && <><img src={item.icon} alt="" /><b>{resources?.balance?.[item.key] ?? 0}</b></>}
-                    </button>
-                  );
-                })}
-              </div>
+              <Hotbar balance={resources?.balance} activeSlot={activeSlot} onSelect={setActiveSlot} />
             </div>
             {craft && (
               <div className="round-ui__inventory-actions">
@@ -778,6 +820,29 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Full-window editor for the current coding question. Rendered last so it
+          layers over the board without the board needing to know about it. */}
+      {codingQuestion && (
+        <CodeWorkspace
+          question={codingQuestion}
+          roundName={chrome.name}
+          themeClass={chrome.themeClass}
+          clock={`${timer.hours}:${timer.minutes}:${timer.seconds}`}
+          clockWarning={remainingSeconds !== null && remainingSeconds <= 300}
+          draft={drafts[codingQuestion.id] ?? ''}
+          language={languages[codingQuestion.id] ?? null}
+          locked={readOnly || FINAL_STATUSES.includes(codingQuestion.submission_status ?? '')}
+          submitting={saving}
+          onDraftChange={(value) => changeDraft(codingQuestion.id, value)}
+          onLanguageChange={(next) => {
+            setLanguages((current) => ({ ...current, [codingQuestion.id]: next }));
+            writeLanguage(teamCode, roundId, codingQuestion.id, next);
+          }}
+          onSubmit={() => void saveAnswer(codingQuestion)}
+          onClose={() => setCodingId(null)}
+        />
       )}
 
       {guardianOpen && guardian && (

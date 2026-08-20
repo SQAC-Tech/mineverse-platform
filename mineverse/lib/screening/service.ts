@@ -2,6 +2,7 @@ import { supabaseServer } from '@/lib/supabase/server';
 import { registrationYears } from '@/lib/registration-no';
 import { noteDevUnlockBypass } from '@/lib/gameplay/dev-mode';
 import {
+  applyCipher,
   DEV_OPEN_SCREENING,
   DIFFICULTY_POINTS,
   FIRST_YEAR_BONUS,
@@ -25,18 +26,6 @@ const PUZZLE_PHOTOS = [
   'Mountain Biome.jpg',
   'Nether Biome.jpg'
 ];
-
-function applyCipher(text: string): string {
-  const lettersOnly = text.toUpperCase().replace(/[^A-Z]/g, '');
-  const shift = lettersOnly.length;
-  let result = '';
-  for (let i = 0; i < lettersOnly.length; i++) {
-    const charCode = lettersOnly.charCodeAt(i) - 65;
-    const shifted = (charCode + shift) % 26;
-    result += String.fromCharCode(shifted + 65);
-  }
-  return result;
-}
 
 export type Result<T> =
   | { ok: true; data: T }

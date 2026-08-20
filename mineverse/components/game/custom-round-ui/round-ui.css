@@ -1228,6 +1228,93 @@
   padding: 4px;
 }
 
+/*
+ * Round 5's rail: the End Merchant's trades and the Final Boss gates.
+ *
+ * The Day 1 choices are picture cards in a two-column grid. These are lines of
+ * text — a trade reads as "give this, get that" — so they stack and run left to
+ * right instead.
+ */
+.round-ui__choices--stack { grid-template-columns: 1fr; gap: 7px; }
+
+.round-ui__choices--stack .round-ui__choice {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  text-transform: none;
+  text-align: left;
+}
+
+.round-ui__choices--stack .round-ui__choice span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.round-ui__choices--stack .round-ui__choice b {
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.round-ui__choices--stack .round-ui__choice small {
+  font-family: var(--rd-font-body);
+  font-size: 11px;
+  letter-spacing: 0;
+  color: var(--rd-ink-dim);
+}
+
+.round-ui__choice:disabled { opacity: 0.5; cursor: progress; }
+
+/* Prerequisites, named one by one. A single "locked" tells a team nothing. */
+.round-ui__reqs {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.round-ui__reqs li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--rd-font-body);
+  font-size: 12px;
+  color: var(--rd-ink-dim);
+}
+
+.round-ui__reqs li[data-met='true'] { color: var(--rd-ink); }
+.round-ui__reqs li[data-met='true'] svg { color: var(--rd-good); }
+.round-ui__reqs li[data-met='false'] svg { color: var(--rd-edge-lit); }
+
+.round-ui__card-text--bad { color: var(--rd-bad); }
+
+/*
+ * A coding question on the board.
+ *
+ * The board column is sized for a sentence, not a program, so it shows the first
+ * few lines of the draft and hands off to the full-window editor.
+ */
+.round-ui__code-preview {
+  margin: 0 0 10px;
+  padding: 9px 11px;
+  max-height: 108px;
+  overflow: hidden;
+  border: 2px solid var(--rd-board-line);
+  border-radius: 2px;
+  background: var(--rd-board-sunk);
+  color: var(--rd-board-dim);
+  font-family: var(--rd-font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.round-ui__open-editor { width: 100%; justify-content: center; }
+
 /* ── Inventory ───────────────────────────────────────────────── */
 
 /* Wrapping flex rather than a two-column grid: when the action buttons no
@@ -1268,62 +1355,9 @@
   font-size: 11px;
 }
 
-.round-ui__hotbar {
-  display: grid;
-  max-width: min(520px, 100%);
-  grid-template-columns: repeat(9, minmax(0, 1fr));
-  padding: var(--rd-slot);
-  border: 3px solid #6f7570;
-  background: #3f4441;
-}
-
-.round-ui__slot {
-  position: relative;
-  display: grid;
-  aspect-ratio: 1;
-  place-items: center;
-  border: 3px solid #1d201e;
-  background: linear-gradient(135deg, #8b8f8c 0%, #626764 100%);
-  box-shadow: inset 2px 2px 0 #b9bdba, inset -2px -2px 0 #383c3a;
-  cursor: pointer;
-  transition: transform 0.12s ease, filter 0.12s ease;
-}
-
-.round-ui__slot:hover {
-  z-index: 1;
-  filter: brightness(1.15);
-  transform: translateY(-3px);
-}
-
-.round-ui__slot--active {
-  z-index: 2;
-  outline: 3px solid #fff;
-  outline-offset: -3px;
-}
-
-.round-ui__slot:focus-visible {
-  outline: 3px solid var(--rd-gold);
-  outline-offset: -3px;
-}
-
-.round-ui__slot img {
-  width: 62%;
-  height: 62%;
-  object-fit: contain;
-  image-rendering: pixelated;
-  filter: drop-shadow(2px 3px 0 rgba(0, 0, 0, 0.55));
-}
-
-.round-ui__slot b {
-  position: absolute;
-  right: 4px;
-  bottom: 2px;
-  color: #fff;
-  font-family: var(--rd-font-display);
-  font-size: 11px;
-  font-weight: 400;
-  text-shadow: 2px 2px 0 #000;
-}
+/* The hotbar and its slots now live in components/game/inventory/hotbar.css,
+   imported by the Hotbar component both shells render. They were duplicated
+   here and on the dashboard; one copy is enough. */
 
 .round-ui__inventory-actions {
   display: flex;
@@ -1606,10 +1640,6 @@
     flex-basis: auto;
   }
 
-  .round-ui__hotbar {
-    max-width: none;
-  }
-
   .round-ui__inventory-actions {
     flex: 1 1 100%;
   }
@@ -1636,25 +1666,6 @@
 
   .round-ui__btn {
     width: 100%;
-  }
-
-  .round-ui__hotbar {
-    --rd-slot: 2px;
-    border-width: 2px;
-  }
-
-  .round-ui__slot {
-    border-width: 2px;
-  }
-
-  .round-ui__slot img {
-    width: 56%;
-    height: 56%;
-  }
-
-  .round-ui__slot b {
-    right: 2px;
-    font-size: 9px;
   }
 
   .round-ui__choices {
@@ -1699,16 +1710,6 @@
 
   .round-ui__cta {
     padding: 9px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .round-ui__slot {
-    transition: none;
-  }
-
-  .round-ui__slot:hover {
-    transform: none;
   }
 }
 

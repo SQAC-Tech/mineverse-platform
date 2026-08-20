@@ -24,7 +24,7 @@ export async function GET() {
 
   const teamId = session.team_id;
 
-  const [teamResult, accessResult, resourcesResult, craftedResult, stateResult, fragmentResult, repairResult] =
+  const [teamResult, accessResult, resourcesResult, craftedResult, stateResult, fragmentResult, repairResult, merchantResult] =
     await Promise.all([
       supabaseServer.from('teams').select('id, team_name, team_code').eq('id', teamId).single(),
       supabaseServer
@@ -45,6 +45,15 @@ export async function GET() {
         .maybeSingle(),
       supabaseServer.from('day2_portal_fragments').select('team_id').eq('team_id', teamId).maybeSingle(),
       supabaseServer.from('day2_portal_repair').select('repaired_at').eq('team_id', teamId).maybeSingle(),
+      // The End Merchant writes to the ledger, not to `choice_decisions` like the
+      // Day 1 choices do, so the ledger is where "already traded" actually lives.
+      supabaseServer
+        .from('resource_ledger')
+        .select('reason, created_at')
+        .eq('team_id', teamId)
+        .eq('source_type', 'end_merchant_choice')
+        .limit(1)
+        .maybeSingle(),
     ]);
 
   // These errors used to be discarded. Selecting `teams.name`, a column that has
@@ -58,6 +67,7 @@ export async function GET() {
     ['game state', stateResult],
     ['portal fragment', fragmentResult],
     ['portal repair', repairResult],
+    ['end merchant', merchantResult],
   ] as const) {
     // 42P01 is "table does not exist" — a Phase 3 table on a Phase 2 database is
     // an absence, not a fault, and the dashboard renders fine without it.
@@ -129,6 +139,10 @@ export async function GET() {
       elimination_reason: state?.elimination_reason ?? null,
       pvp_eligible: Boolean(state?.armor_crafted),
       nether_core_count: netherCores,
+      end_merchant: {
+        traded: Boolean(merchantResult.data),
+        reason: merchantResult.data?.reason ?? null,
+      },
       portal: {
         // `repaired` | `ready` | `collecting` — the missing list carries the detail,
         // because "locked" on its own never told a team what to go and get.

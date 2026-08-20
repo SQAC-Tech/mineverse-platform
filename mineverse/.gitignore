@@ -65,3 +65,8 @@ next-env.d.ts
 /supabase/seed*.tar.gz
 # Pre-delete snapshots from scripts/clean-db.mjs — contain participant PII
 clean-db-snapshot-*.json
+
+# Monaco's AMD bundle, copied out of node_modules by scripts/copy-monaco.mjs so
+# the editor is served from our own origin instead of a CDN. Generated on
+# install and before every build, so it never belongs in git.
+/public/monaco

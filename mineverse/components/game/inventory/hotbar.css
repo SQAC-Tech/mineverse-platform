@@ -1,0 +1,107 @@
+/*
+ * The nine-slot hotbar, shared by the round shells and the dashboard.
+ *
+ * These rules were `.round-ui__hotbar` / `.round-ui__slot` in round-ui.css, where
+ * only a page carrying `.round-ui` could reach them. The dashboard needs the same
+ * inventory, and a second copy of the slot styling is a second thing to keep in
+ * step — so the rules moved here and the rounds import them from this file.
+ *
+ * Self-contained on purpose: no `--rd-*` tokens, because the dashboard does not
+ * carry the round palette.
+ */
+
+.mv-hotbar {
+  display: grid;
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+  max-width: var(--hb-max, min(520px, 100%));
+  padding: 3px;
+  border: 3px solid #6f7570;
+  background: #3f4441;
+}
+
+.mv-slot {
+  position: relative;
+  display: grid;
+  aspect-ratio: 1;
+  place-items: center;
+  border: 3px solid #1d201e;
+  background: linear-gradient(135deg, #8b8f8c 0%, #626764 100%);
+  box-shadow: inset 2px 2px 0 #b9bdba, inset -2px -2px 0 #383c3a;
+  cursor: pointer;
+  transition: transform 0.12s ease, filter 0.12s ease;
+}
+
+.mv-slot:hover {
+  z-index: 1;
+  filter: brightness(1.15);
+  transform: translateY(-3px);
+}
+
+.mv-slot--active {
+  z-index: 2;
+  outline: 3px solid #fff;
+  outline-offset: -3px;
+}
+
+.mv-slot:focus-visible {
+  outline: 3px solid #f2c14e;
+  outline-offset: -3px;
+}
+
+.mv-slot img {
+  width: 62%;
+  height: 62%;
+  object-fit: contain;
+  image-rendering: pixelated;
+  filter: drop-shadow(2px 3px 0 rgba(0, 0, 0, 0.55));
+}
+
+.mv-slot b {
+  position: absolute;
+  right: 4px;
+  bottom: 2px;
+  color: #fff;
+  font-family: var(--font-minecraft), 'Press Start 2P', ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 400;
+  text-shadow: 2px 2px 0 #000;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mv-slot {
+    transition: none;
+  }
+  .mv-slot:hover {
+    transform: none;
+  }
+}
+
+/* Narrow layouts: the bar gives up its width cap first, then its border weight,
+   before it ever lets nine slots become nine slivers. These were `.round-ui__*`
+   media queries and only applied inside a round. */
+@media (max-width: 900px) {
+  .mv-hotbar {
+    --hb-max: none;
+  }
+}
+
+@media (max-width: 520px) {
+  .mv-hotbar {
+    padding: 2px;
+    border-width: 2px;
+  }
+
+  .mv-slot {
+    border-width: 2px;
+  }
+
+  .mv-slot img {
+    width: 56%;
+    height: 56%;
+  }
+
+  .mv-slot b {
+    right: 2px;
+    font-size: 9px;
+  }
+}

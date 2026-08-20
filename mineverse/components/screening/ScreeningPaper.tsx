@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { CheckCircle2, ChevronRight, Home, RefreshCw } from 'lucide-react';
 import { useProctorSession } from '@/components/game/proctor/ProctorProvider';
-import { GAUNTLET_PUZZLES } from '@/lib/screening/config';
+import { DEV_OPEN_SCREENING, GAUNTLET_PUZZLES } from '@/lib/screening/config';
 import { GauntletTopBar } from './GauntletTopBar';
 import { GatekeeperDialogueBox } from './GatekeeperDialogueBox';
 import { InteractivePuzzleCanvas } from './InteractivePuzzleCanvas';
@@ -267,7 +267,6 @@ export function ScreeningPaper({ initial }: { initial: GauntletAttempt }) {
           className="absolute inset-0 w-full h-full object-cover"
         >
           <source src="/After_screening.mp4" type="video/mp4" />
-          <source src="/after_screening.mp4" type="video/mp4" />
           <source src="/after screening.mp4" type="video/mp4" />
         </video>
 
@@ -330,15 +329,20 @@ export function ScreeningPaper({ initial }: { initial: GauntletAttempt }) {
                     <span>RETURN TO MAIN SCREEN</span>
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={handleResetAttempt}
-                    disabled={resetting}
-                    className="w-full sm:flex-1 bg-stone-950 hover:bg-stone-800 border border-stone-700 text-purple-300 font-mono font-bold py-3 px-4 rounded-xl transition-all text-xs flex items-center justify-center gap-2 cursor-pointer shadow-md disabled:opacity-50"
-                  >
-                    <RefreshCw className={`w-4 h-4 text-purple-400 ${resetting ? 'animate-spin' : ''}`} />
-                    <span>RE-TEST SCREENING</span>
-                  </button>
+                  {/* Dev only. The screening is sat once; in production a
+                      reset is an organizer action in the admin panel, where it
+                      is attributable. */}
+                  {DEV_OPEN_SCREENING && (
+                    <button
+                      type="button"
+                      onClick={handleResetAttempt}
+                      disabled={resetting}
+                      className="w-full sm:flex-1 bg-stone-950 hover:bg-stone-800 border border-stone-700 text-purple-300 font-mono font-bold py-3 px-4 rounded-xl transition-all text-xs flex items-center justify-center gap-2 cursor-pointer shadow-md disabled:opacity-50"
+                    >
+                      <RefreshCw className={`w-4 h-4 text-purple-400 ${resetting ? 'animate-spin' : ''}`} />
+                      <span>RE-TEST SCREENING (DEV)</span>
+                    </button>
+                  )}
                 </div>
               </div>
             </main>
@@ -397,15 +401,17 @@ export function ScreeningPaper({ initial }: { initial: GauntletAttempt }) {
                 <span>RETURN TO MAIN SCREEN</span>
               </button>
 
-              <button
-                type="button"
-                onClick={handleResetAttempt}
-                disabled={resetting}
-                className="w-full sm:flex-1 bg-stone-950 hover:bg-stone-800 border border-stone-700 text-purple-300 font-mono font-bold py-3 px-4 rounded-xl transition-all text-xs flex items-center justify-center gap-2 cursor-pointer shadow-md disabled:opacity-50"
-              >
-                <RefreshCw className={`w-4 h-4 text-purple-400 ${resetting ? 'animate-spin' : ''}`} />
-                <span>RE-TEST SCREENING</span>
-              </button>
+              {DEV_OPEN_SCREENING && (
+                <button
+                  type="button"
+                  onClick={handleResetAttempt}
+                  disabled={resetting}
+                  className="w-full sm:flex-1 bg-stone-950 hover:bg-stone-800 border border-stone-700 text-purple-300 font-mono font-bold py-3 px-4 rounded-xl transition-all text-xs flex items-center justify-center gap-2 cursor-pointer shadow-md disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-4 h-4 text-purple-400 ${resetting ? 'animate-spin' : ''}`} />
+                  <span>RE-TEST SCREENING (DEV)</span>
+                </button>
+              )}
             </div>
           </div>
         </main>

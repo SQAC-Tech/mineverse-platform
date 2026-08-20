@@ -7,6 +7,12 @@
  * these fields say.
  */
 
+export interface DashboardTeam {
+  id: string;
+  team_name: string;
+  team_code: string;
+}
+
 export interface DashboardRound {
   round_id: number;
   name: string;
@@ -15,8 +21,11 @@ export interface DashboardRound {
   description: string;
   time_allotted: number | null;
   round_status: string;
+  /** When the round closes, ISO. The dashboard counts down against this. */
+  ends_at: string | null;
   is_locked: boolean;
   completed_at: string | null;
+  score: number | null;
   can_enter: boolean;
   unlocked_by_dev_mode: boolean;
 }
@@ -38,11 +47,18 @@ export interface PortalProgress {
   missing: string[];
 }
 
+export interface EndMerchantProgress {
+  /** The End Merchant is a one-time trade; this is the ledger saying it happened. */
+  traded: boolean;
+  reason: string | null;
+}
+
 export interface DashboardProgress {
   qualified_for_day2: boolean;
   elimination_reason: string | null;
   pvp_eligible: boolean;
   nether_core_count: number;
+  end_merchant: EndMerchantProgress;
   portal: PortalProgress;
 }
 

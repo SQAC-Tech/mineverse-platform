@@ -72,6 +72,8 @@ export interface ShellQuestion {
   submission_status: string | null;
   submission_revision?: number | null;
   language_options?: string[];
+  /** Worked examples for a coding question. Never the hidden grading cases. */
+  sample_test_cases?: Array<{ stdin: string; stdout: string; explanation?: string }>;
   pays?: Record<string, number>;
 }
 
@@ -247,4 +249,15 @@ export function roundCraft(roundId: number) {
 /** Whether PvP is enabled for this round. */
 export function roundPvp(roundId: number) {
   return ROUND_CONFIGS[roundId]?.pvp ?? false;
+}
+
+/**
+ * The choice event that resolves in this round, if any.
+ *
+ * `end_merchant` is deliberately not in the Day 1 CHOICES catalog — it has its
+ * own Day 2 route and its own panel — so callers switch on the key rather than
+ * handing it to ChoicePanel, which cannot serve it.
+ */
+export function roundChoice(roundId: number) {
+  return ROUND_CONFIGS[roundId]?.choice ?? null;
 }

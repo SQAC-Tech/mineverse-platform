@@ -11,6 +11,8 @@ export interface QuestionRow {
   content: unknown;
   order_index: number;
   language_options: string[] | null;
+  /** Worked examples, safe to show. Never `hidden_test_cases`. */
+  sample_test_cases?: unknown;
   time_limit_seconds: number | null;
   /**
    * What a correct answer pays. Public information — the event brief prints the
@@ -60,6 +62,29 @@ export const submissionPayloadSchema = z.object({
   response: z.record(z.string(), z.unknown()).optional().default({}),
 });
 
+export interface SampleCase {
+  stdin: string;
+  stdout: string;
+  explanation?: string;
+}
+
+/**
+ * Only the three fields a team is allowed to see, coerced to strings.
+ *
+ * Copying field by field rather than passing the column through means a case
+ * later gaining, say, a `weight` or an internal note cannot ride along to the
+ * client by accident.
+ */
+function sampleCases(value: unknown): SampleCase[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    if (!entry || typeof entry !== 'object') return [];
+    const row = entry as Record<string, unknown>;
+    const explanation = typeof row.explanation === 'string' ? row.explanation : undefined;
+    return [{ stdin: String(row.stdin ?? ''), stdout: String(row.stdout ?? ''), ...(explanation ? { explanation } : {}) }];
+  });
+}
+
 export function serializeSafeQuestion(question: QuestionRow, submission?: Pick<SubmissionRow, 'status' | 'revision' | 'final_score'> | null) {
   return {
     id: question.id,
@@ -69,6 +94,9 @@ export function serializeSafeQuestion(question: QuestionRow, submission?: Pick<S
     content: question.content ?? {},
     order_index: question.order_index,
     language_options: question.language_options ?? [],
+    // The visible half of the test cases. `hidden_test_cases` is what grading
+    // runs against and is deliberately not selected anywhere a team can reach.
+    sample_test_cases: sampleCases(question.sample_test_cases),
     time_limit_seconds: question.time_limit_seconds,
     // Named `pays` rather than `reward` so a future `...question` spread cannot
     // quietly leak the whole row through a key the client already expects.

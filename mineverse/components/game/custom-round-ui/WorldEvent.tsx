@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { CloudRain, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
+import './world-event-fx.css';
 
 export interface ActiveModifier {
   event_key?: string;
@@ -22,6 +23,20 @@ interface WorldEventProps {
   /** Full duration of this round's event window, used for the meter. */
   windowSeconds?: number;
 }
+
+/**
+ * Ambient effect per event, in world-event-fx.css.
+ *
+ * Keyed off `event_key` rather than the round so an event triggered on a round
+ * it was not written for still draws its own weather, and so a key this build
+ * does not know about — an older client against a newer catalog — draws nothing
+ * at all rather than a half-styled panel.
+ */
+const EVENT_FX: Record<string, string> = {
+  heavy_rain: 'rain',
+  fertile_marsh: 'marsh',
+  gold_rush: 'gold',
+};
 
 /** "wood ×2, iron ×2" — reads the same way the server states the modifier. */
 function effectText(modifier: Record<string, number> | undefined) {
@@ -64,8 +79,14 @@ export function WorldEvent({ event, remaining, art, idleText, windowSeconds = 30
 
   const percent = remaining === null ? 100 : Math.max(0, Math.min(100, (remaining / windowSeconds) * 100));
 
+  // Gated on `isActive`, not on `event` — the card stays up through `justEnded`
+  // to say the window closed, and weather still falling over that copy would
+  // contradict it.
+  const fx = isActive ? EVENT_FX[event?.event_key ?? ''] : undefined;
+
   return (
-    <section className="round-ui__panel round-ui__card">
+    <section className={fx ? 'round-ui__panel round-ui__card we-panel' : 'round-ui__panel round-ui__card'}>
+      {fx && <div className={`we-fx we-fx--${fx}`} aria-hidden="true" />}
       <p className="round-ui__panel-title">World event</p>
 
       <div className="round-ui__event">

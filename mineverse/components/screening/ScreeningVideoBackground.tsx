@@ -47,7 +47,6 @@ export function ScreeningVideoBackground({
         className="w-full h-full object-cover"
       >
         <source src="/screening_initial.mp4" type="video/mp4" />
-        <source src="/screening_inital.mp4" type="video/mp4" />
       </video>
     </div>
   );

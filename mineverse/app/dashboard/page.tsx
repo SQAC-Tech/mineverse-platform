@@ -1,5 +1,5 @@
-import { VideoBackground } from '@/features/dashboard/video-background';
+import { DashboardShell } from '@/features/dashboard/dashboard-shell';
 
 export default function DashboardPage() {
-  return <VideoBackground />;
+  return <DashboardShell />;
 }

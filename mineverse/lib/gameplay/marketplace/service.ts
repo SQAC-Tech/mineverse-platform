@@ -1,17 +1,14 @@
 import { supabaseServer } from '@/lib/supabase/server';
 import { ResourceDelta } from '@/lib/gameplay/marketplace/resource-client';
+import { MARKETPLACE_CATALOG, type MarketplaceItem } from '@/lib/gameplay/marketplace/catalog';
 
-export type MarketplaceItem = 
-  | 'hint' 
-  | 'wood_bundle' 
-  | 'stone_bundle' 
-  | 'iron_bundle' 
-  | 'gold_bundle' 
-  | 'diamond_bundle' 
-  | 'totem_of_undying' 
-  | 'guardian_retry_token' 
-  | 'revival_potion' 
-  | 'strength_potion';
+/*
+ * Prices, names and payouts now live in `catalog.ts`, which has no database
+ * import so the store and the rulebook can read the same numbers this route
+ * charges. These re-exports keep the existing importers working.
+ */
+export type { MarketplaceItem } from '@/lib/gameplay/marketplace/catalog';
+export { CONSUMABLE_ITEMS, isConsumableItem } from '@/lib/gameplay/marketplace/catalog';
 
 export interface MarketplaceConfig {
   item: MarketplaceItem;
@@ -19,30 +16,7 @@ export interface MarketplaceConfig {
   resourceReward?: ResourceDelta;
 }
 
-export const MARKETPLACE_ITEMS: Record<MarketplaceItem, MarketplaceConfig> = {
-  hint: { item: 'hint', costEmerald: 8 },
-  wood_bundle: { item: 'wood_bundle', costEmerald: 5, resourceReward: { wood: 15 } },
-  stone_bundle: { item: 'stone_bundle', costEmerald: 6, resourceReward: { stone: 15 } },
-  iron_bundle: { item: 'iron_bundle', costEmerald: 10, resourceReward: { iron: 10 } },
-  gold_bundle: { item: 'gold_bundle', costEmerald: 12, resourceReward: { gold: 8 } },
-  diamond_bundle: { item: 'diamond_bundle', costEmerald: 20, resourceReward: { diamond: 15 } },
-  totem_of_undying: { item: 'totem_of_undying', costEmerald: 15 },
-  guardian_retry_token: { item: 'guardian_retry_token', costEmerald: 12 },
-  revival_potion: { item: 'revival_potion', costEmerald: 10 },
-  strength_potion: { item: 'strength_potion', costEmerald: 10 },
-};
-
-export const CONSUMABLE_ITEMS: readonly MarketplaceItem[] = [
-  'hint',
-  'totem_of_undying',
-  'guardian_retry_token',
-  'revival_potion',
-  'strength_potion',
-];
-
-export function isConsumableItem(itemType: string): itemType is MarketplaceItem {
-  return (CONSUMABLE_ITEMS as readonly string[]).includes(itemType);
-}
+export const MARKETPLACE_ITEMS: Record<MarketplaceItem, MarketplaceConfig> = MARKETPLACE_CATALOG;
 
 export async function purchaseMarketplaceItem(teamId: string, itemType: MarketplaceItem, idempotencyKey: string) {
   const config = MARKETPLACE_ITEMS[itemType];

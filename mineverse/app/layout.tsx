@@ -12,12 +12,28 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-import { Press_Start_2P } from 'next/font/google';
+import { Press_Start_2P, VT323 } from 'next/font/google';
 
 const minecraftFont = Press_Start_2P({
   weight: "400",
   subsets: ["latin"],
   variable: "--font-minecraft",
+});
+
+/*
+ * Press Start 2P is a display face — it turns to mush under about 14px, so
+ * anything with real prose in it (the rulebook) cannot be set in it without
+ * either shrinking to nothing or filling the screen.
+ *
+ * VT323 carries that body copy. Pixelify Sans was tried first and is closer to
+ * Minecraft in shape, but its `5` is very nearly an `S` at every size — "45
+ * Stone + 25 Iron" rendered as "4S Stone + 2S Iron" — and the rulebook's whole
+ * job is stating exact resource counts. VT323's digits are unambiguous.
+ */
+const minecraftBodyFont = VT323({
+  weight: "400",
+  subsets: ["latin"],
+  variable: "--font-minecraft-body",
 });
 
 export const metadata: Metadata = {
@@ -52,7 +68,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${minecraftFont.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${minecraftFont.variable} ${minecraftBodyFont.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col font-sans relative" suppressHydrationWarning>
