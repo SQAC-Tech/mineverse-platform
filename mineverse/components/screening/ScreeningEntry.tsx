@@ -54,32 +54,47 @@ export function ScreeningEntry() {
   const [status, setStatus] = useState<Status | null>(null);
   const [attempt, setAttempt] = useState<Attempt | null>(null);
   const [agreed, setAgreed] = useState(false);
+  const [year, setYear] = useState<number | null>(null);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    const isReset = typeof window !== 'undefined' && window.location.search.includes('reset=1');
+
+    if (isReset) {
+      // Reset the attempt on the server but DO NOT auto-start. We want the user to pick their year.
+      try {
+        await fetch('/api/screening/reset', { method: 'POST' });
+      } catch {
+        // ignore
+      }
+    }
+
     const [statusRes, attemptRes] = await Promise.allSettled([
       fetch('/api/screening/status', { cache: 'no-store' }).then((r) => r.json()),
       fetch('/api/screening/attempt', { cache: 'no-store' }).then((r) => r.json()),
     ]);
 
     if (statusRes.status === 'fulfilled' && statusRes.value.success) setStatus(statusRes.value.data);
-    if (attemptRes.status === 'fulfilled' && attemptRes.value.success) {
+    
+    // If it was a reset, we ignore any returned attempt data so they stay on the entry screen.
+    if (!isReset && attemptRes.status === 'fulfilled' && attemptRes.value.success) {
       const data = attemptRes.value.data as Attempt;
-      // A reload mid-paper drops straight back in, with the server's remaining
-      // time rather than a fresh 30 minutes.
-      if (data.status === 'in_progress') setAttempt(data);
-      else router.replace('/screening/done');
+      setAttempt(data);
     }
   }, [router]);
 
   useEffect(() => { void load(); }, [load]);
 
-  const start = async () => {
+  const start = async (forceReset = false) => {
     setStarting(true);
     setError(null);
     try {
-      const res = await fetch('/api/screening/start', { method: 'POST' });
+      const res = await fetch(`/api/screening/start${forceReset ? '?reset=1' : ''}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reset: forceReset, year }),
+      });
       const json = await res.json();
       if (!json.success) {
         setError(json.error?.message ?? 'Could not start the round. Tell an organizer.');
@@ -132,24 +147,23 @@ export function ScreeningEntry() {
 
       <div className="scr__inner" style={{ maxWidth: 720, paddingTop: 26 }}>
         <section className="scr__panel">
-          <div className="scr__panel-head">Screening Round · Qualifier</div>
+          <div className="scr__panel-head">The Iron Golem's Gauntlet (Proctored Edition)</div>
 
           <div className="scr__prompt" style={{ paddingBottom: 4 }}>
-            <p style={{ fontSize: 15, lineHeight: 1.6 }}>
-              {status.question_count} questions, {status.duration_minutes} minutes, one attempt for your
-              team. Read this before you start — the clock begins the moment you do.
+            <p style={{ fontSize: 14.5, lineHeight: 1.6, color: '#fef08a', fontStyle: 'italic' }}>
+              "Welcome to Mineverse. The server gate is sealed. To enter the Forest & Grasslands, your team must survive the Golem's Gauntlet. You will face three interconnected trials testing your resource management, logic flow, and pattern recognition. You have 30 minutes. Only the fastest will spawn in."
             </p>
           </div>
 
           <div style={{ padding: '0 16px 4px', display: 'flex', flexDirection: 'column', gap: 0 }}>
             {[
-              { Icon: ListChecks, title: `${status.question_count} multiple-choice questions`, body: 'Four options each, exactly one correct. No code to write.' },
-              { Icon: Clock, title: `${status.duration_minutes} minutes, timed by the server`, body: 'Closing the tab does not pause it. When the time is up your paper is handed in as it stands.' },
-              { Icon: CheckCircle2, title: 'No negative marking', body: 'A wrong answer costs nothing beyond the time you spent on it. Answer everything you can.' },
-              { Icon: Zap, title: 'One attempt per team', body: 'You cannot restart, and only one member should sit it. Answers save as you pick them, so a reload is safe.' },
-              { Icon: ShieldCheck, title: 'Proctored', body: 'Fullscreen is required. Tab switches, copy, paste, right-click and developer shortcuts are blocked and recorded.' },
-              { Icon: ClipboardList, title: 'How teams are picked', body: 'Answer correctly and submit early. Both matter.' },
+              { Icon: ListChecks, title: '3 Interconnected Digital Puzzles', body: 'Resource math, visual Redstone circuit logic, and pattern recognition cipher. Input answers sequentially.' },
+              { Icon: Clock, title: '30 Minutes, Server-Side Timed', body: 'Closing or refreshing the browser does not stop the server clock. Submit all 3 answers before time expires.' },
+              { Icon: ShieldCheck, title: 'Proctored Assessment Platform', body: 'Full-screen mode and camera active. Exiting full-screen or switching tabs flags the team for immediate disqualification.' },
+              { Icon: Zap, title: 'Sequential Input Validation', body: 'Answer Puzzle 1 correctly to unlock Puzzle 2, and Puzzle 2 to unlock Puzzle 3. Interlocked answers build on each other.' },
+              { Icon: ClipboardList, title: 'Fastest Completion Timestamp Wins', body: 'Teams with 100% accuracy are sorted by exact final submission timestamp. The fastest teams qualify for Round 1.' },
             ].map(({ Icon, title, body }) => (
+
               <div
                 key={title}
                 style={{
@@ -181,17 +195,41 @@ export function ScreeningEntry() {
               <span>{blocked}</span>
             </div>
           ) : (
-            <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', margin: '16px 16px 0', cursor: 'pointer', fontSize: 14, lineHeight: 1.5 }}>
-              <input
-                type="checkbox"
-                checked={agreed}
-                onChange={(event) => setAgreed(event.target.checked)}
-                style={{ marginTop: 3, width: 16, height: 16, accentColor: 'var(--rd-accent)' }}
-              />
-              {/* The gate exists because starting by accident burns the team's
-                  only attempt — there is no reset a player can reach. */}
-              <span>I have read the above, my team is ready, and I understand the {status.duration_minutes}-minute clock starts now.</span>
-            </label>
+            <div style={{ margin: '16px 16px 0', display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ fontSize: 14, fontWeight: 600 }}>Which year are the majority of your team members in?</div>
+              <div style={{ display: 'flex', gap: 16 }}>
+                <label style={{ display: 'flex', gap: 6, alignItems: 'center', cursor: 'pointer', fontSize: 14 }}>
+                  <input
+                    type="radio"
+                    name="teamYear"
+                    checked={year === 1}
+                    onChange={() => setYear(1)}
+                    style={{ accentColor: 'var(--rd-accent)' }}
+                  />
+                  1st Year
+                </label>
+                <label style={{ display: 'flex', gap: 6, alignItems: 'center', cursor: 'pointer', fontSize: 14 }}>
+                  <input
+                    type="radio"
+                    name="teamYear"
+                    checked={year === 2}
+                    onChange={() => setYear(2)}
+                    style={{ accentColor: 'var(--rd-accent)' }}
+                  />
+                  2nd Year (or higher)
+                </label>
+              </div>
+
+              <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer', fontSize: 14, lineHeight: 1.5, marginTop: 8 }}>
+                <input
+                  type="checkbox"
+                  checked={agreed}
+                  onChange={(event) => setAgreed(event.target.checked)}
+                  style={{ marginTop: 3, width: 16, height: 16, accentColor: 'var(--rd-accent)' }}
+                />
+                <span>I have read the above, my team is ready, and I understand the {status.duration_minutes}-minute clock starts now.</span>
+              </label>
+            </div>
           )}
 
           {error && (
@@ -207,9 +245,18 @@ export function ScreeningEntry() {
             </button>
             <button
               type="button"
+              className="scr__btn"
+              style={{ border: '1px solid var(--rd-bad)', color: 'var(--rd-bad)' }}
+              onClick={() => void start(true)}
+              disabled={starting}
+            >
+              Reset & Restart Screening
+            </button>
+            <button
+              type="button"
               className="scr__btn scr__btn--submit"
-              onClick={() => void start()}
-              disabled={Boolean(blocked) || !agreed || starting}
+              onClick={() => void start(false)}
+              disabled={Boolean(blocked) || !agreed || !year || starting}
             >
               {starting ? <><Loader2 size={14} className="animate-spin" aria-hidden="true" /> Starting…</> : 'Start the screening'}
             </button>

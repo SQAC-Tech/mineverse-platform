@@ -18,7 +18,48 @@ export const SCREENING_ROUND_ID = 0;
 
 export const SCREENING_DURATION_MINUTES = 30;
 export const SCREENING_DURATION_MS = SCREENING_DURATION_MINUTES * 60_000;
-export const SCREENING_QUESTION_COUNT = 25;
+export const SCREENING_QUESTION_COUNT = 3;
+
+export interface GauntletPuzzleConfig {
+  id: number;
+  title: string;
+  subtitle: string;
+  prompt: string;
+  errorMessage: string;
+  successMessage: string;
+  expectedAnswer: string;
+}
+
+export const GAUNTLET_PUZZLES: GauntletPuzzleConfig[] = [
+  {
+    id: 1,
+    title: "PUZZLE 1: Crafting Combinatorics",
+    subtitle: "Mathematical Logic & Permutations",
+    prompt: "The Iron Golem is guarding the main arena with a combination lock. The numeric PIN is exactly the number of unique ways you can arrange the letters of the word REDSTONE such that all the vowels always remain clustered together in a single unbroken block. What is the PIN to open the iron doors?",
+    errorMessage: "The Iron Golem rejects your calculation. Try again.",
+    successMessage: "The Golem accepts your PIN! The doors unlock.",
+    expectedAnswer: "2160",
+  },
+  {
+    id: 2,
+    title: "PUZZLE 2: The Shattered Relic Matrix",
+    subtitle: "Spatial Reconstruction Cipher",
+    prompt: "The ancient core matrix has been shattered into 8 fragments. Slide the image tiles across the 3x3 grid to align them into their original position and restore the relic picture.",
+    errorMessage: "The picture tiles are misaligned. Rearrange the blocks correctly.",
+    successMessage: "The matrix aligns perfectly! The mechanism unlocks.",
+    expectedAnswer: "SLIDER_SOLVED",
+  },
+  {
+    id: 3,
+    title: "PUZZLE 3: The Enchantment Cipher",
+    subtitle: "Pattern Recognition & String Manipulation",
+    prompt: "You hold a lamp forged in the NETHER BIOME, its eerie light revealing encrypted runes on the gate.\n\nThe Golem's voice echoes heavily:\n\n'The key lies in the origin of your light, but you must discard the physical vessel itself. Take only the two-word name of its home. Shift each letter of those words forward by the total number of characters they contain.'\n\nWhat is the final password?",
+    errorMessage: "The cipher remains sealed. Try again.",
+    successMessage: "Gate Opened. Server connection established.",
+    expectedAnswer: "FPYI",
+  },
+];
+
 
 export type Difficulty = 'easy' | 'medium' | 'hard';
 
