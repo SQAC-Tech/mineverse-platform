@@ -1,80 +1,135 @@
-# Dashboard → Rounds flow
+# Dashboard
 
-## Sequence
+## One screen, never a scrollbar
 
-1. `/dashboard` renders `VideoBackground` over a static `background1.webp`.
-2. Clicking Steve opens the **map modal**. That modal is the round navigation:
-   one biome button per round, revealed as the previous round completes, each
-   driven by `can_enter` from `/api/dashboard/data`.
-3. Choosing a biome plays `transition1.mp4` and then routes to `/round<id>`.
+`/dashboard` is a fixed three-row grid — chrome, stage, inventory — sized to the
+viewport and clipped. Nothing on the page scrolls. Anything that needs more room
+opens as a card over it and scrolls inside itself.
 
-`round-portals.tsx` — an overlay of cards laid over
-`transitioin_from_dashboard_to_fourseason.mp4` — was the previous design. The
-slider and that video were removed in `c351930` and the component was left
-imported but never rendered, along with the dev-mode banner inside it. Both are
-gone now; the banner moved to `progress-panel.tsx` where it can actually be seen.
+```
+┌─ dash__top ────────────────────────────────────────────────────┐
+│ wordmark · team · day/round · countdown · dev flag · log out   │
+├─ dash__stage ──────────────────────────────────────────────────┤
+│  hero (Steve)      centre (ENTER WORLD)      rail (4 cards)    │
+├─ dash__foot ───────────────────────────────────────────────────┤
+│ INVENTORY — nine slots                       resource history  │
+└────────────────────────────────────────────────────────────────┘
+```
 
-## What is on the screen
+The grid column is written `minmax(0, 1fr)` rather than left implicit. An `auto`
+column sizes to its widest child's max-content, so the top bar's chips made the
+grid wider than the viewport and `overflow: hidden` silently clipped the rail
+instead of letting anything shrink.
 
 | Piece | File | Shows |
 |---|---|---|
-| Stats HUD (top right) | `video-background.tsx` | team name and the seven resource balances |
-| Progress panel (top left) | `progress-panel.tsx` | crafted items, PvP eligibility, Day 2 status, portal requirements, the dev-mode warning, and links to `/portal`, `/qualification` and `/leaderboard` |
-| Map modal | `video-background.tsx` | the biome buttons that enter each round |
-| Resource history | `resource-ledger.tsx` | paginated `resource_ledger`, opened from the progress panel |
+| Everything above | `dashboard-shell.tsx` | layout, polling, the countdown |
+| Steve | `steve-avatar.tsx` + `gear.ts` | the tier the team has actually reached |
+| Inventory | `components/game/inventory/Hotbar.tsx` | the same nine slots the rounds draw |
+| Map | `world-map.tsx` | one pin per round, the only way into a round |
+| Rulebook | `rulebook.tsx` | rules, rounds, question types, recipes, prices |
+| Resource history | `resource-ledger.tsx` | paginated `resource_ledger` |
 
-All of them read one snapshot from `GET /api/dashboard/data`. That route is
-deliberately a single query set rather than the dashboard fanning out to
+All of it reads one snapshot from `GET /api/dashboard/data`, polled every 10s and
+refetched on the `round_status` broadcast an admin sends when unlocking a round.
+That route is deliberately one query set rather than the dashboard fanning out to
 `/api/team/craft/recipes`, `/day2/status` and the rest — those guard on Day 2
-qualification and return 403s that a status page should not be treating as
-errors.
+qualification and return 403s a status page should not treat as errors.
+
+## Steve
+
+`public/steve-progression.webp` is one sheet of five frames, moved with
+`background-position`. `background-size: 500%` lays it out five viewports wide,
+so frame *n* sits at `n / 4 * 100%`.
+
+The supplied art was not evenly spaced — the aura on the last two frames made
+them wider and taller — so the sheet was re-cut before use. Each figure was
+measured at `alpha >= 250`, which excludes the glow and finds the body, then
+composited onto a common 460×640 tile aligned on the feet line and the body
+centre. Without that, crafting a tier made Steve jump sideways and sink.
+
+`gear.ts` picks the frame, and picks it only from state the server owns: four
+rows of `crafting_log` plus the Day 2 portal repair.
+
+| Frame | Earned by | Caption |
+|---|---|---|
+| 0 | nothing yet, or `wooden_pickaxe` | `No gear crafted yet` / `Wooden Pickaxe` |
+| 1 | `stone_pickaxe` | `Stone Pickaxe` |
+| 2 | `iron_armor` | `Stone Pickaxe · Iron Armor` |
+| 3 | portal repaired | `Iron Armor · Portal repaired` |
+| 4 | `diamond_pickaxe` | `Diamond Pickaxe` |
+
+The ladder is monotonic — a team granted the Diamond Pickaxe without the Stone
+one does not fall back to frame 0.
+
+There is no empty-handed frame, so frame 0 draws a wooden pickaxe even before a
+team has crafted one. The caption is the part that has to be true, and it reads
+"No gear crafted yet". `tests/unit/dashboard/gear.test.ts` holds that line.
+
+## The rail
+
+PvP and the Marketplace are in the mock as dashboard destinations, but in this
+codebase they are round-scoped panels with no standalone routes — they open
+inside `CustomRoundShell` / `CaveRoundShell`. The rail links the four pages that
+actually exist: the rulebook card, `/leaderboard`, `/qualification`, and
+`/portal` once the team has qualified.
+
+## What is derived, not restated
+
+The rulebook prints the event's rules, and every number in it is imported rather
+than typed out again:
+
+- rounds, objectives and crafts — `lib/gameplay/round-config.ts`
+- recipes and costs — `lib/gameplay/crafting/rules.ts`
+- guardian rewards, penalties and timers — `lib/gameplay/guardians/config.ts`
+- marketplace prices — `lib/gameplay/marketplace/catalog.ts`
+- languages a coding question accepts — `lib/gameplay/code/runtimes.ts`
+
+`catalog.ts` was created for this. The prices existed twice — `MARKETPLACE_ITEMS`
+in `marketplace/service.ts`, which charges the team, and a private `ITEMS` array
+in `MarketplaceStore.tsx`, which told the team what it would be charged — with
+nothing keeping them equal. The rulebook would have been a third copy. All three
+now read one table, and `tests/unit/dashboard/marketplace-catalog.test.ts` fails
+if a literal price reappears in either consumer.
+
+## Round state
+
+`/api/dashboard/data` returns one normalized shape per round:
+
+| Field | Meaning |
+|---|---|
+| `can_enter` | Pin is clickable — `!is_locked && round_status === 'active'`, or dev unlock |
+| `unlocked_by_dev_mode` | Only enterable because the dev flag is on |
+| `completed_at` | Pin reads "Replay" |
+| `ends_at` | What the countdown counts against |
+
+The countdown runs against the server clock, not the browser's: `server_time`
+from each poll gives a skew that is applied before comparing to `ends_at`, so a
+laptop with a fast clock does not close the round early for that team alone. An
+`ends_at` in the past reads `CLOSED` rather than a red `00:00` counting forever.
+
+Round 0 — the pre-event screening qualifier — is filtered out of the "active
+round" search. It has no day and no biome, and it was winning that search and
+putting `ROUND 0 · Screening` on the bar during the event.
+
+## Access
 
 Everything here is display-only. Dashboard state is never permission to act:
-each linked page and every mutation re-checks on the server.
+every round page calls `requireRoundAccess(roundId)`, which delegates to the same
+`verifyTeamRoundAccess` the round APIs use, and every mutation re-validates on
+its own. A chip that is stale is a cosmetic bug, not a way in.
 
 ## Dev mode
-
-Set in `.env.local`:
 
 ```
 NEXT_PUBLIC_DEV_UNLOCK_ALL_ROUNDS=true
 ```
 
-This unlocks every round without an admin unlocking them in round control. It
-is read in one place (`lib/gameplay/dev-mode.ts`) and honoured by both server-side
-access checks, so the button state and the API always agree:
+Unlocks every round without an admin unlocking them. Read in one place
+(`lib/gameplay/dev-mode.ts`) and honoured by the server-side access checks, so
+the pins and the API always agree. It bypasses **only** the round lock — a valid
+team session is still required, and resource mutations, idempotency and grading
+are untouched. A `DEV MODE` chip sits in the top bar the whole time the flag is
+on, and each map pin says `DEV UNLOCKED`.
 
-- `lib/gameplay/questions/access.ts` — Dev 4 routes (questions, submissions)
-- `lib/gameplay/utils/access.ts` — Dev 3 routes (guardians, structures, marketplace, choices)
-- `lib/gameplay/round-access.ts` — the round pages themselves
-
-It bypasses **only the round lock**. A valid team session is still required, and
-resource mutations, idempotency, and grading are untouched. The progress panel
-shows a "Dev mode" warning while the flag is on, so it is never ambiguous.
-
-**Never set this in production.** It is opt-in and absent by default; the server
-logs a warning on every bypass.
-
-## Round state
-
-`/api/dashboard/data` returns one normalized shape per round so the UI does not have
-to recombine round status and per-team lock state:
-
-| Field | Meaning |
-|---|---|
-| `can_enter` | Card is clickable — `!is_locked && round_status === 'active'`, or dev unlock |
-| `unlocked_by_dev_mode` | Only enterable because the dev flag is on |
-| `completed_at` | Card shows "Replay" instead of "Enter" |
-
-The dashboard polls this every 10s and also refetches on the `round_status`
-broadcast an admin sends when unlocking a round.
-
-## Access
-
-Every round page calls `requireRoundAccess(roundId)` before rendering anything. It
-redirects to `/login` without a session and to `/dashboard` without access, and it
-delegates to `verifyTeamRoundAccess` — the same helper the round APIs use — so a
-page and the endpoints it calls cannot disagree about who is let in.
-
-That is a redirect for the sake of the user, not a security boundary. Every
-mutation re-validates on its own.
+**Never set this in production.**

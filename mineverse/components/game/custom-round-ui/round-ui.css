@@ -1355,62 +1355,9 @@
   font-size: 11px;
 }
 
-.round-ui__hotbar {
-  display: grid;
-  max-width: min(520px, 100%);
-  grid-template-columns: repeat(9, minmax(0, 1fr));
-  padding: var(--rd-slot);
-  border: 3px solid #6f7570;
-  background: #3f4441;
-}
-
-.round-ui__slot {
-  position: relative;
-  display: grid;
-  aspect-ratio: 1;
-  place-items: center;
-  border: 3px solid #1d201e;
-  background: linear-gradient(135deg, #8b8f8c 0%, #626764 100%);
-  box-shadow: inset 2px 2px 0 #b9bdba, inset -2px -2px 0 #383c3a;
-  cursor: pointer;
-  transition: transform 0.12s ease, filter 0.12s ease;
-}
-
-.round-ui__slot:hover {
-  z-index: 1;
-  filter: brightness(1.15);
-  transform: translateY(-3px);
-}
-
-.round-ui__slot--active {
-  z-index: 2;
-  outline: 3px solid #fff;
-  outline-offset: -3px;
-}
-
-.round-ui__slot:focus-visible {
-  outline: 3px solid var(--rd-gold);
-  outline-offset: -3px;
-}
-
-.round-ui__slot img {
-  width: 62%;
-  height: 62%;
-  object-fit: contain;
-  image-rendering: pixelated;
-  filter: drop-shadow(2px 3px 0 rgba(0, 0, 0, 0.55));
-}
-
-.round-ui__slot b {
-  position: absolute;
-  right: 4px;
-  bottom: 2px;
-  color: #fff;
-  font-family: var(--rd-font-display);
-  font-size: 11px;
-  font-weight: 400;
-  text-shadow: 2px 2px 0 #000;
-}
+/* The hotbar and its slots now live in components/game/inventory/hotbar.css,
+   imported by the Hotbar component both shells render. They were duplicated
+   here and on the dashboard; one copy is enough. */
 
 .round-ui__inventory-actions {
   display: flex;
@@ -1693,10 +1640,6 @@
     flex-basis: auto;
   }
 
-  .round-ui__hotbar {
-    max-width: none;
-  }
-
   .round-ui__inventory-actions {
     flex: 1 1 100%;
   }
@@ -1723,25 +1666,6 @@
 
   .round-ui__btn {
     width: 100%;
-  }
-
-  .round-ui__hotbar {
-    --rd-slot: 2px;
-    border-width: 2px;
-  }
-
-  .round-ui__slot {
-    border-width: 2px;
-  }
-
-  .round-ui__slot img {
-    width: 56%;
-    height: 56%;
-  }
-
-  .round-ui__slot b {
-    right: 2px;
-    font-size: 9px;
   }
 
   .round-ui__choices {
@@ -1786,16 +1710,6 @@
 
   .round-ui__cta {
     padding: 9px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .round-ui__slot {
-    transition: none;
-  }
-
-  .round-ui__slot:hover {
-    transform: none;
   }
 }
 

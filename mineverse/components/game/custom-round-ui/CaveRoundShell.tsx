@@ -29,6 +29,7 @@ import { toast } from 'sonner';
 import { useProctorSession } from '@/components/game/proctor/ProctorProvider';
 import { CraftingPanel } from '@/components/game/crafting/CraftingPanel';
 import { MarketplaceStore } from '@/components/game/marketplace/MarketplaceStore';
+import { Hotbar } from '@/components/game/inventory/Hotbar';
 import { ConsumableInventory } from '@/components/game/marketplace/ConsumableInventory';
 import { ChoicePanel } from '@/components/game/choices/ChoicePanel';
 import { GuardianArena } from './GuardianArena';
@@ -636,24 +637,7 @@ export function CaveRoundShell() {
                 <b>YOUR INVENTORY</b>
                 <span>{resourceData?.pending_grading ? 'Rewards pending grading' : 'Live resource balance'}</span>
               </div>
-              <div className="round-ui__hotbar" aria-label="Inventory hotbar">
-                {Array.from({ length: 9 }).map((_, index) => {
-                  const item = resources[index];
-                  const number = index + 1;
-                  return (
-                    <button
-                      type="button"
-                      key={item?.key ?? `empty-${number}`}
-                      className={number === slot ? 'round-ui__slot round-ui__slot--active' : 'round-ui__slot'}
-                      onClick={() => setSlot(number)}
-                      title={item?.label ?? 'Empty slot'}
-                      aria-label={item ? `${item.label}: ${resourceData?.balance?.[item.key] ?? 0}` : 'Empty inventory slot'}
-                    >
-                      {item && <><img src={item.icon} alt="" /><b>{resourceData?.balance?.[item.key] ?? 0}</b></>}
-                    </button>
-                  );
-                })}
-              </div>
+              <Hotbar balance={resourceData?.balance} activeSlot={slot} onSelect={setSlot} />
             </div>
             <div className="round-ui__inventory-actions">
               <button type="button" className="round-ui__craft" onClick={() => setModal('crafting')}>

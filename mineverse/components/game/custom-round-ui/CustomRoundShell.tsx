@@ -44,6 +44,7 @@ import {
   type ShellQuestion,
 } from './round-presentation';
 import './round-ui.css';
+import { Hotbar } from '@/components/game/inventory/Hotbar';
 
 interface CustomRoundShellProps {
   roundId: number;
@@ -756,24 +757,7 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
                 <b>YOUR INVENTORY</b>
                 <span>{resources?.pending_grading ? 'Rewards pending grading' : 'Live resource balance'}</span>
               </div>
-              <div className="round-ui__hotbar" aria-label="Inventory hotbar">
-                {Array.from({ length: 9 }).map((_, index) => {
-                  const slot = index + 1;
-                  const item = resourceMeta[index];
-                  return (
-                    <button
-                      key={item?.key ?? `empty-${slot}`}
-                      type="button"
-                      title={item?.label ?? 'Empty slot'}
-                      aria-label={item ? `${item.label}: ${resources?.balance?.[item.key] ?? 0}` : 'Empty inventory slot'}
-                      className={activeSlot === slot ? 'round-ui__slot round-ui__slot--active' : 'round-ui__slot'}
-                      onClick={() => setActiveSlot(slot)}
-                    >
-                      {item && <><img src={item.icon} alt="" /><b>{resources?.balance?.[item.key] ?? 0}</b></>}
-                    </button>
-                  );
-                })}
-              </div>
+              <Hotbar balance={resources?.balance} activeSlot={activeSlot} onSelect={setActiveSlot} />
             </div>
             {craft && (
               <div className="round-ui__inventory-actions">

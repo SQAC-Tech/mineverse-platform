@@ -7,6 +7,12 @@
  * these fields say.
  */
 
+export interface DashboardTeam {
+  id: string;
+  team_name: string;
+  team_code: string;
+}
+
 export interface DashboardRound {
   round_id: number;
   name: string;
@@ -15,8 +21,11 @@ export interface DashboardRound {
   description: string;
   time_allotted: number | null;
   round_status: string;
+  /** When the round closes, ISO. The dashboard counts down against this. */
+  ends_at: string | null;
   is_locked: boolean;
   completed_at: string | null;
+  score: number | null;
   can_enter: boolean;
   unlocked_by_dev_mode: boolean;
 }

@@ -1,0 +1,1236 @@
+/*
+ * The dashboard: one screen, never a scrollbar.
+ *
+ * The old dashboard was ~870 lines of inline `style={{…}}` objects with the
+ * layout, the map modal and five copies of a biome button all in one component.
+ * The structure is here now and the components only say what goes where.
+ *
+ * The whole page is a fixed three-row grid — chrome, stage, inventory — so the
+ * background art is never pushed around and nothing can overflow the viewport.
+ * The only thing on this page that scrolls is the rulebook, inside its own card.
+ */
+
+.dash {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  /* Explicitly minmax(0, 1fr), not the implicit `auto`: an auto column is sized
+     to its widest child's max-content, so the top bar's chips made the grid
+     wider than the viewport and `overflow: hidden` clipped the right-hand rail
+     instead of letting anything shrink. */
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: clamp(6px, 1.2vh, 16px);
+  padding: clamp(10px, 1.6vh, 20px) clamp(12px, 1.8vw, 28px);
+  overflow: hidden;
+  background: #05060a;
+  color: #f2f0e6;
+  font-family: ui-sans-serif, system-ui, 'Segoe UI', Roboto, sans-serif;
+  isolation: isolate;
+
+  --d-font: var(--font-minecraft), 'Press Start 2P', ui-monospace, monospace;
+  --d-edge: #6e7480;
+  --d-edge-lit: #98a0ac;
+  --d-edge-dark: #2a2e36;
+  --d-panel: rgba(16, 18, 24, 0.84);
+  --d-gold: #f2c14e;
+  --d-purple: #b072ff;
+  --d-dim: #a6adba;
+}
+
+.dash__bg {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Darkens the middle and the base so white text stays legible over the sunset
+   and the lava, without washing the art out. */
+.dash__shade {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(120% 85% at 50% 42%, rgba(4, 6, 12, 0.12) 0%, rgba(4, 6, 12, 0.62) 72%, rgba(3, 4, 9, 0.86) 100%),
+    linear-gradient(180deg, rgba(4, 6, 12, 0.72) 0%, rgba(4, 6, 12, 0.05) 26%, rgba(3, 4, 9, 0.55) 74%, rgba(3, 4, 9, 0.9) 100%);
+}
+
+/* Every row has to be allowed to shrink, or one wide child re-widens the grid. */
+.dash > * {
+  min-width: 0;
+}
+
+/* ── Shared panel chrome ─────────────────────────────────────── */
+
+.d-panel {
+  border: 2px solid var(--d-edge);
+  border-top-color: var(--d-edge-lit);
+  border-left-color: var(--d-edge-lit);
+  border-bottom-color: var(--d-edge-dark);
+  border-right-color: var(--d-edge-dark);
+  background: var(--d-panel);
+  box-shadow: 0 5px 0 rgba(0, 0, 0, 0.42), 0 14px 30px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(3px);
+}
+
+/* ── Top chrome ──────────────────────────────────────────────── */
+
+.dash__top {
+  display: flex;
+  align-items: center;
+  gap: clamp(8px, 1.2vw, 16px);
+}
+
+.dash__brand {
+  flex-shrink: 0;
+  width: clamp(112px, 12vw, 190px);
+}
+
+.dash__brand img {
+  display: block;
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.75));
+}
+
+.dash__top-mid {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(8px, 1.2vw, 16px);
+  min-width: 0;
+}
+
+.dash__top-end {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.d-chip {
+  display: flex;
+  flex-shrink: 1;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  min-width: 0;
+}
+
+/* The label may ellipsis, but the countdown never truncates — a half-shown
+   timer is worse than no timer. */
+.d-chip--timer {
+  flex-shrink: 0;
+}
+
+.d-chip__icon {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  color: var(--d-gold);
+}
+
+.d-chip__body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.d-chip__label {
+  color: var(--d-dim);
+  font-size: 8px;
+  letter-spacing: 1.4px;
+  font-family: var(--d-font);
+}
+
+.d-chip__value {
+  overflow: hidden;
+  color: #fff;
+  font-family: var(--d-font);
+  font-size: clamp(9px, 1vw, 13px);
+  letter-spacing: 0.5px;
+  text-overflow: ellipsis;
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.85);
+  white-space: nowrap;
+}
+
+/* The round chip is the one thing on the bar a team looks at mid-event, so it
+   gets the green plate and everything else stays grey. */
+.d-chip--round {
+  border-top-color: #7fd05a;
+  border-left-color: #7fd05a;
+  background: linear-gradient(180deg, rgba(30, 64, 24, 0.92), rgba(12, 26, 10, 0.94));
+}
+
+.d-chip--round .d-chip__value {
+  color: #b6f08d;
+}
+
+.d-chip--timer .d-chip__value {
+  color: #fff;
+  font-size: clamp(11px, 1.3vw, 17px);
+}
+
+.d-chip--timer.is-urgent .d-chip__value {
+  color: #ff9a8a;
+  animation: d-pulse 1s steps(2, end) infinite;
+}
+
+@keyframes d-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.d-icon-btn {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  color: #dfe3ea;
+  cursor: pointer;
+}
+
+.d-icon-btn:hover {
+  background: rgba(60, 66, 80, 0.92);
+  color: #fff;
+}
+
+.d-dev {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px;
+  border: 1px solid rgba(255, 190, 60, 0.6);
+  background: rgba(255, 170, 0, 0.16);
+  color: #ffcd6e;
+  font-family: var(--d-font);
+  font-size: 8px;
+  letter-spacing: 1px;
+}
+
+/* ── Stage ───────────────────────────────────────────────────── */
+
+.dash__stage {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr) clamp(230px, 21vw, 320px);
+  align-items: center;
+  gap: clamp(10px, 1.6vw, 24px);
+  min-height: 0;
+}
+
+/* ── Left: the character ─────────────────────────────────────── */
+
+.dash__hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.dash__gear {
+  order: 2;
+  padding: 7px 13px;
+  text-align: center;
+}
+
+.dash__gear b {
+  display: block;
+  color: var(--d-gold);
+  font-family: var(--d-font);
+  font-size: 8.5px;
+  font-weight: 400;
+  letter-spacing: 1.3px;
+}
+
+.dash__gear span {
+  display: block;
+  margin-top: 6px;
+  color: #fff;
+  font-size: 11px;
+}
+
+.dash__pills {
+  order: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  width: 100%;
+}
+
+.d-pill {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 9px;
+  border-left: 3px solid var(--pill, #6b7280);
+  background: rgba(12, 14, 20, 0.78);
+  color: #cdd3dd;
+  font-size: 10.5px;
+  line-height: 1.3;
+}
+
+.d-pill--on {
+  --pill: #6cc244;
+  color: #fff;
+}
+
+.d-pill--warn {
+  --pill: #f2c14e;
+}
+
+.d-pill--bad {
+  --pill: #e05b4b;
+}
+
+/*
+ * One sheet of five frames, moved with background-position.
+ *
+ * `background-size: 500%` lays the sheet out five viewports wide, so frame n
+ * sits at n / 4 * 100%. Deliberately not transitioned: animating the position
+ * would slide the other four frames through the window on the way past.
+ */
+.steve {
+  height: clamp(190px, 40vh, 400px);
+  aspect-ratio: 460 / 640;
+  background-image: url('/steve-progression.webp');
+  background-repeat: no-repeat;
+  background-size: 500% 100%;
+  background-position-y: center;
+  filter: drop-shadow(0 14px 22px rgba(0, 0, 0, 0.65));
+  animation: steve-idle 4.4s ease-in-out infinite;
+}
+
+@keyframes steve-idle {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-7px);
+  }
+}
+
+/* Keeps him standing on the terrain rather than floating over it. */
+.dash__hero::after {
+  content: '';
+  order: 1;
+  width: min(62%, 190px);
+  height: 16px;
+  margin-top: -14px;
+  background: radial-gradient(50% 50% at 50% 50%, rgba(0, 0, 0, 0.6), transparent 72%);
+}
+
+/* ── Centre: the way in ──────────────────────────────────────── */
+
+.dash__centre {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(8px, 1.4vh, 16px);
+  min-width: 0;
+}
+
+.dash__enter-wrap {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.d-enter {
+  position: relative;
+  padding: clamp(14px, 2.2vh, 28px) clamp(30px, 4.6vw, 76px);
+  border: 3px solid #cba4ff;
+  border-bottom-color: #6d34c0;
+  border-right-color: #6d34c0;
+  background: linear-gradient(180deg, #8437e0 0%, #5a1aa8 55%, #3d0f7d 100%);
+  color: #fff;
+  font-family: var(--d-font);
+  font-size: clamp(15px, 2.3vw, 34px);
+  letter-spacing: 2px;
+  text-shadow: 3px 3px 0 rgba(0, 0, 0, 0.75);
+  cursor: var(--mv-cursor-pickaxe, pointer);
+  box-shadow:
+    inset 0 0 34px rgba(206, 156, 255, 0.4),
+    0 0 46px rgba(150, 70, 255, 0.5),
+    0 9px 0 #2a0a56,
+    0 18px 34px rgba(0, 0, 0, 0.65);
+  animation: d-enter-glow 3s ease-in-out infinite;
+  transition: transform 0.12s ease;
+}
+
+.d-enter:hover {
+  border-color: #e6d1ff;
+  background: linear-gradient(180deg, #9a4bf5 0%, #6a22c4 55%, #4a1494 100%);
+}
+
+.d-enter:active {
+  transform: translateY(5px);
+  box-shadow:
+    inset 0 0 34px rgba(206, 156, 255, 0.4),
+    0 0 46px rgba(150, 70, 255, 0.5),
+    0 4px 0 #2a0a56;
+}
+
+@keyframes d-enter-glow {
+  0%,
+  100% {
+    box-shadow:
+      inset 0 0 30px rgba(206, 156, 255, 0.32),
+      0 0 34px rgba(150, 70, 255, 0.42),
+      0 9px 0 #2a0a56,
+      0 18px 34px rgba(0, 0, 0, 0.65);
+  }
+  50% {
+    box-shadow:
+      inset 0 0 40px rgba(216, 176, 255, 0.5),
+      0 0 62px rgba(168, 92, 255, 0.68),
+      0 9px 0 #2a0a56,
+      0 18px 34px rgba(0, 0, 0, 0.65);
+  }
+}
+
+/* Portal motes drifting off the button, as in the mock. Decorative only. */
+.d-mote {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  background: #d3a8ff;
+  box-shadow: 0 0 10px rgba(190, 130, 255, 0.9);
+  pointer-events: none;
+  animation: d-mote-drift 3.6s ease-in-out infinite;
+}
+
+@keyframes d-mote-drift {
+  0%,
+  100% {
+    opacity: 0;
+    transform: translateY(6px) scale(0.6);
+  }
+  35% {
+    opacity: 0.95;
+  }
+  100% {
+    transform: translateY(-26px) scale(1);
+  }
+}
+
+.dash__enter-sub {
+  color: var(--d-purple);
+  font-family: var(--d-font);
+  font-size: clamp(8px, 0.95vw, 12px);
+  letter-spacing: 2.4px;
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.85);
+}
+
+.dash__steps {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 14px;
+  padding: 7px 16px;
+  color: #e3e7ee;
+  font-size: clamp(9px, 0.9vw, 12px);
+  letter-spacing: 0.6px;
+}
+
+.dash__steps span:not(:last-child)::after {
+  content: ' •';
+  color: var(--d-gold);
+}
+
+/* ── Right: the rail ─────────────────────────────────────────── */
+
+.dash__rail {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(6px, 1vh, 11px);
+  min-width: 0;
+}
+
+.d-card {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: clamp(8px, 1.3vh, 14px) 13px;
+  border-left-width: 3px;
+  border-left-color: var(--card, #6e7480);
+  color: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.12s ease;
+}
+
+.d-card:hover {
+  background: rgba(34, 38, 50, 0.92);
+  transform: translateX(-4px);
+}
+
+.d-card__icon {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  color: var(--card, #cdd3dd);
+}
+
+.d-card__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.d-card__body b {
+  display: block;
+  color: #fff;
+  font-family: var(--d-font);
+  font-size: clamp(8.5px, 0.85vw, 11px);
+  font-weight: 400;
+  letter-spacing: 1px;
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.8);
+}
+
+.d-card__body span {
+  display: block;
+  margin-top: 4px;
+  color: var(--d-dim);
+  font-size: 10.5px;
+  line-height: 1.35;
+}
+
+.d-card__chev {
+  flex-shrink: 0;
+  color: var(--d-dim);
+}
+
+.d-card--rules {
+  --card: #f2c14e;
+}
+.d-card--board {
+  --card: #5ec8ee;
+}
+.d-card--qual {
+  --card: #6cc244;
+}
+.d-card--portal {
+  --card: #b072ff;
+}
+
+/* ── Inventory foot ──────────────────────────────────────────── */
+
+.dash__foot {
+  display: flex;
+  align-items: flex-end;
+  gap: clamp(8px, 1.4vw, 18px);
+}
+
+.dash__inv {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  padding: 9px 12px;
+  min-width: 0;
+}
+
+.dash__inv-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.dash__inv-head b {
+  color: var(--d-gold);
+  font-family: var(--d-font);
+  font-size: 9px;
+  font-weight: 400;
+  letter-spacing: 1.2px;
+}
+
+.dash__inv-head span {
+  color: var(--d-dim);
+  font-size: 10.5px;
+}
+
+.dash__foot-actions {
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.d-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 13px;
+  border: 2px solid #6a7080;
+  border-top-color: #949cab;
+  border-left-color: #949cab;
+  border-bottom-color: #262a33;
+  border-right-color: #262a33;
+  background: rgba(58, 63, 76, 0.92);
+  color: #ffe98a;
+  font-family: var(--d-font);
+  font-size: 8.5px;
+  letter-spacing: 1.1px;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.d-btn:hover {
+  background: rgba(78, 84, 100, 0.96);
+  color: #fff;
+}
+
+/* ── The map ─────────────────────────────────────────────────── */
+
+.wm__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.92);
+  animation: d-fade 0.22s ease-out;
+}
+
+@keyframes d-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.wm {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  max-width: 100vw;
+  max-height: 100dvh;
+  aspect-ratio: 1024 / 815;
+  margin: auto;
+}
+
+.wm__art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 0 40px rgba(0, 0, 0, 0.9));
+  animation: wm-pop 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes wm-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+    filter: blur(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0);
+  }
+}
+
+.wm__pin {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 18px;
+  transform: translate(-50%, -50%);
+  border: 2px solid rgba(140, 150, 170, 0.4);
+  background: rgba(28, 32, 40, 0.94);
+  color: rgba(255, 255, 255, 0.45);
+  font-family: var(--font-minecraft), 'Press Start 2P', ui-monospace, monospace;
+  font-size: clamp(9px, 1.05vw, 13px);
+  letter-spacing: 1.3px;
+  cursor: not-allowed;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+  transition: transform 0.16s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.16s ease;
+}
+
+.wm__pin--open {
+  border-color: var(--pin);
+  background: linear-gradient(155deg, rgba(24, 28, 38, 0.95), rgba(10, 12, 18, 0.96));
+  color: #fff;
+  text-shadow: 1px 2px 4px rgba(0, 0, 0, 0.9);
+  cursor: var(--mv-cursor-pickaxe, pointer);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--pin) 55%, transparent), 0 6px 16px rgba(0, 0, 0, 0.8);
+}
+
+.wm__pin--open:hover {
+  transform: translate(-50%, -50%) scale(1.07);
+  box-shadow: 0 0 34px color-mix(in srgb, var(--pin) 85%, transparent), 0 8px 24px rgba(0, 0, 0, 0.9);
+}
+
+.wm__pin-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wm__pin-glyph {
+  display: grid;
+  place-items: center;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.wm__pin--open .wm__pin-glyph {
+  color: var(--pin);
+}
+
+.wm__pin-dev {
+  color: #ffcc00;
+  font-size: 8px;
+  letter-spacing: 1px;
+}
+
+.wm__close {
+  position: absolute;
+  right: clamp(12px, 2vw, 28px);
+  bottom: clamp(12px, 2vh, 28px);
+  z-index: 3;
+  padding: 10px 16px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  background: rgba(0, 0, 0, 0.7);
+  color: rgba(255, 255, 255, 0.9);
+  font-family: var(--font-minecraft), 'Press Start 2P', ui-monospace, monospace;
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  cursor: pointer;
+}
+
+.wm__close:hover {
+  border-color: #fff;
+  color: #fff;
+}
+
+/* ── The rulebook ────────────────────────────────────────────── */
+
+.rb__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 950;
+  display: grid;
+  place-items: center;
+  padding: clamp(10px, 3vh, 34px);
+  background: rgba(2, 3, 6, 0.86);
+  animation: d-fade 0.22s ease-out;
+}
+
+.rb {
+  position: relative;
+  display: grid;
+  grid-template-columns: clamp(150px, 21vw, 226px) minmax(0, 1fr);
+  width: min(1060px, 100%);
+  height: min(760px, 100%);
+  border: 4px solid #7a5326;
+  border-top-color: #a9793f;
+  border-left-color: #a9793f;
+  border-bottom-color: #3d2711;
+  border-right-color: #3d2711;
+  /* Tooled leather: two crossing dark stripes over a warm brown ground. */
+  background:
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.12) 0 2px, transparent 2px 7px),
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.1) 0 2px, transparent 2px 9px),
+    linear-gradient(150deg, #4a3118 0%, #35220f 100%);
+  box-shadow: 0 18px 0 rgba(0, 0, 0, 0.35), 0 34px 70px rgba(0, 0, 0, 0.75);
+  animation: rb-open 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes rb-open {
+  from {
+    opacity: 0;
+    transform: scale(0.94) translateY(14px);
+  }
+}
+
+/* The binding between the index and the page. */
+.rb__spine {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: clamp(150px, 21vw, 226px);
+  width: 8px;
+  margin-left: -4px;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.15) 40%, rgba(0, 0, 0, 0.6));
+  pointer-events: none;
+}
+
+.rb__index {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 16px 10px 16px 14px;
+  overflow-y: auto;
+}
+
+.rb__index-title {
+  margin-bottom: 8px;
+  padding-bottom: 9px;
+  border-bottom: 2px solid rgba(216, 174, 106, 0.35);
+  color: #e7c583;
+  font-family: var(--font-minecraft), 'Press Start 2P', ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 1.6px;
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.8);
+}
+
+/* Bookmark ribbons: flush right so the active one reads as pulled out. */
+.rb__tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 10px;
+  border: 2px solid rgba(0, 0, 0, 0.3);
+  border-right: none;
+  background: rgba(0, 0, 0, 0.22);
+  color: #d8c39c;
+  font-size: 11.5px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s ease, transform 0.12s ease;
+}
+
+.rb__tab:hover {
+  background: rgba(0, 0, 0, 0.36);
+  color: #f4e3c1;
+}
+
+.rb__tab--on {
+  transform: translateX(6px);
+  background: linear-gradient(90deg, #f0dfb6, #e2cd9c);
+  color: #3a2a12;
+  font-weight: 700;
+}
+
+.rb__page {
+  padding: clamp(18px, 2.6vh, 30px) clamp(18px, 2.6vw, 38px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* Parchment with ruled lines, and a shadow at the binding edge. */
+  background:
+    linear-gradient(90deg, rgba(93, 63, 20, 0.28) 0, transparent 22px),
+    repeating-linear-gradient(0deg, transparent 0 27px, rgba(150, 116, 60, 0.13) 27px 28px),
+    linear-gradient(160deg, #f2e3bd 0%, #e7d3a6 55%, #dcc694 100%);
+  color: #3a2a12;
+  font-size: 13px;
+  line-height: 1.62;
+}
+
+.rb__page:focus-visible {
+  outline: 3px solid #a9793f;
+  outline-offset: -3px;
+}
+
+.rb__h {
+  margin: 0 0 12px;
+  color: #5a3c12;
+  font-family: var(--font-minecraft), 'Press Start 2P', ui-monospace, monospace;
+  font-size: clamp(12px, 1.35vw, 16px);
+  font-weight: 400;
+  letter-spacing: 0.5px;
+}
+
+.rb__h3 {
+  margin: 20px 0 8px;
+  padding-bottom: 5px;
+  border-bottom: 2px solid rgba(150, 116, 60, 0.4);
+  color: #6b4a1c;
+  font-family: var(--font-minecraft), 'Press Start 2P', ui-monospace, monospace;
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 1px;
+}
+
+.rb__p {
+  margin: 0 0 11px;
+}
+
+.rb__p--tight {
+  margin-bottom: 4px;
+}
+
+.rb__ol,
+.rb__ul {
+  margin: 0 0 12px;
+  padding-left: 22px;
+}
+
+/* Tailwind's preflight sets `list-style: none` on every ol and ul, so the
+   numbered steps rendered as an unnumbered wall. Put the markers back. */
+.rb__ol {
+  list-style: decimal outside;
+}
+
+.rb__ul {
+  list-style: disc outside;
+}
+
+.rb__ol li::marker,
+.rb__ul li::marker {
+  color: #8a6428;
+}
+
+.rb__ol li,
+.rb__ul li {
+  margin-bottom: 5px;
+}
+
+.rb__note {
+  margin: 16px 0 0;
+  padding: 10px 13px;
+  border-left: 4px solid #a9793f;
+  background: rgba(169, 121, 63, 0.16);
+  font-size: 12px;
+  font-style: italic;
+}
+
+.rb__block {
+  margin: 0 0 11px;
+  padding: 10px 13px;
+  border: 2px solid rgba(122, 83, 38, 0.32);
+  background: rgba(255, 250, 232, 0.5);
+}
+
+.rb__block-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.rb__block-head b {
+  color: #4a3110;
+  font-size: 13.5px;
+}
+
+.rb__block-head span {
+  color: #7a5c2c;
+  font-size: 11px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+.rb__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.rb__tag {
+  padding: 3px 8px;
+  border: 1px solid rgba(122, 83, 38, 0.45);
+  background: rgba(122, 83, 38, 0.12);
+  font-size: 10.5px;
+  letter-spacing: 0.4px;
+}
+
+.rb__tag--warn {
+  border-color: rgba(168, 58, 34, 0.5);
+  background: rgba(190, 70, 40, 0.14);
+  color: #8a2d15;
+}
+
+.rb__grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 0 0 12px;
+}
+
+.rb__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 2px solid rgba(122, 83, 38, 0.35);
+  background: rgba(255, 250, 232, 0.62);
+  font-size: 12px;
+}
+
+.rb__chip--sm {
+  padding: 3px 7px;
+  font-size: 11px;
+}
+
+.rb__chip img {
+  width: 17px;
+  height: 17px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.rb__chip b {
+  color: #4a3110;
+}
+
+.rb__cost {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.rb__table {
+  width: 100%;
+  margin: 0 0 12px;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.rb__table th,
+.rb__table td {
+  padding: 7px 9px;
+  border-bottom: 1px solid rgba(150, 116, 60, 0.35);
+  text-align: left;
+  vertical-align: top;
+}
+
+.rb__table th {
+  color: #6b4a1c;
+  font-size: 11px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+.rb__price {
+  color: #2f6c22;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.rb__close {
+  position: absolute;
+  top: -14px;
+  right: -14px;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 3px solid #b98b4c;
+  background: #3b2611;
+  color: #f0dfb6;
+  cursor: pointer;
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.5);
+}
+
+.rb__close:hover {
+  background: #5c3a17;
+  color: #fff;
+}
+
+/* ── Round transition ────────────────────────────────────────── */
+
+.dash__transition {
+  position: fixed;
+  inset: 0;
+  z-index: 990;
+  display: grid;
+  place-items: center;
+  background: #000;
+  overflow: hidden;
+}
+
+.dash__transition video {
+  width: 100vw;
+  height: 100dvh;
+  object-fit: cover;
+}
+
+.dash__skip {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  padding: 9px 17px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: rgba(0, 0, 0, 0.65);
+  color: rgba(255, 255, 255, 0.9);
+  font-family: var(--font-minecraft), 'Press Start 2P', ui-monospace, monospace;
+  font-size: 9px;
+  letter-spacing: 1.4px;
+  cursor: pointer;
+}
+
+.dash__skip:hover {
+  border-color: #fff;
+  color: #fff;
+}
+
+/* ── Fitting smaller screens ─────────────────────────────────── */
+
+/* Only genuinely short screens lose the status pills. At a 768px-tall laptop —
+   the most common machine in the hall — the column still has room for them, and
+   PvP eligibility and Day 2 status are the two things a team most wants to see
+   without opening anything. */
+@media (max-height: 660px) {
+  .dash__pills {
+    display: none;
+  }
+
+  .steve {
+    height: clamp(150px, 34vh, 260px);
+  }
+}
+
+@media (max-width: 1180px) {
+  .dash__steps {
+    display: none;
+  }
+}
+
+/* The bar runs out of room here. The team name and code go first — they are on
+   the team's printed slip and in their email; the round and the clock are not. */
+@media (max-width: 1024px) {
+  .d-chip--team {
+    display: none;
+  }
+}
+
+/* Below this the three-column stage cannot hold Steve, the button and the rail
+   at a readable size, so the avatar steps out and the rail keeps its place. */
+@media (max-width: 940px) {
+  .dash__stage {
+    grid-template-columns: minmax(0, 1fr) clamp(190px, 34vw, 260px);
+  }
+
+  .dash__hero {
+    display: none;
+  }
+}
+
+@media (max-width: 700px) {
+  .dash__stage {
+    grid-template-columns: minmax(0, 1fr);
+    align-content: center;
+    gap: 12px;
+  }
+
+  .dash__rail {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .d-card {
+    flex: 1 1 160px;
+  }
+
+  .d-card__body span,
+  .d-card__chev {
+    display: none;
+  }
+
+  .dash__top-mid {
+    justify-content: flex-end;
+  }
+
+  .d-chip--team {
+    display: none;
+  }
+
+  .dash__foot {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .dash__foot-actions {
+    flex-direction: row;
+  }
+
+  .d-btn {
+    flex: 1;
+  }
+
+  .rb {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .rb__spine {
+    display: none;
+  }
+
+  .rb__index {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 6px;
+    padding: 10px;
+    overflow-x: auto;
+  }
+
+  .rb__index-title {
+    display: none;
+  }
+
+  .rb__tab {
+    border-right: 2px solid rgba(0, 0, 0, 0.3);
+    white-space: nowrap;
+  }
+
+  .rb__tab--on {
+    transform: none;
+  }
+}
+
+/* Phones. The wordmark is the first thing to go — the page is unambiguous
+   without it — and the chips get their padding back so the round and the clock
+   stay readable rather than squeezing into each other. */
+@media (max-width: 560px) {
+  .dash__brand {
+    display: none;
+  }
+
+  .d-chip {
+    gap: 7px;
+    padding: 6px 9px;
+  }
+
+  .d-dev {
+    font-size: 0;
+    padding: 6px;
+    gap: 0;
+  }
+
+  .dash__top-mid {
+    justify-content: flex-start;
+  }
+
+  .dash__inv-head span {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dash *,
+  .rb,
+  .wm__art {
+    animation: none !important;
+  }
+
+  .d-card:hover,
+  .wm__pin--open:hover {
+    transform: translate(0, 0);
+  }
+
+  .wm__pin--open:hover {
+    transform: translate(-50%, -50%);
+  }
+}
