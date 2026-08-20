@@ -2,7 +2,7 @@
 
 import './dashboard.css';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Flame, LogOut, Shield } from 'lucide-react';
 
@@ -39,7 +39,6 @@ export function DashboardShell() {
 
   const [showMap, setShowMap] = useState(false);
   const [showRules, setShowRules] = useState(false);
-  const [transitionTo, setTransitionTo] = useState<string | null>(null);
   const [slot, setSlot] = useState(1);
 
   const load = useCallback(async () => {
@@ -75,19 +74,6 @@ export function DashboardShell() {
       void supabaseClient.removeChannel(channel);
     };
   }, [load]);
-
-  // Play the transition clip, then route. Muted retry covers autoplay policies.
-  const transitionRef = useRef<HTMLVideoElement>(null);
-  useEffect(() => {
-    if (!transitionTo) return;
-    const video = transitionRef.current;
-    if (!video) return;
-    video.currentTime = 0;
-    video.play().catch(() => {
-      video.muted = true;
-      void video.play().catch(() => undefined);
-    });
-  }, [transitionTo]);
 
   const loadout = useMemo(
     () => loadoutFrom({ crafted, portalRepaired: progress?.portal?.is_repaired ?? false }),
@@ -252,23 +238,9 @@ export function DashboardShell() {
       </footer>
 
       {/* ── Overlays ── */}
-      {showMap && <WorldMap rounds={rounds} onClose={() => setShowMap(false)} onEnter={(path) => setTransitionTo(path)} />}
+      {showMap && <WorldMap rounds={rounds} onClose={() => setShowMap(false)} onEnter={(path) => router.push(path)} />}
       {showRules && <Rulebook onClose={() => setShowRules(false)} />}
 
-      {transitionTo && (
-        <div className="dash__transition">
-          <video
-            ref={transitionRef}
-            src="/transition1.mp4"
-            autoPlay
-            playsInline
-            onEnded={() => router.push(transitionTo)}
-          />
-          <button type="button" className="dash__skip" onClick={() => router.push(transitionTo)}>
-            SKIP ›
-          </button>
-        </div>
-      )}
     </div>
   );
 }
