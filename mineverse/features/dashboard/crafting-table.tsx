@@ -11,6 +11,7 @@ import {
   type CraftItem,
 } from '@/lib/gameplay/crafting/rules';
 import { resourceMeta } from '@/components/game/custom-round-ui/round-presentation';
+import { ItemIcon } from '@/components/game/inventory/ItemIcon';
 
 /**
  * The crafting table in the corner of the dashboard, and the grid it opens.
@@ -203,9 +204,7 @@ function CraftingGrid({
 
             <div className="ct__result">
               <div className={state.crafted ? 'ct-slot ct-slot--done' : 'ct-slot'}>
-                <span className="ct__result-glyph" aria-hidden="true">
-                  {RESULT_GLYPH[selected]}
-                </span>
+                <ItemIcon item={selected} className="ct__result-icon" />
               </div>
               <span className="ct__result-name">{recipe.label}</span>
             </div>
@@ -215,7 +214,7 @@ function CraftingGrid({
         <footer className="ct__foot">
           {state.crafted ? (
             <p className="ct__status ct__status--done">
-              <Check size={12} /> Already crafted. Each item is made once.
+              <Check size={12} /> ALREADY CRAFTED
             </p>
           ) : state.locked ? (
             <p className="ct__status ct__status--locked">
@@ -223,13 +222,13 @@ function CraftingGrid({
             </p>
           ) : state.shortfall.length > 0 ? (
             <p className="ct__status ct__status--short">
-              Need{' '}
+              NEED{' '}
               {state.shortfall
-                .map((entry) => `${entry.short} more ${resourceMeta(entry.key)?.label ?? entry.key}`)
+                .map((entry) => `${entry.short} ${resourceMeta(entry.key)?.label ?? entry.key}`)
                 .join(', ')}
             </p>
           ) : (
-            <p className="ct__status">Ready to craft. This spends the ingredients and cannot be undone.</p>
+            <p className="ct__status">READY &middot; SPENDS THE INGREDIENTS</p>
           )}
 
           {error && <p className="ct__error">{error}</p>}
@@ -242,14 +241,6 @@ function CraftingGrid({
     </div>
   );
 }
-
-/** A glyph per result, so the output slot is not an empty square. */
-const RESULT_GLYPH: Record<CraftItem, string> = {
-  wooden_pickaxe: '⛏',
-  stone_pickaxe: '⛏',
-  iron_armor: '🛡',
-  diamond_pickaxe: '⛏',
-};
 
 /**
  * The RPC's failure modes, in words a team can act on.

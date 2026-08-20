@@ -129,6 +129,9 @@ export function DashboardShell() {
           machinery buys nothing over object-fit here. */}
       <img className="dash__bg" src="/dashboard-world.webp" alt="" loading="eager" fetchPriority="high" aria-hidden="true" />
       <div className="dash__shade" aria-hidden="true" />
+      {/* Drifting motes over the scene. Two elements, each carrying a field of
+          box-shadow stamps, so "lively" costs no DOM and nothing to lay out. */}
+      <div className="dash__ambience" aria-hidden="true" />
 
       {/* ── Top chrome ── */}
       {/* Three zones: team on the left, wordmark in the middle, round on the

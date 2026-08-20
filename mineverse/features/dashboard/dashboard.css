@@ -111,7 +111,7 @@
 
 .dash__brand {
   justify-self: center;
-  width: clamp(130px, 15vw, 250px);
+  width: clamp(165px, 19vw, 330px);
 }
 
 .dash__brand img {
@@ -299,7 +299,6 @@
   background-repeat: no-repeat;
   background-size: 500% 100%;
   background-position-y: center;
-  filter: drop-shadow(0 14px 22px rgba(0, 0, 0, 0.65));
 }
 
 /* The contact shadow under his feet. Without it he reads as pasted over the
@@ -544,7 +543,7 @@
 
 .ct-block__art {
   display: block;
-  width: clamp(64px, 7vw, 108px);
+  width: clamp(86px, 9.6vw, 152px);
   height: auto;
   image-rendering: pixelated;
   filter: drop-shadow(0 10px 16px rgba(0, 0, 0, 0.7));
@@ -661,7 +660,7 @@
 
 .ct__body {
   display: grid;
-  grid-template-columns: minmax(0, 150px) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 178px) minmax(0, 1fr);
   gap: clamp(10px, 2vw, 20px);
   padding: clamp(6px, 1.2vh, 12px) clamp(12px, 2vw, 20px) clamp(12px, 2vh, 20px);
   min-height: 0;
@@ -674,12 +673,17 @@
   min-width: 0;
 }
 
+/* Press Start 2P everywhere in this window. It turns to mush much under 9px,
+   which is why every string in here is a short label rather than a sentence. */
 .ct__recipe {
   display: flex;
   align-items: center;
   gap: 7px;
-  padding: 9px 10px;
-  font-size: 11px;
+  padding: 10px 9px;
+  font-family: var(--d-font);
+  font-size: 8px;
+  letter-spacing: 0.4px;
+  line-height: 1.5;
   text-align: left;
 }
 
@@ -799,10 +803,10 @@
   width: clamp(50px, 6.2vw, 66px);
 }
 
-.ct__result-glyph {
-  font-size: clamp(20px, 2.6vw, 28px);
-  line-height: 1;
-  filter: drop-shadow(2px 3px 0 rgba(0, 0, 0, 0.35));
+.ct__result-icon {
+  width: 74%;
+  height: 74%;
+  filter: drop-shadow(1px 2px 0 rgba(0, 0, 0, 0.35));
 }
 
 .ct__result-name {
@@ -830,8 +834,10 @@
   margin: 0;
   min-width: 180px;
   color: var(--ct-ink-dim);
-  font-size: 11.5px;
-  line-height: 1.4;
+  font-family: var(--d-font);
+  font-size: 8px;
+  letter-spacing: 0.5px;
+  line-height: 1.6;
 }
 
 .ct__status--done {
@@ -853,7 +859,10 @@
   border-left: 3px solid #a02c1c;
   background: #d8b4ae;
   color: #4a120b;
-  font-size: 11.5px;
+  font-family: var(--d-font);
+  font-size: 8px;
+  letter-spacing: 0.4px;
+  line-height: 1.6;
 }
 
 /* The one green thing in a silver window, because it is the one thing that
@@ -1491,11 +1500,276 @@
 
 }
 
+/* ── Ambience ────────────────────────────────────────────────── */
+
+/*
+ * The scene breathes, very slightly.
+ *
+ * A 90s drift on the background art is enough to stop the page reading as a
+ * screenshot; anything faster competes with the buttons for attention. The
+ * scale never drops below 1 or the cover crop would show an edge.
+ */
+.dash__bg {
+  animation: dash-drift 90s ease-in-out infinite;
+  transform-origin: 52% 58%;
+}
+
+@keyframes dash-drift {
+  0%,
+  100% {
+    transform: scale(1) translate3d(0, 0, 0);
+  }
+  50% {
+    transform: scale(1.045) translate3d(-0.6%, -0.5%, 0);
+  }
+}
+
+/*
+ * Fireflies over the terrain.
+ *
+ * Two fields of box-shadow stamps rather than a mote per element — the same
+ * trick the world-event weather uses. Each field is stamped twice, at `y` and
+ * `y + 900px`, and travels exactly 900px, so the loop's last frame is its first
+ * and there is no jump.
+ */
+.dash__ambience {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.dash__ambience::before,
+.dash__ambience::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: transparent;
+}
+
+/* Warm, slow, low — the lanterns and the fields down the left. */
+.dash__ambience::before {
+  top: 34%;
+  box-shadow:
+    7vw 0 0 rgba(255, 206, 130, 0.55), 14vw 22px 0 rgba(255, 190, 110, 0.4),
+    21vw 8px 0 rgba(255, 214, 150, 0.5), 29vw 30px 0 rgba(255, 198, 120, 0.35),
+    37vw 14px 0 rgba(255, 220, 160, 0.45), 44vw 26px 0 rgba(255, 190, 110, 0.3),
+    7vw 900px 0 rgba(255, 206, 130, 0.55), 14vw 922px 0 rgba(255, 190, 110, 0.4),
+    21vw 908px 0 rgba(255, 214, 150, 0.5), 29vw 930px 0 rgba(255, 198, 120, 0.35),
+    37vw 914px 0 rgba(255, 220, 160, 0.45), 44vw 926px 0 rgba(255, 190, 110, 0.3);
+  animation: dash-motes 26s linear infinite, dash-mote-fade 7s ease-in-out infinite;
+}
+
+/* Cool, faster, higher — the Nether and End side. */
+.dash__ambience::after {
+  top: 26%;
+  width: 2px;
+  height: 2px;
+  box-shadow:
+    58vw 12px 0 rgba(196, 140, 255, 0.5), 66vw 32px 0 rgba(255, 140, 96, 0.42),
+    73vw 4px 0 rgba(214, 168, 255, 0.45), 81vw 24px 0 rgba(255, 120, 80, 0.35),
+    88vw 16px 0 rgba(186, 150, 255, 0.5), 95vw 34px 0 rgba(230, 190, 255, 0.4),
+    58vw 912px 0 rgba(196, 140, 255, 0.5), 66vw 932px 0 rgba(255, 140, 96, 0.42),
+    73vw 904px 0 rgba(214, 168, 255, 0.45), 81vw 924px 0 rgba(255, 120, 80, 0.35),
+    88vw 916px 0 rgba(186, 150, 255, 0.5), 95vw 934px 0 rgba(230, 190, 255, 0.4);
+  animation: dash-motes 19s linear infinite, dash-mote-fade 5.5s ease-in-out infinite -2s;
+}
+
+@keyframes dash-motes {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-900px);
+  }
+}
+
+@keyframes dash-mote-fade {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* ── Steve's aura ────────────────────────────────────────────── */
+
+/*
+ * One glow per tier, brightening up the ladder.
+ *
+ * `drop-shadow` rather than `box-shadow` on purpose: it follows the sprite's
+ * alpha, so the light hugs the figure instead of a rectangle around him. The
+ * last two frames already carry a glow in the artwork, so those are given the
+ * least CSS — enough to make it pulse, not enough to double it.
+ */
+.steve {
+  /* Every tier animates the same property; only the colours differ. */
+  animation: steve-aura 3.4s ease-in-out infinite;
+}
+
+@keyframes steve-aura {
+  0%,
+  100% {
+    filter: drop-shadow(0 14px 22px rgba(0, 0, 0, 0.65))
+      drop-shadow(0 0 var(--steve-near, 0px) var(--steve-glow, transparent))
+      drop-shadow(0 0 var(--steve-far, 0px) var(--steve-glow, transparent));
+  }
+  50% {
+    filter: drop-shadow(0 14px 22px rgba(0, 0, 0, 0.65))
+      drop-shadow(0 0 var(--steve-near-lit, 0px) var(--steve-glow, transparent))
+      drop-shadow(0 0 var(--steve-far-lit, 0px) var(--steve-glow-lit, transparent));
+  }
+}
+
+/* Frame 0 — nothing crafted. No aura: the glow is the reward. */
+.steve--t0 {
+  --steve-glow: transparent;
+  --steve-glow-lit: transparent;
+}
+
+/* Frame 1 — stone. A cold, faint edge. */
+.steve--t1 {
+  --steve-glow: rgba(190, 200, 210, 0.32);
+  --steve-glow-lit: rgba(214, 226, 236, 0.45);
+  --steve-near: 5px;
+  --steve-near-lit: 8px;
+  --steve-far: 12px;
+  --steve-far-lit: 20px;
+}
+
+/* Frame 2 — iron. Steel, brighter, still cool. */
+.steve--t2 {
+  --steve-glow: rgba(214, 226, 240, 0.42);
+  --steve-glow-lit: rgba(238, 246, 255, 0.6);
+  --steve-near: 7px;
+  --steve-near-lit: 11px;
+  --steve-far: 18px;
+  --steve-far-lit: 30px;
+}
+
+/* Frame 3 — nether-forged. Purple, and the only tier that throws embers. */
+.steve--t3 {
+  --steve-glow: rgba(178, 92, 255, 0.5);
+  --steve-glow-lit: rgba(206, 140, 255, 0.75);
+  --steve-near: 9px;
+  --steve-near-lit: 15px;
+  --steve-far: 26px;
+  --steve-far-lit: 44px;
+}
+
+/* Frame 4 — diamond. Cyan, the strongest, and it sparkles. */
+.steve--t4 {
+  --steve-glow: rgba(70, 220, 255, 0.5);
+  --steve-glow-lit: rgba(150, 240, 255, 0.8);
+  --steve-near: 10px;
+  --steve-near-lit: 17px;
+  --steve-far: 30px;
+  --steve-far-lit: 50px;
+}
+
+/*
+ * Particles for the top two tiers only.
+ *
+ * `.dash__hero` already owns the contact shadow as ::after, so this rides on
+ * ::before. It is sized and positioned over the sprite, never in flow.
+ */
+.dash__hero::before {
+  content: '';
+  position: absolute;
+  top: 12%;
+  left: 50%;
+  z-index: 1;
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  margin-left: -1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Embers drifting up off the nether-forged armour. */
+.dash__hero:has(.steve--t3)::before {
+  opacity: 1;
+  box-shadow:
+    -42px 10px 0 rgba(206, 140, 255, 0.9), 38px 40px 0 rgba(178, 92, 255, 0.7),
+    -18px 76px 0 rgba(226, 170, 255, 0.8), 52px 104px 0 rgba(186, 110, 255, 0.6),
+    -56px 132px 0 rgba(206, 140, 255, 0.7), 20px 160px 0 rgba(230, 180, 255, 0.55);
+  animation: steve-spark 5.5s linear infinite;
+}
+
+/* Diamond dust, tighter and colder. */
+.dash__hero:has(.steve--t4)::before {
+  opacity: 1;
+  box-shadow:
+    -46px 14px 0 rgba(150, 240, 255, 0.9), 34px 44px 0 rgba(70, 220, 255, 0.7),
+    -14px 80px 0 rgba(190, 248, 255, 0.85), 56px 108px 0 rgba(90, 226, 255, 0.6),
+    -52px 136px 0 rgba(150, 240, 255, 0.75), 24px 164px 0 rgba(210, 250, 255, 0.6);
+  animation: steve-spark 4.2s linear infinite;
+}
+
+/* Rises the full 180px the stamps span, so the loop closes on itself. */
+@keyframes steve-spark {
+  from {
+    transform: translateY(0);
+    opacity: 0;
+  }
+  18% {
+    opacity: 1;
+  }
+  82% {
+    opacity: 1;
+  }
+  to {
+    transform: translateY(-180px);
+    opacity: 0;
+  }
+}
+
+/* The ENTER WORLD motes were already drifting; give the crafting table a
+   matching slow bob so the two bottom corners feel equally alive. */
+.ct-block__art {
+  animation: ct-bob 5.5s ease-in-out infinite;
+}
+
+@keyframes ct-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+/* Hover already sets its own transform; keep it winning over the idle bob. */
+.ct-block:hover .ct-block__art,
+.ct-block:focus-visible .ct-block__art {
+  animation: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .dash *,
+  .dash *::before,
+  .dash *::after,
   .rb,
   .wm__art {
     animation: none !important;
+  }
+
+  /* The aura lives in the keyframes, so with the animation off Steve would lose
+     his ground shadow as well. Put it back statically. */
+  .steve {
+    filter: drop-shadow(0 14px 22px rgba(0, 0, 0, 0.65));
+  }
+
+  .dash__bg {
+    transform: none;
   }
 
   .wm__pin--open:hover {
