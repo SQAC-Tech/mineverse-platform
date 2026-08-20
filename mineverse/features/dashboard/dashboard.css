@@ -29,13 +29,18 @@
   isolation: isolate;
 
   --d-font: var(--font-minecraft), 'Press Start 2P', ui-monospace, monospace;
-  --d-edge: #6e7480;
-  --d-edge-lit: #98a0ac;
-  --d-edge-dark: #2a2e36;
-  --d-panel: rgba(16, 18, 24, 0.84);
+
+  /* Nether, matching `.round-ui--nether` in round-ui.css rather than a second
+     idea of what the Nether looks like: blackstone panels, dull crimson edges,
+     one hot ember for anything that matters. */
+  --d-edge: #522026;
+  --d-edge-lit: #8a3a3a;
+  --d-edge-dark: #150607;
+  --d-panel: linear-gradient(155deg, rgba(42, 16, 19, 0.93) 0%, rgba(20, 7, 8, 0.95) 100%);
+  --d-ember: #ff6b4a;
   --d-gold: #f2c14e;
   --d-purple: #b072ff;
-  --d-dim: #a6adba;
+  --d-dim: #c2a09a;
 }
 
 .dash__bg {
@@ -72,7 +77,10 @@
   border-bottom-color: var(--d-edge-dark);
   border-right-color: var(--d-edge-dark);
   background: var(--d-panel);
-  box-shadow: 0 5px 0 rgba(0, 0, 0, 0.42), 0 14px 30px rgba(0, 0, 0, 0.55);
+  box-shadow:
+    inset 0 0 22px rgba(255, 107, 74, 0.09),
+    0 5px 0 rgba(0, 0, 0, 0.5),
+    0 14px 30px rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(3px);
 }
 
@@ -86,7 +94,7 @@
 
 .dash__brand {
   flex-shrink: 0;
-  width: clamp(112px, 12vw, 190px);
+  width: clamp(150px, 17vw, 285px);
 }
 
 .dash__brand img {
@@ -121,17 +129,11 @@
   min-width: 0;
 }
 
-/* The label may ellipsis, but the countdown never truncates — a half-shown
-   timer is worse than no timer. */
-.d-chip--timer {
-  flex-shrink: 0;
-}
-
 .d-chip__icon {
   display: grid;
   flex-shrink: 0;
   place-items: center;
-  color: var(--d-gold);
+  color: var(--d-ember);
 }
 
 .d-chip__body {
@@ -142,7 +144,7 @@
 }
 
 .d-chip__label {
-  color: var(--d-dim);
+  color: rgba(255, 150, 120, 0.72);
   font-size: 8px;
   letter-spacing: 1.4px;
   font-family: var(--d-font);
@@ -159,32 +161,71 @@
   white-space: nowrap;
 }
 
-/* The round chip is the one thing on the bar a team looks at mid-event, so it
-   gets the green plate and everything else stays grey. */
-.d-chip--round {
-  border-top-color: #7fd05a;
-  border-left-color: #7fd05a;
-  background: linear-gradient(180deg, rgba(30, 64, 24, 0.92), rgba(12, 26, 10, 0.94));
+/*
+ * The round plate.
+ *
+ * The one thing on the bar a team looks at mid-event, so it is the only piece
+ * of chrome that gets a colour, an icon and two lines. Everything else stays
+ * grey and out of the way.
+ */
+.d-round {
+  display: flex;
+  flex-shrink: 1;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 18px 8px 14px;
+  min-width: 0;
+  border: 2px solid #7d2f2c;
+  border-top-color: #d4756a;
+  border-left-color: #c9564a;
+  border-bottom-color: #2a0d0e;
+  border-right-color: #2a0d0e;
+  background:
+    linear-gradient(180deg, rgba(255, 140, 100, 0.24) 0 2px, transparent 2px),
+    linear-gradient(170deg, #43171a 0%, #2a0e11 55%, #180708 100%);
+  box-shadow:
+    inset 0 0 30px rgba(255, 107, 74, 0.2),
+    0 0 30px rgba(255, 90, 50, 0.28),
+    0 5px 0 rgba(0, 0, 0, 0.5),
+    0 14px 30px rgba(0, 0, 0, 0.6);
 }
 
-.d-chip--round .d-chip__value {
-  color: #b6f08d;
+.d-round__icon {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 2px solid rgba(255, 122, 90, 0.42);
+  background: rgba(16, 5, 6, 0.65);
+  color: var(--d-ember);
 }
 
-.d-chip--timer .d-chip__value {
-  color: #fff;
-  font-size: clamp(11px, 1.3vw, 17px);
+.d-round__body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
 }
 
-.d-chip--timer.is-urgent .d-chip__value {
-  color: #ff9a8a;
-  animation: d-pulse 1s steps(2, end) infinite;
+.d-round__eyebrow {
+  color: var(--d-gold);
+  font-family: var(--d-font);
+  font-size: 8px;
+  letter-spacing: 1.6px;
+  text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.9);
+  white-space: nowrap;
 }
 
-@keyframes d-pulse {
-  50% {
-    opacity: 0.45;
-  }
+.d-round__name {
+  overflow: hidden;
+  color: #ffd9c8;
+  font-family: var(--d-font);
+  font-size: clamp(10px, 1.05vw, 14px);
+  letter-spacing: 0.6px;
+  text-overflow: ellipsis;
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.9);
+  white-space: nowrap;
 }
 
 .d-icon-btn {
@@ -197,8 +238,8 @@
 }
 
 .d-icon-btn:hover {
-  background: rgba(60, 66, 80, 0.92);
-  color: #fff;
+  border-color: var(--d-ember);
+  color: var(--d-ember);
 }
 
 .d-dev {
@@ -214,79 +255,29 @@
   letter-spacing: 1px;
 }
 
+
 /* ── Stage ───────────────────────────────────────────────────── */
 
 .dash__stage {
+  position: relative;
   display: grid;
-  grid-template-columns: minmax(0, auto) minmax(0, 1fr) clamp(230px, 21vw, 320px);
-  align-items: center;
-  gap: clamp(10px, 1.6vw, 24px);
+  place-items: center;
   min-height: 0;
 }
 
 /* ── Left: the character ─────────────────────────────────────── */
 
+/* Out of the grid flow entirely. As a centred grid cell Steve floated in the
+   middle of the sky; pinned to the bottom-left he stands on the terrain, and
+   the actions stay centred on the page rather than being pushed right by him. */
 .dash__hero {
+  position: absolute;
+  bottom: 0;
+  left: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
-
-.dash__gear {
-  order: 2;
-  padding: 7px 13px;
-  text-align: center;
-}
-
-.dash__gear b {
-  display: block;
-  color: var(--d-gold);
-  font-family: var(--d-font);
-  font-size: 8.5px;
-  font-weight: 400;
-  letter-spacing: 1.3px;
-}
-
-.dash__gear span {
-  display: block;
-  margin-top: 6px;
-  color: #fff;
-  font-size: 11px;
-}
-
-.dash__pills {
-  order: 3;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  width: 100%;
-}
-
-.d-pill {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 5px 9px;
-  border-left: 3px solid var(--pill, #6b7280);
-  background: rgba(12, 14, 20, 0.78);
-  color: #cdd3dd;
-  font-size: 10.5px;
-  line-height: 1.3;
-}
-
-.d-pill--on {
-  --pill: #6cc244;
-  color: #fff;
-}
-
-.d-pill--warn {
-  --pill: #f2c14e;
-}
-
-.d-pill--bad {
-  --pill: #e05b4b;
+  pointer-events: none;
 }
 
 /*
@@ -304,37 +295,38 @@
   background-size: 500% 100%;
   background-position-y: center;
   filter: drop-shadow(0 14px 22px rgba(0, 0, 0, 0.65));
-  animation: steve-idle 4.4s ease-in-out infinite;
 }
 
-@keyframes steve-idle {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-7px);
-  }
-}
-
-/* Keeps him standing on the terrain rather than floating over it. */
+/* The contact shadow under his feet. Without it he reads as pasted over the
+   terrain rather than standing on it — and an idle bob would undo the same
+   thing, so there deliberately isn't one. */
 .dash__hero::after {
   content: '';
-  order: 1;
-  width: min(62%, 190px);
-  height: 16px;
-  margin-top: -14px;
-  background: radial-gradient(50% 50% at 50% 50%, rgba(0, 0, 0, 0.6), transparent 72%);
+  width: min(66%, 200px);
+  height: 18px;
+  margin-top: -12px;
+  background: radial-gradient(50% 50% at 50% 50%, rgba(0, 0, 0, 0.62), transparent 72%);
 }
 
 /* ── Centre: the way in ──────────────────────────────────────── */
 
+/*
+ * The actions column.
+ *
+ * `--cta` is the primary button's width, and the secondary is exactly half of
+ * it — the two cannot be sized by their own text or "half" would drift with the
+ * label. The gap is deliberately tight: each caption is spaced to the button it
+ * belongs to (see the margins below) rather than sitting equidistant between
+ * two buttons, which made it look attached to neither.
+ */
 .dash__centre {
+  --cta: clamp(280px, 34vw, 460px);
+
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: clamp(8px, 1.4vh, 16px);
+  gap: 0;
   min-width: 0;
 }
 
@@ -342,18 +334,20 @@
   position: relative;
   display: grid;
   place-items: center;
+  width: var(--cta);
 }
 
 .d-enter {
   position: relative;
-  padding: clamp(14px, 2.2vh, 28px) clamp(30px, 4.6vw, 76px);
+  width: 100%;
+  padding: clamp(13px, 2vh, 25px) clamp(24px, 3.4vw, 58px);
   border: 3px solid #cba4ff;
   border-bottom-color: #6d34c0;
   border-right-color: #6d34c0;
   background: linear-gradient(180deg, #8437e0 0%, #5a1aa8 55%, #3d0f7d 100%);
   color: #fff;
   font-family: var(--d-font);
-  font-size: clamp(15px, 2.3vw, 34px);
+  font-size: clamp(14px, 1.9vw, 29px);
   letter-spacing: 2px;
   text-shadow: 3px 3px 0 rgba(0, 0, 0, 0.75);
   cursor: var(--mv-cursor-pickaxe, pointer);
@@ -397,6 +391,47 @@
   }
 }
 
+/*
+ * The rulebook, built like ENTER WORLD but in oak and brass.
+ *
+ * Same silhouette so the two read as a pair, a different material so the
+ * primary action still wins. Only ENTER WORLD pulses — if both glowed, neither
+ * would look like the thing to press.
+ */
+.d-enter--rules {
+  /* Sized to its label, capped at half the primary. A forced half-width left
+     the word swimming in a long empty bar; `auto` keeps it snug and lands near
+     40% of ENTER WORLD on its own. Declared after `.d-enter` on purpose — equal
+     specificity, so `width: 100%` there would otherwise win. */
+  width: auto;
+  max-width: calc(var(--cta) * 0.5);
+  margin-top: clamp(16px, 2.6vh, 30px);
+  padding: clamp(9px, 1.4vh, 15px) clamp(16px, 1.8vw, 28px);
+  font-size: clamp(10px, 1.1vw, 15px);
+  border-color: #e8bd7d;
+  border-bottom-color: #6b4520;
+  border-right-color: #6b4520;
+  background: linear-gradient(180deg, #b47c3c 0%, #8a5a24 55%, #5e3b14 100%);
+  box-shadow:
+    inset 0 0 30px rgba(245, 205, 145, 0.32),
+    0 0 34px rgba(190, 130, 60, 0.4),
+    0 9px 0 #40260c,
+    0 18px 34px rgba(0, 0, 0, 0.65);
+  animation: none;
+}
+
+.d-enter--rules:hover {
+  border-color: #f6dcb4;
+  background: linear-gradient(180deg, #c98d47 0%, #9d682b 55%, #6e4718 100%);
+}
+
+.d-enter--rules:active {
+  box-shadow:
+    inset 0 0 30px rgba(245, 205, 145, 0.32),
+    0 0 34px rgba(190, 130, 60, 0.4),
+    0 4px 0 #40260c;
+}
+
 /* Portal motes drifting off the button, as in the mock. Decorative only. */
 .d-mote {
   position: absolute;
@@ -423,6 +458,7 @@
 }
 
 .dash__enter-sub {
+  margin-top: clamp(7px, 1.1vh, 12px);
   color: var(--d-purple);
   font-family: var(--d-font);
   font-size: clamp(8px, 0.95vw, 12px);
@@ -430,168 +466,34 @@
   text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.85);
 }
 
+/* No panel behind it — it sits on the art. The gold and a hard shadow are what
+   keep it readable over the sunset and the water. */
 .dash__steps {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 6px 14px;
-  padding: 7px 16px;
-  color: #e3e7ee;
-  font-size: clamp(9px, 0.9vw, 12px);
-  letter-spacing: 0.6px;
+  margin-top: clamp(11px, 1.7vh, 19px);
+  gap: 4px 16px;
+  color: #f6d47c;
+  font-family: var(--d-font);
+  font-size: clamp(8px, 0.82vw, 11px);
+  letter-spacing: 1.4px;
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.9), 0 0 14px rgba(0, 0, 0, 0.85);
+  text-transform: uppercase;
 }
 
 .dash__steps span:not(:last-child)::after {
-  content: ' •';
-  color: var(--d-gold);
-}
-
-/* ── Right: the rail ─────────────────────────────────────────── */
-
-.dash__rail {
-  display: flex;
-  flex-direction: column;
-  gap: clamp(6px, 1vh, 11px);
-  min-width: 0;
-}
-
-.d-card {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  padding: clamp(8px, 1.3vh, 14px) 13px;
-  border-left-width: 3px;
-  border-left-color: var(--card, #6e7480);
-  color: inherit;
-  text-align: left;
-  text-decoration: none;
-  cursor: pointer;
-  transition: transform 0.12s ease, background 0.12s ease;
-}
-
-.d-card:hover {
-  background: rgba(34, 38, 50, 0.92);
-  transform: translateX(-4px);
-}
-
-.d-card__icon {
-  display: grid;
-  flex-shrink: 0;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  color: var(--card, #cdd3dd);
-}
-
-.d-card__body {
-  flex: 1;
-  min-width: 0;
-}
-
-.d-card__body b {
-  display: block;
-  color: #fff;
-  font-family: var(--d-font);
-  font-size: clamp(8.5px, 0.85vw, 11px);
-  font-weight: 400;
-  letter-spacing: 1px;
-  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.8);
-}
-
-.d-card__body span {
-  display: block;
-  margin-top: 4px;
-  color: var(--d-dim);
-  font-size: 10.5px;
-  line-height: 1.35;
-}
-
-.d-card__chev {
-  flex-shrink: 0;
-  color: var(--d-dim);
-}
-
-.d-card--rules {
-  --card: #f2c14e;
-}
-.d-card--board {
-  --card: #5ec8ee;
-}
-.d-card--qual {
-  --card: #6cc244;
-}
-.d-card--portal {
-  --card: #b072ff;
+  content: ' ◆';
+  color: rgba(246, 212, 124, 0.5);
 }
 
 /* ── Inventory foot ──────────────────────────────────────────── */
 
+/* The bar is the whole footer: no panel, no heading, just nine slots centred
+   under the stage. The slots carry their own frame already. */
 .dash__foot {
   display: flex;
-  align-items: flex-end;
-  gap: clamp(8px, 1.4vw, 18px);
-}
-
-.dash__inv {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 6px;
-  padding: 9px 12px;
-  min-width: 0;
-}
-
-.dash__inv-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.dash__inv-head b {
-  color: var(--d-gold);
-  font-family: var(--d-font);
-  font-size: 9px;
-  font-weight: 400;
-  letter-spacing: 1.2px;
-}
-
-.dash__inv-head span {
-  color: var(--d-dim);
-  font-size: 10.5px;
-}
-
-.dash__foot-actions {
-  display: flex;
-  flex-shrink: 0;
-  flex-direction: column;
-  gap: 7px;
-}
-
-.d-btn {
-  display: flex;
-  align-items: center;
   justify-content: center;
-  gap: 7px;
-  padding: 9px 13px;
-  border: 2px solid #6a7080;
-  border-top-color: #949cab;
-  border-left-color: #949cab;
-  border-bottom-color: #262a33;
-  border-right-color: #262a33;
-  background: rgba(58, 63, 76, 0.92);
-  color: #ffe98a;
-  font-family: var(--d-font);
-  font-size: 8.5px;
-  letter-spacing: 1.1px;
-  text-decoration: none;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.d-btn:hover {
-  background: rgba(78, 84, 100, 0.96);
-  color: #fff;
 }
 
 /* ── The map ─────────────────────────────────────────────────── */
@@ -1105,37 +1007,27 @@
   }
 }
 
-/* Below this the three-column stage cannot hold Steve, the button and the rail
-   at a readable size, so the avatar steps out and the rail keeps its place. */
+/* Below this Steve starts overlapping the buttons, so he steps out and the
+   actions keep the whole stage. */
 @media (max-width: 940px) {
-  .dash__stage {
-    grid-template-columns: minmax(0, 1fr) clamp(190px, 34vw, 260px);
-  }
-
   .dash__hero {
     display: none;
   }
 }
 
 @media (max-width: 700px) {
-  .dash__stage {
-    grid-template-columns: minmax(0, 1fr);
-    align-content: center;
-    gap: 12px;
+  /* Full-bleed primary on a phone. `--cta` drives both, so the secondary stays
+     half its width without a second rule. */
+  .dash__centre {
+    --cta: 100%;
+
+    width: 100%;
   }
 
-  .dash__rail {
-    flex-direction: row;
-    flex-wrap: wrap;
-  }
-
-  .d-card {
-    flex: 1 1 160px;
-  }
-
-  .d-card__body span,
-  .d-card__chev {
-    display: none;
+  /* --cta is a percentage here, so the max-width cap resolves against the
+     column rather than a pixel size. That is still half, which is what we want. */
+  .d-enter--rules {
+    max-width: 50%;
   }
 
   .dash__top-mid {
@@ -1144,19 +1036,6 @@
 
   .d-chip--team {
     display: none;
-  }
-
-  .dash__foot {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .dash__foot-actions {
-    flex-direction: row;
-  }
-
-  .d-btn {
-    flex: 1;
   }
 
   .rb {
@@ -1191,8 +1070,8 @@
 }
 
 /* Phones. The wordmark is the first thing to go — the page is unambiguous
-   without it — and the chips get their padding back so the round and the clock
-   stay readable rather than squeezing into each other. */
+   without it — and the chips get their padding back so the round plate stays
+   readable rather than squeezing into the rest of the bar. */
 @media (max-width: 560px) {
   .dash__brand {
     display: none;
@@ -1213,9 +1092,6 @@
     justify-content: flex-start;
   }
 
-  .dash__inv-head span {
-    display: none;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1223,11 +1099,6 @@
   .rb,
   .wm__art {
     animation: none !important;
-  }
-
-  .d-card:hover,
-  .wm__pin--open:hover {
-    transform: translate(0, 0);
   }
 
   .wm__pin--open:hover {

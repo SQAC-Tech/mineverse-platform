@@ -8,27 +8,51 @@ opens as a card over it and scrolls inside itself.
 
 ```
 ┌─ dash__top ────────────────────────────────────────────────────┐
-│ wordmark · team · day/round · countdown · dev flag · log out   │
+│ wordmark          team · day/round          dev flag · log out │
 ├─ dash__stage ──────────────────────────────────────────────────┤
-│  hero (Steve)      centre (ENTER WORLD)      rail (4 cards)    │
+│                        ENTER WORLD                             │
+│                   ✧ OPEN MINEVERSE MAP ✧                       │
+│                         RULEBOOK                               │
+│  Steve                EXPLORE ◆ COMPLETE ◆ …                   │
 ├─ dash__foot ───────────────────────────────────────────────────┤
-│ INVENTORY — nine slots                       resource history  │
+│                   nine slots, centred                          │
 └────────────────────────────────────────────────────────────────┘
 ```
 
+Steve is `position: absolute` at the bottom-left of the stage rather than a grid
+cell. As a centred cell he floated in the middle of the sky, and he pushed the
+actions off-centre; pinned to the floor he stands on the terrain and the buttons
+stay centred on the page. There is deliberately no idle bob — a bobbing
+character reads as hovering, which is the thing being fixed — so a contact
+shadow under his feet does that work instead.
+
+The two actions are stacked, not side by side. `--cta` on `.dash__centre` is the
+primary button's width; the secondary is capped at half of it but sized to its
+own label, because a forced half-width left the word swimming in a long empty
+bar. Each caption is spaced to the button it belongs to rather than sitting
+equidistant between two, so `.dash__centre` has `gap: 0` and the spacing is done
+with margins.
+
 The grid column is written `minmax(0, 1fr)` rather than left implicit. An `auto`
 column sizes to its widest child's max-content, so the top bar's chips made the
-grid wider than the viewport and `overflow: hidden` silently clipped the rail
-instead of letting anything shrink.
+grid wider than the viewport and `overflow: hidden` silently clipped the right
+edge instead of letting anything shrink.
 
 | Piece | File | Shows |
 |---|---|---|
-| Everything above | `dashboard-shell.tsx` | layout, polling, the countdown |
+| Everything above | `dashboard-shell.tsx` | layout and polling |
 | Steve | `steve-avatar.tsx` + `gear.ts` | the tier the team has actually reached |
 | Inventory | `components/game/inventory/Hotbar.tsx` | the same nine slots the rounds draw |
 | Map | `world-map.tsx` | one pin per round, the only way into a round |
 | Rulebook | `rulebook.tsx` | rules, rounds, question types, recipes, prices |
-| Resource history | `resource-ledger.tsx` | paginated `resource_ledger` |
+
+`resource-ledger.tsx` is still here but nothing imports it — the Resource History
+button was removed from the footer. It works; it just has no entry point. Delete
+it or give it one.
+
+The chrome uses the Nether palette from `.round-ui--nether` in round-ui.css —
+blackstone panels, dull crimson edges, one ember accent — rather than a second
+idea of what the Nether looks like.
 
 All of it reads one snapshot from `GET /api/dashboard/data`, polled every 10s and
 refetched on the `round_status` broadcast an admin sends when unlocking a round.
@@ -66,13 +90,23 @@ There is no empty-handed frame, so frame 0 draws a wooden pickaxe even before a
 team has crafted one. The caption is the part that has to be true, and it reads
 "No gear crafted yet". `tests/unit/dashboard/gear.test.ts` holds that line.
 
-## The rail
+## Pages with no way in
 
-PvP and the Marketplace are in the mock as dashboard destinations, but in this
-codebase they are round-scoped panels with no standalone routes — they open
-inside `CustomRoundShell` / `CaveRoundShell`. The rail links the four pages that
-actually exist: the rulebook card, `/leaderboard`, `/qualification`, and
-`/portal` once the team has qualified.
+The rail of link cards was removed, which leaves three routes unreachable from
+the dashboard:
+
+| Route | Reachable from |
+|---|---|
+| `/leaderboard` | nothing |
+| `/qualification` | nothing |
+| `/portal` | only `FinalBossUI`, which is itself behind the portal |
+
+They all work. Someone has to decide how teams get to them — a link in the round
+shells, an announcement with the URL, or bringing the cards back.
+
+PvP and the Marketplace were never dashboard destinations here in the first
+place: they are round-scoped panels inside `CustomRoundShell` / `CaveRoundShell`
+with no standalone routes.
 
 ## What is derived, not restated
 
@@ -101,12 +135,7 @@ if a literal price reappears in either consumer.
 | `can_enter` | Pin is clickable — `!is_locked && round_status === 'active'`, or dev unlock |
 | `unlocked_by_dev_mode` | Only enterable because the dev flag is on |
 | `completed_at` | Pin reads "Replay" |
-| `ends_at` | What the countdown counts against |
-
-The countdown runs against the server clock, not the browser's: `server_time`
-from each poll gives a skew that is applied before comparing to `ends_at`, so a
-laptop with a fast clock does not close the round early for that team alone. An
-`ends_at` in the past reads `CLOSED` rather than a red `00:00` counting forever.
+| `ends_at` | Unused since the countdown was removed |
 
 Round 0 — the pre-event screening qualifier — is filtered out of the "active
 round" search. It has no day and no biome, and it was winning that search and
