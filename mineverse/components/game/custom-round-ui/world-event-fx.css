@@ -1,0 +1,278 @@
+/*
+ * Ambient weather for a live world event.
+ *
+ * The event card used to announce a modifier in words and nothing else, so a
+ * doubled-reward window looked exactly like a calm one. These layers give each
+ * event a look you can catch out of the corner of your eye while you are
+ * reading a question — the point is peripheral, not decorative.
+ *
+ * Kept out of round-ui.css because that file is the shared *layout* for every
+ * biome; this is one panel's atmosphere and nothing else imports it.
+ *
+ * Particle fields are `box-shadow` stamps on a single pseudo-element rather
+ * than one node per drop. A rain field is ~60 particles: as DOM that is 60
+ * elements React has to keep alive on a screen already re-rendering a countdown
+ * every second, and as box-shadow it is one composited layer the GPU translates
+ * for free.
+ *
+ * Every field is stamped twice, at `y` and `y + 260px`, and animates over
+ * exactly 260px. The two end states are then the same set of pixels, so the
+ * loop has no visible seam — which is also why 260px is the tallest panel these
+ * cover: past that the field thins out rather than tiling.
+ */
+
+/* Only set while an effect is mounted, so an idle card keeps the panel's own
+   overflow and stacking behaviour untouched. `isolation` is what keeps the
+   z-index:-1 layer above the panel's background instead of behind the page. */
+.we-panel {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.we-fx {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  animation: we-fx-in 600ms ease-out both;
+}
+
+.we-fx::before,
+.we-fx::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  /* Stamps are plotted from the layer's top-left, so the transforms have to
+     pivot there too — a centred origin would shear the field off the card. */
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+/* The card fades its weather in rather than snapping it on: the announcement
+   toast has already fired by then, and two hard changes at once read as a
+   glitch. Nothing fades out — the event ending unmounts the layer outright. */
+@keyframes we-fx-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ── heavy_rain — Round 1, forest ─────────────────────────────── */
+
+/* Two sheets at different speeds is what sells depth; one sheet alone reads as
+   a texture scrolling past. The near sheet is twice as long and twice as
+   bright. `skewX` ahead of the translate leans the drops into the wind, and
+   because it shears an already-periodic field it does not reopen the seam. */
+.we-fx--rain {
+  background:
+    linear-gradient(180deg, rgba(196, 224, 246, 0.13), rgba(196, 224, 246, 0) 55%),
+    linear-gradient(0deg, rgb(from var(--rd-accent-deep) r g b / 26%), transparent 62%);
+}
+
+.we-fx--rain::before,
+.we-fx--rain::after {
+  width: 2px;
+  /* Rain is water first and forest second, so the accent only tints it. */
+  color: color-mix(in srgb, var(--rd-accent) 12%, #dcefff);
+  /* Overridden by the keyframes while they run; this is only what reduced
+     motion falls back to, and upright drops there would read as railings. */
+  transform: skewX(-9deg);
+}
+
+.we-fx--rain::before {
+  height: 9px;
+  opacity: 0.44;
+  animation: we-rain 1.15s linear infinite;
+  box-shadow:
+    221px 23px, 221px 283px, 60px 27px, 60px 287px, 154px 37px, 154px 297px, 6px 37px,
+    6px 297px, 81px 44px, 81px 304px, 26px 44px, 26px 304px, 147px 59px, 147px 319px,
+    179px 79px, 179px 339px, 124px 91px, 124px 351px, 103px 107px, 103px 367px,
+    338px 124px, 338px 384px, 249px 129px, 249px 389px, 239px 143px, 239px 403px,
+    311px 155px, 311px 415px, 172px 158px, 172px 418px, 132px 170px, 132px 430px,
+    60px 176px, 60px 436px, 119px 185px, 119px 445px, 327px 185px, 327px 445px,
+    6px 207px, 6px 467px, 109px 218px, 109px 478px, 166px 219px, 166px 479px,
+    11px 232px, 11px 492px, 85px 237px, 85px 497px, 87px 240px, 87px 500px,
+    121px 244px, 121px 504px, 267px 249px, 267px 509px, 229px 250px, 229px 510px;
+}
+
+.we-fx--rain::after {
+  height: 18px;
+  opacity: 0.74;
+  animation: we-rain 0.62s linear infinite;
+  box-shadow:
+    302px 22px, 302px 282px, 312px 63px, 312px 323px, 142px 76px, 142px 336px,
+    52px 84px, 52px 344px, 147px 102px, 147px 362px, -5px 111px, -5px 371px,
+    227px 168px, 227px 428px, 302px 169px, 302px 429px, 76px 180px, 76px 440px,
+    311px 181px, 311px 441px, 191px 186px, 191px 446px, 162px 212px, 162px 472px,
+    291px 212px, 291px 472px, 220px 215px, 220px 475px, 1px 217px, 1px 477px,
+    200px 223px, 200px 483px;
+}
+
+@keyframes we-rain {
+  from { transform: skewX(-9deg) translate3d(0, -260px, 0); }
+  to { transform: skewX(-9deg) translate3d(0, 0, 0); }
+}
+
+/* ── fertile_marsh — Round 2, cave ────────────────────────────── */
+
+/* The cave palette is blue, but a marsh turning fertile has to read green or
+   the panel just looks like the rest of Round 2 — so the accent is pulled most
+   of the way to a bog green rather than used raw. */
+.we-fx--marsh {
+  --we-spore: color-mix(in srgb, var(--rd-accent) 24%, #a4ef73);
+
+  background:
+    radial-gradient(58% 46% at 26% 96%, rgba(122, 214, 96, 0.28), transparent 68%),
+    radial-gradient(52% 44% at 78% 8%, rgb(from var(--rd-accent) r g b / 16%), transparent 66%),
+    linear-gradient(0deg, rgba(96, 186, 82, 0.17), transparent 58%);
+  /* The two blobs are oversized so there is somewhere to drift to; the damp
+     wash underneath is not, and stays put through the shimmer. */
+  background-size: 190% 190%, 190% 190%, 100% 100%;
+  background-position: 0% 100%, 100% 0%, 0 0;
+  /* Slow enough to be a change in the light rather than a moving object. */
+  animation:
+    we-fx-in 600ms ease-out both,
+    we-marsh-shimmer 9s ease-in-out infinite alternate;
+}
+
+.we-fx--marsh::before,
+.we-fx--marsh::after {
+  color: var(--we-spore);
+}
+
+.we-fx--marsh::before {
+  width: 2px;
+  height: 2px;
+  opacity: 0.45;
+  animation: we-marsh-rise-far 13s linear infinite;
+  box-shadow:
+    -3px 8px, -3px 268px, 293px 11px, 293px 271px, 125px 18px, 125px 278px, 167px 23px,
+    167px 283px, 89px 50px, 89px 310px, -4px 52px, -4px 312px, 19px 54px, 19px 314px,
+    276px 57px, 276px 317px, 83px 59px, 83px 319px, 213px 64px, 213px 324px,
+    156px 100px, 156px 360px, 285px 107px, 285px 367px, 157px 107px, 157px 367px,
+    152px 110px, 152px 370px, 182px 115px, 182px 375px, 3px 124px, 3px 384px,
+    40px 137px, 40px 397px, 308px 163px, 308px 423px, 85px 165px, 85px 425px,
+    327px 171px, 327px 431px, 253px 179px, 253px 439px, 253px 190px, 253px 450px,
+    208px 218px, 208px 478px, 286px 234px, 286px 494px, 31px 234px, 31px 494px,
+    87px 248px, 87px 508px;
+}
+
+.we-fx--marsh::after {
+  width: 3px;
+  height: 3px;
+  opacity: 0.8;
+  animation: we-marsh-rise 8.5s linear infinite;
+  box-shadow:
+    224px 17px, 224px 277px, 329px 18px, 329px 278px, 297px 65px, 297px 325px,
+    151px 76px, 151px 336px, 91px 100px, 91px 360px, 240px 133px, 240px 393px,
+    91px 135px, 91px 395px, 43px 161px, 43px 421px, 12px 187px, 12px 447px,
+    238px 193px, 238px 453px, 189px 196px, 189px 456px, 329px 212px, 329px 472px,
+    102px 245px, 102px 505px;
+}
+
+/* The sideways sway has to return to zero at both ends or the seam reopens, so
+   it peaks at the halfway mark instead of drifting one way for a whole cycle. */
+@keyframes we-marsh-rise {
+  0% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(5px, -130px, 0); }
+  100% { transform: translate3d(0, -260px, 0); }
+}
+
+@keyframes we-marsh-rise-far {
+  0% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(-4px, -130px, 0); }
+  100% { transform: translate3d(0, -260px, 0); }
+}
+
+@keyframes we-marsh-shimmer {
+  from { background-position: 0% 100%, 100% 0%, 0 0; }
+  to { background-position: 34% 62%, 66% 38%, 0 0; }
+}
+
+/* ── gold_rush — Round 3, mountain ────────────────────────────── */
+
+/* A sheen crossing the card, plus motes. The sheen is what makes this read as
+   metal; the mountain's orange accent on its own just looks like embers, which
+   is Round 4's job. */
+.we-fx--gold {
+  background:
+    linear-gradient(104deg, transparent 40%, rgb(from var(--rd-gold) r g b / 18%) 50%, transparent 60%),
+    radial-gradient(70% 52% at 50% 4%, rgb(from var(--rd-accent) r g b / 16%), transparent 70%);
+  background-size: 280% 100%, 100% 100%;
+  background-position: 150% 0, 0 0;
+  animation:
+    we-fx-in 600ms ease-out both,
+    we-gold-sweep 6.5s ease-in-out infinite;
+}
+
+.we-fx--gold::before,
+.we-fx--gold::after {
+  color: var(--rd-gold);
+}
+
+.we-fx--gold::before {
+  width: 2px;
+  height: 2px;
+  opacity: 0.5;
+  animation:
+    we-gold-drift 12s linear infinite,
+    we-gold-twinkle 2.7s ease-in-out infinite alternate;
+  box-shadow:
+    114px 1px, 114px 261px, 40px 17px, 40px 277px, 280px 39px, 280px 299px, 317px 43px,
+    317px 303px, 243px 50px, 243px 310px, 329px 67px, 329px 327px, 293px 75px,
+    293px 335px, 68px 111px, 68px 371px, 25px 118px, 25px 378px, 58px 143px,
+    58px 403px, 214px 155px, 214px 415px, 243px 156px, 243px 416px, 319px 158px,
+    319px 418px, 103px 159px, 103px 419px, 266px 165px, 266px 425px, 288px 175px,
+    288px 435px, 53px 182px, 53px 442px, 247px 196px, 247px 456px, 7px 221px,
+    7px 481px, 307px 224px, 307px 484px, 47px 241px, 47px 501px, 30px 244px,
+    30px 504px, 175px 249px, 175px 509px, 198px 251px, 198px 511px;
+}
+
+/* The only blur in the file. A glint is the one particle here that is light
+   rather than a solid pixel. The two layers twinkle on periods that never line
+   up, which is what stops the whole field flashing in unison. */
+.we-fx--gold::after {
+  width: 3px;
+  height: 3px;
+  opacity: 0.7;
+  color: color-mix(in srgb, var(--rd-gold) 66%, #fff6d8);
+  animation:
+    we-gold-drift 8s linear infinite,
+    we-gold-twinkle 1.6s ease-in-out infinite alternate;
+  animation-delay: 0s, -0.8s;
+  box-shadow:
+    57px 12px 2px, 57px 272px 2px, 209px 22px 2px, 209px 282px 2px, 167px 43px 2px,
+    167px 303px 2px, 211px 53px 2px, 211px 313px 2px, 218px 76px 2px, 218px 336px 2px,
+    155px 114px 2px, 155px 374px 2px, 261px 128px 2px, 261px 388px 2px, 38px 136px 2px,
+    38px 396px 2px, 149px 143px 2px, 149px 403px 2px, 286px 225px 2px, 286px 485px 2px,
+    229px 254px 2px, 229px 514px 2px, -5px 258px 2px, -5px 518px 2px;
+}
+
+@keyframes we-gold-drift {
+  0% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(7px, -130px, 0); }
+  100% { transform: translate3d(0, -260px, 0); }
+}
+
+@keyframes we-gold-twinkle {
+  from { opacity: 0.25; }
+  to { opacity: 0.95; }
+}
+
+@keyframes we-gold-sweep {
+  0%, 14% { background-position: 150% 0, 0 0; }
+  100% { background-position: -60% 0, 0 0; }
+}
+
+/* Motion off, atmosphere kept: the stamped fields stay where their first frame
+   puts them, so the card still reads as rained-on / spored / gilded without
+   anything moving. */
+@media (prefers-reduced-motion: reduce) {
+  .we-fx,
+  .we-fx::before,
+  .we-fx::after {
+    animation: none;
+  }
+}
