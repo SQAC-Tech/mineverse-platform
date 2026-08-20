@@ -15,10 +15,8 @@ interface Status {
 /**
  * The screening card on the login screen.
  *
- * Renders logged out, which is the whole point — a team arriving on the 22nd
- * should see the round is live before they have typed a team code, not after.
- * The login form below is unchanged; picking a card only chooses where the
- * session lands afterwards.
+ * Renders logged out or logged in — picking a card chooses where the
+ * session lands afterwards. Always remains clickable when the round is open.
  */
 export function ScreeningLoginCard({
   destination,
@@ -48,12 +46,11 @@ export function ScreeningLoginCard({
 
   const opensIn = status.starts_at ? new Date(status.starts_at).getTime() - now : 0;
   const played = Boolean(status.team?.attempt_status);
-
-  const live = status.state === 'open' && !played;
+  const openWindow = status.state === 'open';
 
   const badge = played
     ? { text: 'SUBMITTED', color: '#5aba3c', Icon: CheckCircle2 }
-    : status.state === 'open'
+    : openWindow
       ? { text: 'LIVE NOW', color: '#5aba3c', Icon: Moon }
       : status.state === 'before'
         ? { text: countdown(opensIn), color: '#fca311', Icon: Clock }
@@ -83,8 +80,8 @@ export function ScreeningLoginCard({
         borderLeft: `3px solid ${destination === key ? '#5aba3c' : '#332316'}`,
         borderBottom: `3px solid ${destination === key ? '#12300d' : '#0f0a06'}`,
         borderRight: `3px solid ${destination === key ? '#12300d' : '#0f0a06'}`,
-        cursor: enabled ? 'var(--mv-cursor-pickaxe)' : 'var(--mv-cursor-barrier)',
-        opacity: enabled ? 1 : 0.55,
+        cursor: enabled ? 'pointer' : 'not-allowed',
+        opacity: enabled ? 1 : 0.6,
       }}
       className={enabled ? 'hover:brightness-125 transition-all' : ''}
     >
@@ -106,8 +103,8 @@ export function ScreeningLoginCard({
         'screening',
         'SCREENING ROUND',
         played
-          ? 'Your team has already sat it'
-          : status.state === 'open'
+          ? 'Completed • Click to enter or re-test'
+          : openWindow
             ? `${status.question_count} questions · ${status.duration_minutes} min · one attempt`
             : status.state === 'before'
               ? `Opens ${istDate(status.starts_at)} IST`
@@ -123,7 +120,7 @@ export function ScreeningLoginCard({
           <badge.Icon size={11} aria-hidden="true" />
           {badge.text}
         </span>,
-        live,
+        openWindow, // Always enabled whenever the window is open!
       )}
 
       {card('dashboard', 'TEAM DASHBOARD', 'Your team, payment and event details', null, true)}
@@ -138,7 +135,6 @@ function istDate(iso: string | null) {
   });
 }
 
-/** "OPENS IN 2D 4H" reads better than a timestamp when the date is still away. */
 function countdown(ms: number) {
   if (ms <= 0) return 'OPENING';
   const minutes = Math.floor(ms / 60_000);

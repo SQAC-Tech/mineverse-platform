@@ -399,7 +399,17 @@
 
 .scr__btn:hover:not(:disabled) { color: var(--rd-ink); border-color: var(--rd-accent); }
 .scr__btn:disabled { cursor: not-allowed; opacity: 0.45; }
-.scr__btn:focus-visible { outline: 2px solid var(--rd-gold); outline-offset: 2px; }
+
+@keyframes gauntletShake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-6px); }
+  40%, 80% { transform: translateX(6px); }
+}
+
+.animate-shake {
+  animation: gauntletShake 0.4s ease-in-out;
+}
+
 
 .scr__btn--go {
   background: linear-gradient(180deg, var(--rd-accent) 0%, var(--rd-accent-deep) 100%);
