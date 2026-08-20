@@ -26,6 +26,7 @@ const NAV_GROUPS = [
     group: 'Screening',
     items: [
       { name: 'Screening Round', href: '/admin/screening', icon: Moon },
+      { name: 'Relay Data', href: '/admin/relay-data', icon: ClipboardList },
     ],
   },
   {

@@ -22,32 +22,32 @@ export async function GET() {
   return NextResponse.json({ success: true, data: result.data });
 }
 
-const answerSchema = z.object({
-  question_id: z.string().uuid(),
-  // The slot as displayed to this team, not an index into the stored options.
-  // The server maps it back through the attempt's shuffle before storing.
-  selected_slot: z.number().int().min(0).max(3),
+import { saveGauntletAnswer } from '@/lib/screening/service';
+
+const gauntletAnswerSchema = z.object({
+  puzzle_id: z.number().int().min(1).max(3),
+  answer: z.string().min(1).max(100),
 });
 
-/** Saves one answer. Called on every pick, so a dead laptop loses nothing. */
+/** Saves one puzzle answer in the Gauntlet flow. */
 export async function PUT(req: NextRequest) {
   const session = await getSession();
   if (!session) {
     return NextResponse.json({ success: false, error: { code: 'UNAUTHORIZED' } }, { status: 401 });
   }
 
-  // 25 questions in 30 minutes, with changes of mind. Generous, but bounded.
   if (!rateLimit(`screening-answer:${session.team_id}`, 300, 60_000)) {
     return NextResponse.json({ success: false, error: { code: 'RATE_LIMITED' } }, { status: 429 });
   }
 
   try {
-    const parsed = answerSchema.safeParse(await req.json());
+    const body = await req.json();
+    const parsed = gauntletAnswerSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json({ success: false, error: { code: 'INVALID_PAYLOAD' } }, { status: 400 });
     }
 
-    const result = await saveAnswer(session.team_id, parsed.data.question_id, parsed.data.selected_slot);
+    const result = await saveGauntletAnswer(session.team_id, parsed.data.puzzle_id, parsed.data.answer);
     if (!result.ok) {
       return NextResponse.json(
         { success: false, error: { code: result.code, message: result.message } },
@@ -61,6 +61,7 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ success: false, error: { code: 'SERVER_ERROR' } }, { status: 500 });
   }
 }
+
 
 /**
  * Hands the paper in.

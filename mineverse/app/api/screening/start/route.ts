@@ -1,16 +1,9 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth/session';
 import { rateLimit } from '@/lib/rate-limit';
 import { startAttempt } from '@/lib/screening/service';
 
-/**
- * Seals the team's paper and starts their 30 minutes.
- *
- * The only route in the screening that looks at the window at all. Everything
- * downstream reads the attempt's own deadline, which is what lets a 23:58
- * starter finish at 00:28.
- */
-export async function POST() {
+export async function POST(req: NextRequest) {
   const session = await getSession();
   if (!session) {
     return NextResponse.json({ success: false, error: { code: 'UNAUTHORIZED' } }, { status: 401 });
@@ -20,7 +13,17 @@ export async function POST() {
     return NextResponse.json({ success: false, error: { code: 'RATE_LIMITED' } }, { status: 429 });
   }
 
-  const result = await startAttempt(session.team_id);
+  let forceReset = req.nextUrl.searchParams.get('reset') === '1';
+  let year: number | undefined;
+  try {
+    const body = await req.json().catch(() => null);
+    if (body?.reset) forceReset = true;
+    if (body?.year) year = body.year;
+  } catch {
+    // optional body
+  }
+
+  const result = await startAttempt(session.team_id, { forceReset, year });
   if (!result.ok) {
     return NextResponse.json(
       { success: false, error: { code: result.code, message: result.message } },
@@ -30,3 +33,4 @@ export async function POST() {
 
   return NextResponse.json({ success: true, data: result.data });
 }
+

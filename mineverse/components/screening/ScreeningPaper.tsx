@@ -1,66 +1,94 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, ChevronRight, Flag, Loader2, Timer, WifiOff } from 'lucide-react';
+import { CheckCircle2, ChevronRight, Home, RefreshCw } from 'lucide-react';
 import { useProctorSession } from '@/components/game/proctor/ProctorProvider';
-import { SCREENING_QUESTION_COUNT } from '@/lib/screening/config';
+import { GAUNTLET_PUZZLES } from '@/lib/screening/config';
+import { GauntletTopBar } from './GauntletTopBar';
+import { GatekeeperDialogueBox } from './GatekeeperDialogueBox';
+import { InteractivePuzzleCanvas } from './InteractivePuzzleCanvas';
+import { ArcadeInputTerminal } from './ArcadeInputTerminal';
+import { ScreeningVideoBackground } from './ScreeningVideoBackground';
+import { TypewriterPromptText } from './TypewriterPromptText';
 import './screening-ui.css';
 
-interface Question {
-  id: string;
-  number: number;
-  prompt: string;
-  options: string[];
-  selected_slot: number | null;
-}
-
-interface Attempt {
+interface GauntletAttempt {
   attempt_id: string;
   deadline_at: string;
   seconds_remaining: number;
-  questions: Question[];
+  current_step?: number;
+  answers?: Record<number, string>;
   status: 'in_progress' | 'submitted' | 'expired';
   submitted_at: string | null;
+  year?: number;
+  word_assigned?: string;
+  image_assigned?: string;
+  code_snippets?: Record<string, string>;
 }
 
-const OPTION_KEYS = ['A', 'B', 'C', 'D'];
+const FINAL_VERDICT_TEXT = "You have successfully completed the screening round. Your timestamp has been noted. Results would be announced soon.";
 
-function clock(totalSeconds: number) {
-  const safe = Math.max(0, totalSeconds);
-  return `${String(Math.floor(safe / 60)).padStart(2, '0')}:${String(safe % 60).padStart(2, '0')}`;
-}
-
-/**
- * Prose stays prose; a bare row of numbers or a list becomes a monospace block.
- * A series like "2, 6, 12, 20, 30, ?" is markedly harder to read in a
- * proportional face, and these questions live or die on reading them right.
- */
-function promptBlocks(prompt: string) {
-  return prompt.split('\n').map((line) => ({
-    text: line,
-    mono: /^[\s\d,.\[\]?:+×x/-]+$/.test(line.trim()) && /\d/.test(line),
-  }));
-}
-
-export function ScreeningPaper({ initial }: { initial: Attempt }) {
+export function ScreeningPaper({ initial }: { initial: GauntletAttempt }) {
   const router = useRouter();
   const proctor = useProctorSession();
 
-  const [questions, setQuestions] = useState<Question[]>(initial.questions);
-  const [index, setIndex] = useState(0);
+  const [step, setStep] = useState<number>(initial.current_step || 1);
+  const [answers, setAnswers] = useState<Record<number, string>>(initial.answers || {});
+  const [inputVal, setInputVal] = useState<string>('');
   const [deadline] = useState(() => new Date(initial.deadline_at).getTime());
   const [now, setNow] = useState(() => Date.now());
-  const [saving, setSaving] = useState(false);
-  const [offline, setOffline] = useState(false);
-  const [confirming, setConfirming] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [eyeState, setEyeState] = useState<'neutral' | 'glowing' | 'angry'>('neutral');
+  const [selectedLang, setSelectedLang] = useState<string>('C++');
+  
+  // Sequence & Video States
+  const [videoCompleted, setVideoCompleted] = useState<boolean>(false);
+  const [showOutroVideo, setShowOutroVideo] = useState<boolean>(false);
+  const [outroEnded, setOutroEnded] = useState<boolean>(false);
+  const [isFinalCompleted, setIsFinalCompleted] = useState<boolean>(
+    initial.status === 'submitted' || initial.status === 'expired'
+  );
+  const [dialogueVisible, setDialogueVisible] = useState<boolean>(true);
+  const [dialogueText, setDialogueText] = useState<string | null>(null);
+  const [boardVisible, setBoardVisible] = useState<boolean>(false);
 
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [resetting, setResetting] = useState(false);
   const submittedRef = useRef(false);
+  const outroVideoRef = useRef<HTMLVideoElement>(null);
 
   const remaining = Math.max(0, Math.floor((deadline - now) / 1000));
-  const answered = questions.filter((question) => question.selected_slot !== null).length;
-  const current = questions[index];
+  
+  let currentPuzzle = GAUNTLET_PUZZLES.find((p) => p.id === step) || GAUNTLET_PUZZLES[0];
+  
+  // Dynamic replacement for Puzzle 1
+  if (step === 1 && initial.word_assigned) {
+    const wordUpper = initial.word_assigned.toUpperCase();
+    if (initial.year && initial.year >= 2 && initial.code_snippets) {
+      currentPuzzle = {
+        ...currentPuzzle,
+        title: "PUZZLE 1: The Code Oracle",
+        prompt: `The Server Admins have discovered an ancient algorithm guarding the core memory chunk. Predict the exact numeric output (final_power) that this program will print to the console. The output is your numeric PIN.`
+      };
+    } else {
+      currentPuzzle = {
+        ...currentPuzzle,
+        title: "PUZZLE 1: Crafting Combinatorics",
+        prompt: `The Iron Golem is guarding the main arena with a combination lock. The numeric PIN is exactly the number of unique ways you can arrange the letters of the word ${wordUpper} such that all the vowels always remain clustered together in a single unbroken block. What is the PIN to open the iron doors?`
+      };
+    }
+  }
+
+  // Dynamic replacement for Puzzle 3
+  if (step === 3 && initial.image_assigned) {
+    const imageName = initial.image_assigned.replace(/\.[^/.]+$/, ""); // strip extension
+    currentPuzzle = {
+      ...currentPuzzle,
+      prompt: `You hold a lamp forged in the ${imageName.toUpperCase()}, its eerie light revealing encrypted runes on the gate.\n\nThe Golem's voice echoes heavily:\n\n'The key lies in the origin of your light, but you must discard the physical vessel itself. Take only the two-word name of its home. Shift each letter of those words forward by the total number of characters they contain.'\n\nWhat is the final password?`
+    };
+  }
 
   useEffect(() => {
     const tick = window.setInterval(() => setNow(Date.now()), 1_000);
@@ -71,233 +99,480 @@ export function ScreeningPaper({ initial }: { initial: Attempt }) {
     async (auto: boolean) => {
       if (submittedRef.current) return;
       submittedRef.current = true;
-      setSubmitting(true);
       try {
         await fetch('/api/screening/attempt', { method: 'POST', keepalive: true });
       } catch {
-        // The server expires the attempt on its own deadline, so a failed
-        // request here delays the record rather than losing the paper.
+        // Handled server side
       }
-      // Ends the proctor session and leaves fullscreen before navigating, so the
-      // result screen is not stuck behind a fullscreen scrim.
       await proctor?.finish();
-      router.replace(auto ? '/screening/done?auto=1' : '/screening/done');
+      setIsFinalCompleted(true);
+      setDialogueText(FINAL_VERDICT_TEXT);
+      setDialogueVisible(true);
     },
-    [proctor, router],
+    [proctor],
   );
 
-  // The clock is the server's; this only notices when it has run out.
   useEffect(() => {
-    if (remaining === 0 && !submittedRef.current) void finish(true);
-  }, [remaining, finish]);
+    if (remaining === 0 && !submittedRef.current && !isFinalCompleted) void finish(true);
+  }, [remaining, finish, isFinalCompleted]);
 
-  const pick = async (slot: number) => {
-    if (!current || submittedRef.current) return;
+  useEffect(() => {
+    if (showOutroVideo) {
+      // Safety fallback timer: auto-reveal verdict after 5.5 seconds if video ends or stalls
+      const timer = setTimeout(() => {
+        setOutroEnded(true);
+        if (proctor) void proctor.finish().catch(() => {});
+      }, 5500);
+      return () => clearTimeout(timer);
+    }
+  }, [showOutroVideo, proctor]);
 
-    const previous = current.selected_slot;
-    // Optimistic: at 72 seconds a question, waiting on a round trip to see your
-    // own click is the wrong trade.
-    setQuestions((all) =>
-      all.map((question) => (question.id === current.id ? { ...question, selected_slot: slot } : question)),
-    );
-    setSaving(true);
+  const handleResetAttempt = async () => {
+    setResetting(true);
+    try {
+      await fetch('/api/screening/reset', { method: 'POST' });
+      window.location.href = '/screening?reset=1';
+    } catch {
+      window.location.href = '/screening?reset=1';
+    }
+  };
+
+  const handleSubmitPuzzle = async (e?: React.FormEvent, overrideAnswer?: string) => {
+    if (e) e.preventDefault();
+    const valueToSubmit = (overrideAnswer || inputVal).trim();
+    if (!valueToSubmit || loading || submittedRef.current) return;
+
+    setLoading(true);
+    setEyeState('glowing');
+    setErrorMsg(null);
+    setSuccessMsg(null);
 
     try {
       const res = await fetch('/api/screening/attempt', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question_id: current.id, selected_slot: slot }),
+        body: JSON.stringify({
+          puzzle_id: step,
+          answer: valueToSubmit,
+        }),
       });
+
       const json = await res.json();
+
       if (!json.success) {
         if (json.error?.code === 'TIME_UP') {
           void finish(true);
           return;
         }
-        throw new Error(json.error?.code ?? 'SAVE_FAILED');
+        // Wrong answer
+        const errStr = json.error?.message || currentPuzzle.errorMessage;
+        setEyeState('angry');
+        setErrorMsg(errStr);
+        setDialogueText(errStr);
+        setDialogueVisible(true);
+        setLoading(false);
+        setTimeout(() => {
+          setEyeState('neutral');
+          setDialogueVisible(false);
+        }, 3500);
+        return;
       }
-      setOffline(false);
+
+      // Success!
+      const data = json.data;
+      const succStr = data.message || currentPuzzle.successMessage;
+      setAnswers((prev) => ({ ...prev, [step]: inputVal.trim() }));
+      setEyeState('glowing');
+      setSuccessMsg(succStr);
+      setDialogueText(succStr);
+      setDialogueVisible(true);
+      setInputVal('');
+
+      if (data.completed || data.current_step > 3) {
+        // All 3 Puzzles Solved! Trigger Outro Video After_screening.mp4 at 1.5x speed!
+        setTimeout(() => {
+          setShowOutroVideo(true);
+        }, 1200);
+      } else {
+        setTimeout(() => {
+          setStep(data.current_step);
+          setEyeState('neutral');
+          setSuccessMsg(null);
+          setDialogueText(null);
+          setDialogueVisible(false);
+          setLoading(false);
+        }, 1500);
+      }
     } catch {
-      // Roll back rather than showing an answer the server does not have.
-      setQuestions((all) =>
-        all.map((question) => (question.id === current.id ? { ...question, selected_slot: previous } : question)),
-      );
-      setOffline(true);
-    } finally {
-      setSaving(false);
+      setEyeState('angry');
+      const errStr = 'Network error while validating answer. Please check your connection.';
+      setErrorMsg(errStr);
+      setDialogueText(errStr);
+      setDialogueVisible(true);
+      setLoading(false);
+      setTimeout(() => {
+        setEyeState('neutral');
+        setDialogueVisible(false);
+      }, 3500);
     }
   };
 
-  const go = (to: number) => setIndex(Math.max(0, Math.min(questions.length - 1, to)));
+  /* STEP A: INTRO VIDEO PLAYING */
+  if (!videoCompleted && !isFinalCompleted) {
+    return (
+      <div className="fixed inset-0 w-full h-full bg-stone-950 overflow-hidden select-none">
+        <ScreeningVideoBackground
+          playbackRate={1.5}
+          onVideoComplete={() => {
+            setVideoCompleted(true);
+            setDialogueVisible(true);
+          }}
+        />
+      </div>
+    );
+  }
 
-  // A, B, C, D pick; arrows move. Keeps hands off the mouse when the clock is short.
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (confirming || submittedRef.current) return;
-      const key = event.key.toUpperCase();
-      const slot = OPTION_KEYS.indexOf(key);
-      if (slot >= 0) { void pick(slot); return; }
-      if (event.key === 'ArrowRight') go(index + 1);
-      if (event.key === 'ArrowLeft') go(index - 1);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  });
 
-  const clockClass = useMemo(() => {
-    if (remaining <= 60) return 'scr__clock scr__clock--critical';
-    if (remaining <= 300) return 'scr__clock scr__clock--warn';
-    return 'scr__clock';
-  }, [remaining]);
 
-  if (!current) return null;
+  /* STEP D: OUTRO VIDEO PLAYING UPON COMPLETING ALL 3 PUZZLES (After_screening.mp4 at 1.5x speed) */
+  if (showOutroVideo) {
+    return (
+      <div className="fixed inset-0 w-full h-full bg-stone-950 overflow-hidden select-none z-50 flex flex-col justify-between">
+        {/* OUTRO VIDEO (Freezes on last frame upon completion) */}
+        <video
+          ref={outroVideoRef}
+          autoPlay
+          muted
+          playsInline
+          onPlay={() => {
+            if (outroVideoRef.current) outroVideoRef.current.playbackRate = 1.5;
+          }}
+          onLoadedMetadata={() => {
+            if (outroVideoRef.current) outroVideoRef.current.playbackRate = 1.5;
+          }}
+          onTimeUpdate={(e) => {
+            const v = e.currentTarget;
+            if (v.duration > 0 && v.currentTime >= v.duration - 0.4) {
+              setOutroEnded(true);
+              if (proctor) void proctor.finish().catch(() => {});
+            }
+          }}
+          onEnded={() => {
+            setOutroEnded(true);
+            if (proctor) void proctor.finish().catch(() => {});
+          }}
+          onError={() => {
+            setOutroEnded(true);
+          }}
+          className="absolute inset-0 w-full h-full object-cover"
+        >
+          <source src="/After_screening.mp4" type="video/mp4" />
+          <source src="/after_screening.mp4" type="video/mp4" />
+          <source src="/after screening.mp4" type="video/mp4" />
+        </video>
 
-  return (
-    <div className="round-ui--night scr">
-      <div className="scr__backdrop" aria-hidden="true" />
-      <div className="scr__shade" aria-hidden="true" />
-
-      <div className="scr__inner">
-        <header className="scr__bar">
-          <div className="scr__brand">
-            <b>Screening Round</b>
-            <span>One attempt · no going back after you submit</span>
-          </div>
-          <span className="scr__progress">
-            <b>{answered}</b> of {questions.length} answered
-          </span>
-          <div className={clockClass} role="timer" aria-live="off">
-            <Timer size={15} aria-hidden="true" />
-            {clock(remaining)}
-          </div>
-        </header>
-
-        <div className="scr__grid">
-          <nav className="scr__panel" aria-label="Question navigator">
-            <div className="scr__panel-head">Questions</div>
-            <div className="scr__nav">
-              {questions.map((question, position) => (
-                <button
-                  key={question.id}
-                  type="button"
-                  onClick={() => go(position)}
-                  aria-label={`Question ${question.number}${question.selected_slot !== null ? ', answered' : ', not answered'}`}
-                  aria-current={position === index ? 'true' : undefined}
-                  className={[
-                    'scr__dot',
-                    question.selected_slot !== null ? 'scr__dot--done' : '',
-                    position === index ? 'scr__dot--current' : '',
-                  ].filter(Boolean).join(' ')}
-                >
-                  {question.number}
-                </button>
-              ))}
-            </div>
-            <div className="scr__legend">
-              <div><span className="scr__swatch scr__swatch--done" /> Answered</div>
-              <div><span className="scr__swatch" /> Not answered yet</div>
-            </div>
-          </nav>
-
-          <section className="scr__panel scr__q">
-            <div className="scr__q-head">
-              <span className="scr__q-num">Question {current.number}</span>
-              <span className="scr__q-of">of {questions.length}</span>
-              {offline && (
-                <span className="scr__progress" style={{ color: 'var(--rd-bad)' }}>
-                  <WifiOff size={12} aria-hidden="true" /> Not saved — check your connection
-                </span>
-              )}
-            </div>
-
-            <div className="scr__prompt">
-              {promptBlocks(current.prompt).map((block, position) =>
-                block.text.trim() === '' ? null : block.mono ? (
-                  <pre key={position}>{block.text}</pre>
-                ) : (
-                  <p key={position}>{block.text}</p>
-                ),
-              )}
-            </div>
-
-            <div className="scr__options" role="radiogroup" aria-label={`Options for question ${current.number}`}>
-              {current.options.map((option, slot) => (
-                <button
-                  key={slot}
-                  type="button"
-                  role="radio"
-                  aria-checked={current.selected_slot === slot}
-                  className={`scr__opt ${current.selected_slot === slot ? 'scr__opt--on' : ''}`}
-                  onClick={() => void pick(slot)}
-                >
-                  <span className="scr__key" aria-hidden="true">{OPTION_KEYS[slot]}</span>
-                  <span>{option}</span>
-                </button>
-              ))}
-            </div>
-
-            <div className="scr__actions">
-              <span className="scr__saving">
-                {saving ? 'Saving…' : 'Every answer is saved as you pick it'}
-              </span>
-              <button type="button" className="scr__btn" onClick={() => go(index - 1)} disabled={index === 0}>
-                <ChevronLeft size={14} aria-hidden="true" /> Previous
-              </button>
-              {index < questions.length - 1 ? (
-                <button type="button" className="scr__btn scr__btn--go" onClick={() => go(index + 1)}>
-                  Save &amp; next <ChevronRight size={14} aria-hidden="true" />
-                </button>
-              ) : (
-                <button type="button" className="scr__btn scr__btn--submit" onClick={() => setConfirming(true)}>
-                  <Flag size={14} aria-hidden="true" /> Submit paper
-                </button>
-              )}
-            </div>
-          </section>
-        </div>
-
-        {/* Reachable from anywhere, not only the last question — a team that is
-            done at question 12 should not have to click through thirteen more. */}
-        {index < questions.length - 1 && (
-          <div style={{ display: 'flex', justifyContent: 'center' }}>
-            <button type="button" className="scr__btn scr__btn--submit" onClick={() => setConfirming(true)}>
-              <Flag size={14} aria-hidden="true" /> Submit paper and finish
+        {/* TOP SKIP BUTTON IF USER WANTS TO SEE VERDICT IMMEDIATELY */}
+        {!outroEnded && (
+          <div className="relative z-30 p-4 flex justify-end">
+            <button
+              type="button"
+              onClick={() => {
+                setOutroEnded(true);
+                if (proctor) void proctor.finish().catch(() => {});
+              }}
+              className="bg-stone-900/90 hover:bg-stone-800 border border-amber-500/60 text-amber-300 font-mono text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-xl cursor-pointer backdrop-blur"
+            >
+              <span>VIEW VERDICT &gt;</span>
             </button>
           </div>
         )}
-      </div>
 
-      {confirming && (
-        <div className="scr__modal" role="alertdialog" aria-modal="true" aria-labelledby="scr-confirm">
-          <div className="scr__modal-card">
-            <h2 id="scr-confirm">Submit your paper?</h2>
-            {answered < questions.length ? (
-              <p>
-                You have answered <strong>{answered} of {questions.length}</strong>. The other{' '}
-                <strong>{questions.length - answered}</strong> will be left blank.
+        {/* OVERLAY ON TOP OF LAST FRAME WHEN VIDEO ENDS */}
+        {outroEnded && (
+          <div className="relative z-20 h-full w-full flex flex-col justify-between p-4 bg-stone-950/75 backdrop-blur-md animate-in fade-in duration-500">
+            <GauntletTopBar remainingSeconds={0} />
+
+            <main className="flex-1 max-w-xl w-full mx-auto p-4 flex flex-col items-center justify-center relative z-30">
+              <div className="bg-stone-900/95 border-2 border-stone-800 rounded-2xl p-5 sm:p-6 shadow-2xl backdrop-blur relative overflow-hidden select-none w-full animate-in fade-in zoom-in-95 duration-500">
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-600 via-amber-500 to-emerald-600" />
+
+                {/* HEADER */}
+                <div className="flex items-center justify-between border-b border-stone-800 pb-2.5 mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs uppercase tracking-widest text-emerald-400 font-extrabold flex items-center gap-1.5">
+                      <span className="text-emerald-400 animate-pulse">✨</span> THE GATEKEEPER SPEAKS
+                    </span>
+                  </div>
+                  <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-stone-950 border border-stone-800 text-amber-400 font-bold">
+                    TRIALS COMPLETE
+                  </span>
+                </div>
+
+                {/* INNER DIALOGUE BOX */}
+                <div className="bg-stone-950/90 border border-stone-800 rounded-xl p-4 font-mono text-xs text-zinc-200 leading-relaxed shadow-inner flex flex-col gap-2 mb-5">
+                  <div className="flex items-center gap-1.5 text-amber-400 font-bold text-[10px] uppercase tracking-widest pb-1 border-b border-stone-900">
+                    <span>&gt;_ GOLEM VERDICT & MESSAGE LOG</span>
+                  </div>
+
+                  <p className="text-emerald-400 font-bold text-xs sm:text-sm leading-relaxed tracking-wide my-1">
+                    "{FINAL_VERDICT_TEXT}"
+                  </p>
+                </div>
+
+                {/* ACTION BUTTONS: RETURN TO MAIN SCREEN & RE-TEST */}
+                <div className="flex flex-col sm:flex-row items-center gap-3 w-full">
+                  <button
+                    type="button"
+                    onClick={() => router.push('/')}
+                    className="w-full sm:flex-1 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:from-emerald-500 hover:to-teal-500 text-stone-950 font-mono font-black py-3 px-4 rounded-xl transition-all shadow-[0_0_20px_rgba(16,185,129,0.4)] text-xs flex items-center justify-center gap-2 cursor-pointer uppercase tracking-widest"
+                  >
+                    <Home className="w-4 h-4 text-stone-950" />
+                    <span>RETURN TO MAIN SCREEN</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleResetAttempt}
+                    disabled={resetting}
+                    className="w-full sm:flex-1 bg-stone-950 hover:bg-stone-800 border border-stone-700 text-purple-300 font-mono font-bold py-3 px-4 rounded-xl transition-all text-xs flex items-center justify-center gap-2 cursor-pointer shadow-md disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-4 h-4 text-purple-400 ${resetting ? 'animate-spin' : ''}`} />
+                    <span>RE-TEST SCREENING</span>
+                  </button>
+                </div>
+              </div>
+            </main>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  /* STEP E: FINAL COMPLETION VERDICT DISPLAYED IN-PAGE MATCHING GATEKEEPER CARD DESIGN */
+  if (isFinalCompleted) {
+    return (
+      <div className="h-screen w-screen max-h-screen bg-stone-950 text-zinc-100 font-sans select-none flex flex-col justify-between overflow-hidden relative">
+        {/* BACKGROUND ATMOSPHERIC VIDEO */}
+        <ScreeningVideoBackground playbackRate={1.5} onVideoComplete={() => {}} />
+
+        {/* MINIMAL TOP BAR */}
+        <GauntletTopBar remainingSeconds={0} />
+
+        {/* CENTERED IN-PAGE GATEKEEPER VERDICT CARD MATCHING EXACT SCREENSHOT DESIGN */}
+        <main className="flex-1 max-w-xl w-full mx-auto p-4 flex flex-col items-center justify-center relative z-10">
+          <div className="bg-stone-900/95 border-2 border-stone-800 rounded-2xl p-5 sm:p-6 shadow-2xl backdrop-blur relative overflow-hidden select-none w-full animate-in fade-in zoom-in-95 duration-500">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-600 via-amber-500 to-emerald-600" />
+
+            {/* HEADER */}
+            <div className="flex items-center justify-between border-b border-stone-800 pb-2.5 mb-3">
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-xs uppercase tracking-widest text-emerald-400 font-extrabold flex items-center gap-1.5">
+                  <span className="text-emerald-400 animate-pulse">✨</span> THE GATEKEEPER SPEAKS
+                </span>
+              </div>
+              <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-stone-950 border border-stone-800 text-amber-400 font-bold">
+                TRIALS COMPLETE
+              </span>
+            </div>
+
+            {/* INNER DIALOGUE BOX (EXACT SCREENSHOT STYLE) */}
+            <div className="bg-stone-950/90 border border-stone-800 rounded-xl p-4 font-mono text-xs text-zinc-200 leading-relaxed shadow-inner flex flex-col gap-2 mb-5">
+              <div className="flex items-center gap-1.5 text-amber-400 font-bold text-[10px] uppercase tracking-widest pb-1 border-b border-stone-900">
+                <span>&gt;_ GOLEM VERDICT & MESSAGE LOG</span>
+              </div>
+
+              <p className="text-emerald-400 font-bold text-xs sm:text-sm leading-relaxed tracking-wide my-1">
+                "{FINAL_VERDICT_TEXT}"
               </p>
-            ) : (
-              <p>All {questions.length} questions are answered.</p>
-            )}
-            <p>This cannot be undone, and you cannot sit the paper again.</p>
-            <div className="scr__modal-actions">
-              <button type="button" className="scr__btn" onClick={() => setConfirming(false)} disabled={submitting}>
-                Keep working
-              </button>
+            </div>
+
+            {/* ACTION BUTTONS: RETURN TO MAIN SCREEN & RE-TEST */}
+            <div className="flex flex-col sm:flex-row items-center gap-3 w-full">
               <button
                 type="button"
-                className="scr__btn scr__btn--submit"
-                onClick={() => void finish(false)}
-                disabled={submitting}
+                onClick={() => router.push('/')}
+                className="w-full sm:flex-1 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:from-emerald-500 hover:to-teal-500 text-stone-950 font-mono font-black py-3 px-4 rounded-xl transition-all shadow-[0_0_20px_rgba(16,185,129,0.4)] text-xs flex items-center justify-center gap-2 cursor-pointer uppercase tracking-widest"
               >
-                {submitting ? <><Loader2 size={14} className="animate-spin" aria-hidden="true" /> Submitting…</> : 'Submit for good'}
+                <Home className="w-4 h-4 text-stone-950" />
+                <span>RETURN TO MAIN SCREEN</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleResetAttempt}
+                disabled={resetting}
+                className="w-full sm:flex-1 bg-stone-950 hover:bg-stone-800 border border-stone-700 text-purple-300 font-mono font-bold py-3 px-4 rounded-xl transition-all text-xs flex items-center justify-center gap-2 cursor-pointer shadow-md disabled:opacity-50"
+              >
+                <RefreshCw className={`w-4 h-4 text-purple-400 ${resetting ? 'animate-spin' : ''}`} />
+                <span>RE-TEST SCREENING</span>
               </button>
             </div>
           </div>
+        </main>
+      </div>
+    );
+  }
+
+  /* STEP B & C: POST-VIDEO SEQUENTIAL ENTRANCE FLOW */
+  return (
+    <div className="h-screen w-screen max-h-screen max-w-vw bg-stone-950 text-zinc-100 font-sans select-none flex flex-col justify-between overflow-hidden relative">
+      {/* BACKGROUND VIDEO */}
+      <ScreeningVideoBackground
+        playbackRate={1.5}
+        onVideoComplete={() => setVideoCompleted(true)}
+      />
+
+      {/* MINIMAL TOP BAR */}
+      <GauntletTopBar remainingSeconds={remaining} />
+
+      {/* MAIN SINGLE-FRAME 2-COLUMN OVERLAY CONTAINER */}
+      <main className="flex-1 max-w-7xl w-full mx-auto p-2.5 sm:p-3.5 grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch relative z-10 overflow-hidden">
+        {/* LEFT COLUMN: GATEKEEPER DIALOGUE */}
+        <div className="lg:col-span-5 flex flex-col justify-end overflow-hidden pointer-events-none">
+          <GatekeeperDialogueBox
+            step={step}
+            eyeState={eyeState}
+            customMessage={dialogueText}
+            isVisible={dialogueVisible}
+            onSpeechComplete={() => {
+              if (!dialogueText && !boardVisible) {
+                setTimeout(() => {
+                  setDialogueVisible(false);
+                  setBoardVisible(true);
+                }, 400);
+              }
+            }}
+          />
         </div>
-      )}
+
+        {/* RIGHT COLUMN: CARVED WOODEN QUEST BOARD (SHIFTED FAR-RIGHT) */}
+        <div className="lg:col-span-6 lg:col-start-7 mr-2 sm:mr-6 ml-auto max-w-xl w-full flex flex-col justify-between overflow-hidden">
+          {!boardVisible ? (
+            <div className="h-full flex items-center justify-end pr-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setDialogueVisible(false);
+                  setBoardVisible(true);
+                }}
+                className="bg-stone-900/90 hover:bg-stone-800 border border-stone-700 text-amber-300 font-mono text-xs px-4 py-2.5 rounded-xl flex items-center gap-2 shadow-2xl cursor-pointer backdrop-blur animate-pulse"
+              >
+                <span>SKIP SPEECH & OPEN BOARD</span>
+                <ChevronRight className="w-4 h-4 text-amber-400" />
+              </button>
+            </div>
+          ) : (
+            <div className="h-full flex flex-col justify-between bg-[#1a0f07] border-4 border-[#6b4226] rounded-2xl p-3 sm:p-4 shadow-[0_15px_40px_rgba(0,0,0,0.95)] relative overflow-hidden backdrop-blur-md animate-in fade-in slide-in-from-right-10 duration-700 max-h-[calc(100vh-65px)]">
+              {/* Metallic Corner Rivets */}
+              <div className="absolute top-1.5 left-1.5 w-3 h-3 border-t-2 border-l-2 border-amber-600/80 pointer-events-none" />
+              <div className="absolute top-1.5 right-1.5 w-3 h-3 border-t-2 border-r-2 border-amber-600/80 pointer-events-none" />
+              <div className="absolute bottom-1.5 left-1.5 w-3 h-3 border-b-2 border-l-2 border-amber-600/80 pointer-events-none" />
+              <div className="absolute bottom-1.5 right-1.5 w-3 h-3 border-b-2 border-r-2 border-amber-600/80 pointer-events-none" />
+
+              {/* Wooden Beam Accent */}
+              <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#4a2b16] via-[#854d27] to-[#4a2b16] border-b border-[#2d180b]" />
+
+              {/* BOARD HEADER & PROGRESS PEGS */}
+              <div className="flex-1 flex flex-col justify-between overflow-hidden">
+                <div className="flex items-center justify-between border-b border-[#4d2a15] pb-2 mb-2 bg-[#26150a]/90 -mx-3 sm:-mx-4 -mt-3 sm:-mt-4 p-3 rounded-t-xl">
+                  <div>
+                    <span className="font-mono text-[10px] uppercase font-bold text-amber-400 tracking-widest">
+                      QUEST PROGRESS • STAGE {step} OF 3
+                    </span>
+                    <h2 className="font-mono text-sm sm:text-base font-black text-amber-100 uppercase tracking-wide">
+                      {currentPuzzle.title}
+                    </h2>
+                  </div>
+
+                  {/* Wooden Peg Indicators */}
+                  <div className="flex items-center gap-1.5">
+                    {GAUNTLET_PUZZLES.map((p) => {
+                      const isDone = step > p.id;
+                      const isCurrent = step === p.id;
+                      return (
+                        <div
+                          key={p.id}
+                          className={`w-6 h-6 rounded border flex items-center justify-center font-mono text-xs font-bold transition-all shadow-inner ${
+                            isDone
+                              ? 'bg-[#153a1e] border-emerald-600 text-emerald-400'
+                              : isCurrent
+                              ? 'bg-[#4a2910] border-amber-400 text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.6)]'
+                              : 'bg-[#150b05] border-[#3f2210] text-amber-900'
+                          }`}
+                        >
+                          {isDone ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> : p.id}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* HIGH-READABILITY PROMPT CARD */}
+                <div
+                  className={`bg-[#120904]/95 border border-[#4d2a15] rounded-lg p-3.5 shadow-inner ${
+                    step === 1 || step === 3 ? 'flex-1 my-2 overflow-y-auto flex flex-col justify-start' : 'mb-2 max-h-[140px] overflow-y-auto'
+                  }`}
+                >
+                  <span className="text-[10px] font-mono text-amber-400 uppercase tracking-wider font-bold block mb-1.5 border-b border-[#3d200e] pb-1">
+                    Challenge Instructions:
+                  </span>
+                  <div className="font-sans text-xs sm:text-sm text-amber-100/90 leading-relaxed font-medium whitespace-pre-line">
+                    <TypewriterPromptText text={currentPuzzle.prompt} speed={14} />
+                  </div>
+                  
+                  {step === 1 && initial.year && initial.year >= 2 && initial.code_snippets && (
+                    <div className="mt-4 border border-[#3d200e] rounded bg-[#0a0502] overflow-hidden">
+                      <div className="flex border-b border-[#3d200e] bg-[#1a0f07]">
+                        {Object.keys(initial.code_snippets).map(lang => (
+                          <button
+                            key={lang}
+                            onClick={() => setSelectedLang(lang)}
+                            className={`px-3 py-1.5 text-xs font-mono font-bold transition-colors ${selectedLang === lang ? 'bg-[#3d200e] text-amber-400' : 'text-amber-700 hover:text-amber-500 hover:bg-[#26150a]'}`}
+                          >
+                            {lang}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="p-3 overflow-auto max-h-64">
+                        <pre className="font-mono text-xs text-emerald-400/90 leading-relaxed">
+                          {initial.code_snippets[selectedLang] || 'Code not found'}
+                        </pre>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* INTERACTIVE PUZZLE CANVAS SANDBOX */}
+                <InteractivePuzzleCanvas
+                  step={step}
+                  imageAssigned={initial.image_assigned}
+                  onSelectAnswer={(selectedAnswer) => {
+                    setInputVal(selectedAnswer);
+                    if (selectedAnswer === 'SLIDER_SOLVED') {
+                      void handleSubmitPuzzle(undefined, 'SLIDER_SOLVED');
+                    }
+                  }}
+                />
+              </div>
+
+              {/* ARCADE INPUT TERMINAL */}
+              <div className="mt-1.5 pt-2 border-t border-[#4d2a15]">
+                <ArcadeInputTerminal
+                  inputVal={inputVal}
+                  setInputVal={setInputVal}
+                  onSubmit={handleSubmitPuzzle}
+                  loading={loading}
+                  errorMsg={errorMsg}
+                  successMsg={successMsg}
+                  placeholderText={
+                    step === 1 ? 'Enter Wood Deficit (e.g. 20)' : step === 2 ? 'Rearrange blocks to restore matrix' : 'Enter Password (e.g. FPYI)'
+                  }
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </main>
     </div>
   );
 }
-
-export { SCREENING_QUESTION_COUNT };
