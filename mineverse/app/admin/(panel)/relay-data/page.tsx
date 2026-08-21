@@ -8,6 +8,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import RelayDataExportButton from '@/components/admin/RelayDataExportButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,6 +46,7 @@ export default async function RelayDataPage() {
             View the progress and answers for each team in the relay round.
           </p>
         </div>
+        <RelayDataExportButton attempts={attempts || []} />
       </div>
 
       <div className="border rounded-md">
