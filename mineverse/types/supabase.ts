@@ -1622,6 +1622,7 @@ export type Database = {
           sample_test_cases: Json
           time_limit_seconds: number | null
           type: string
+          variant_group: string | null
         }
         Insert: {
           auto_grade_strategy?: string | null
@@ -1643,6 +1644,7 @@ export type Database = {
           sample_test_cases?: Json
           time_limit_seconds?: number | null
           type: string
+          variant_group?: string | null
         }
         Update: {
           auto_grade_strategy?: string | null
@@ -1664,6 +1666,7 @@ export type Database = {
           sample_test_cases?: Json
           time_limit_seconds?: number | null
           type?: string
+          variant_group?: string | null
         }
         Relationships: [
           {
