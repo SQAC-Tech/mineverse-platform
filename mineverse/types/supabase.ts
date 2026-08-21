@@ -1688,6 +1688,12 @@ export type Database = {
           year1_status: string
           year2_answer: string | null
           year2_status: string
+          year3_answer: string | null
+          year3_status: string
+          year1_duration_seconds: number | null
+          year2_duration_seconds: number | null
+          year3_duration_seconds: number | null
+          year2_moves: number | null
         }
         Insert: {
           created_at?: string
@@ -1701,6 +1707,12 @@ export type Database = {
           year1_status?: string
           year2_answer?: string | null
           year2_status?: string
+          year1_duration_seconds?: number | null
+          year2_duration_seconds?: number | null
+          year3_duration_seconds?: number | null
+          year2_moves?: number | null
+          year3_answer?: string | null
+          year3_status?: string
         }
         Update: {
           created_at?: string
@@ -1714,6 +1726,12 @@ export type Database = {
           year1_status?: string
           year2_answer?: string | null
           year2_status?: string
+          year1_duration_seconds?: number | null
+          year2_duration_seconds?: number | null
+          year3_duration_seconds?: number | null
+          year2_moves?: number | null
+          year3_answer?: string | null
+          year3_status?: string
         }
         Relationships: [
           {

@@ -13,7 +13,7 @@ const PUZZLE_PHOTOS = [
 
 interface InteractivePuzzleCanvasProps {
   step: number;
-  onSelectAnswer?: (ans: string) => void;
+  onSelectAnswer?: (ans: string, moves?: number) => void;
   imageAssigned?: string;
 }
 
@@ -42,8 +42,8 @@ export function InteractivePuzzleCanvas({ step, onSelectAnswer, imageAssigned }:
         <PictureSliderPuzzle
           imageUrl={imageUrl}
           gridSize={3}
-          onSolve={(answer) => {
-            if (onSelectAnswer) onSelectAnswer(answer);
+          onSolve={(answer, moves) => {
+            if (onSelectAnswer) onSelectAnswer(answer, moves);
           }}
         />
       </div>

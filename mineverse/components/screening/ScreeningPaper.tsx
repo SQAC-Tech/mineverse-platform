@@ -41,6 +41,7 @@ export function ScreeningPaper({ initial }: { initial: GauntletAttempt }) {
   const [loading, setLoading] = useState<boolean>(false);
   const [eyeState, setEyeState] = useState<'neutral' | 'glowing' | 'angry'>('neutral');
   const [selectedLang, setSelectedLang] = useState<string>('C++');
+  const [puzzleStartTime, setPuzzleStartTime] = useState(() => Date.now());
   
   // Sequence & Video States
   const [videoCompleted, setVideoCompleted] = useState<boolean>(false);
@@ -137,7 +138,7 @@ export function ScreeningPaper({ initial }: { initial: GauntletAttempt }) {
     }
   };
 
-  const handleSubmitPuzzle = async (e?: React.FormEvent, overrideAnswer?: string) => {
+  const handleSubmitPuzzle = async (e?: React.FormEvent, overrideAnswer?: string, moves?: number) => {
     if (e) e.preventDefault();
     const valueToSubmit = (overrideAnswer || inputVal).trim();
     if (!valueToSubmit || loading || submittedRef.current) return;
@@ -147,6 +148,8 @@ export function ScreeningPaper({ initial }: { initial: GauntletAttempt }) {
     setErrorMsg(null);
     setSuccessMsg(null);
 
+    const durationSeconds = Math.floor((Date.now() - puzzleStartTime) / 1000);
+
     try {
       const res = await fetch('/api/screening/attempt', {
         method: 'PUT',
@@ -154,6 +157,8 @@ export function ScreeningPaper({ initial }: { initial: GauntletAttempt }) {
         body: JSON.stringify({
           puzzle_id: step,
           answer: valueToSubmit,
+          duration_seconds: durationSeconds,
+          moves: moves,
         }),
       });
 
@@ -196,6 +201,7 @@ export function ScreeningPaper({ initial }: { initial: GauntletAttempt }) {
       } else {
         setTimeout(() => {
           setStep(data.current_step);
+          setPuzzleStartTime(Date.now());
           setEyeState('neutral');
           setSuccessMsg(null);
           setDialogueText(null);
@@ -552,10 +558,10 @@ export function ScreeningPaper({ initial }: { initial: GauntletAttempt }) {
                 <InteractivePuzzleCanvas
                   step={step}
                   imageAssigned={initial.image_assigned}
-                  onSelectAnswer={(selectedAnswer) => {
+                  onSelectAnswer={(selectedAnswer, moves) => {
                     setInputVal(selectedAnswer);
                     if (selectedAnswer === 'SLIDER_SOLVED') {
-                      void handleSubmitPuzzle(undefined, 'SLIDER_SOLVED');
+                      void handleSubmitPuzzle(undefined, 'SLIDER_SOLVED', moves);
                     }
                   }}
                 />

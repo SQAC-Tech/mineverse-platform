@@ -25,6 +25,8 @@ export async function GET() {
 const gauntletAnswerSchema = z.object({
   puzzle_id: z.number().int().min(1).max(3),
   answer: z.string().min(1).max(100),
+  duration_seconds: z.number().int().optional(),
+  moves: z.number().int().optional(),
 });
 
 /** Saves one puzzle answer in the Gauntlet flow. */
@@ -45,7 +47,13 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ success: false, error: { code: 'INVALID_PAYLOAD' } }, { status: 400 });
     }
 
-    const result = await saveGauntletAnswer(session.team_id, parsed.data.puzzle_id, parsed.data.answer);
+    const result = await saveGauntletAnswer(
+      session.team_id,
+      parsed.data.puzzle_id,
+      parsed.data.answer,
+      parsed.data.duration_seconds,
+      parsed.data.moves
+    );
     if (!result.ok) {
       return NextResponse.json(
         { success: false, error: { code: result.code, message: result.message } },

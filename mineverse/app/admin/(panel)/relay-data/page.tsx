@@ -54,7 +54,12 @@ export default async function RelayDataPage() {
               <TableHead>Team</TableHead>
               <TableHead>Word</TableHead>
               <TableHead>Year 1 Answer</TableHead>
+              <TableHead>Y1 Duration</TableHead>
               <TableHead>Year 2 Answer</TableHead>
+              <TableHead>Y2 Duration</TableHead>
+              <TableHead>Y2 Moves</TableHead>
+              <TableHead>Year 3 Answer</TableHead>
+              <TableHead>Y3 Duration</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Submitted At</TableHead>
             </TableRow>
@@ -62,7 +67,7 @@ export default async function RelayDataPage() {
           <TableBody>
             {attempts?.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
+                <TableCell colSpan={11} className="text-center h-24 text-muted-foreground">
                   No submissions yet.
                 </TableCell>
               </TableRow>
@@ -82,11 +87,30 @@ export default async function RelayDataPage() {
                     )}
                   </TableCell>
                   <TableCell>
+                    {attempt.year1_duration_seconds ? `${attempt.year1_duration_seconds}s` : '-'}
+                  </TableCell>
+                  <TableCell>
                     {attempt.year2_answer ? (
                       <span className="font-mono text-green-600">{attempt.year2_answer}</span>
                     ) : (
                       <span className="text-muted-foreground text-sm italic">Pending</span>
                     )}
+                  </TableCell>
+                  <TableCell>
+                    {attempt.year2_duration_seconds ? `${attempt.year2_duration_seconds}s` : '-'}
+                  </TableCell>
+                  <TableCell>
+                    {attempt.year2_moves ? attempt.year2_moves : '-'}
+                  </TableCell>
+                  <TableCell>
+                    {attempt.year3_answer ? (
+                      <span className="font-mono text-green-600">{attempt.year3_answer}</span>
+                    ) : (
+                      <span className="text-muted-foreground text-sm italic">Pending</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {attempt.year3_duration_seconds ? `${attempt.year3_duration_seconds}s` : '-'}
                   </TableCell>
                   <TableCell>
                     {attempt.is_completed ? (

@@ -284,6 +284,8 @@ export async function saveGauntletAnswer(
   teamId: string,
   puzzleId: number,
   answerText: string,
+  durationSeconds?: number,
+  moves?: number,
 ): Promise<Result<{ success: boolean; current_step: number; message?: string; completed?: boolean; seconds_remaining: number }>> {
   const attempt = await loadAttempt(teamId);
   if (!attempt) return { ok: false, status: 404, code: 'NO_ATTEMPT' };
@@ -359,6 +361,44 @@ export async function saveGauntletAnswer(
   if (error) {
     console.error('Screening Gauntlet answer save failed:', error);
     return { ok: false, status: 500, code: 'SAVE_FAILED' };
+  }
+
+  // Update relay_screening_attempts for all 3 puzzles
+  if (puzzleId >= 1 && puzzleId <= 3) {
+    const relayUpdate: any = {
+      team_id: teamId,
+      word_assigned: optionOrder.word_assigned || 'UNKNOWN',
+    };
+    if (puzzleId === 1) {
+      relayUpdate.year1_answer = answerText.trim();
+      relayUpdate.year1_status = 'completed';
+      if (durationSeconds !== undefined) relayUpdate.year1_duration_seconds = durationSeconds;
+    }
+    if (puzzleId === 2) {
+      relayUpdate.year2_answer = answerText.trim();
+      relayUpdate.year2_status = 'completed';
+      if (durationSeconds !== undefined) relayUpdate.year2_duration_seconds = durationSeconds;
+      if (moves !== undefined) relayUpdate.year2_moves = moves;
+    }
+    if (puzzleId === 3) {
+      relayUpdate.year3_answer = answerText.trim();
+      relayUpdate.year3_status = 'completed';
+      if (durationSeconds !== undefined) relayUpdate.year3_duration_seconds = durationSeconds;
+      relayUpdate.is_completed = true;
+      relayUpdate.submitted_at = new Date().toISOString();
+    }
+
+    const { data: existingRelay } = await db
+      .from('relay_screening_attempts')
+      .select('id')
+      .eq('team_id', teamId)
+      .maybeSingle();
+
+    if (existingRelay) {
+      await db.from('relay_screening_attempts').update(relayUpdate).eq('team_id', teamId);
+    } else {
+      await db.from('relay_screening_attempts').insert(relayUpdate);
+    }
   }
 
   return {
