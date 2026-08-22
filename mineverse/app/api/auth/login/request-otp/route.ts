@@ -4,7 +4,7 @@ import { consumeRateLimit, retryHint, tooManyRequests } from '@/lib/rate-limit';
 import { clientIp } from '@/lib/request-ip';
 import { sendOtpEmail } from '@/lib/email';
 import { generateOtp, hashOtp } from '@/lib/auth/otp';
-import { getLoginState } from '@/lib/platform/settings';
+import { getLoginState, nextLoginOpening } from '@/lib/platform/settings';
 import { env } from '@/lib/env';
 import { verifyTurnstileToken } from '@/lib/turnstile';
 import { isDemoTeamCode } from '@/lib/gameplay/demo-teams';
@@ -80,7 +80,7 @@ export async function POST(req: Request) {
   if (!isDemoTeam && process.env.NODE_ENV === 'production') {
     const login = await getLoginState();
     if (!login.open) {
-      const opensOn = [login.screening_date, login.event_date].filter(Boolean).join(' and ');
+      const opensOn = nextLoginOpening(login);
       return NextResponse.json(
         {
           success: false,
