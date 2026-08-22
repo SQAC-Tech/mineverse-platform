@@ -4,23 +4,7 @@ import { hashOtp } from '@/lib/auth/otp';
 import { setSessionCookie, createSessionToken } from '@/lib/auth/session';
 import { env } from '@/lib/env';
 
-/**
- * The caller's address, as one value.
- *
- * `x-forwarded-for` is a *list* — `client, proxy1, proxy2` — and the client sits
- * first. Comparing the whole header meant a request that traversed one more hop
- * than the last one produced a different string for the same person and locked
- * their team out, which is not a failure anybody at a desk could diagnose.
- *
- * Note what this pin can and cannot do here. Every machine in the venue reaches
- * us through a single SRMIST NAT address, so teammates on the venue network all
- * match each other and a team that shares its OTP inside the hall is not stopped
- * by it at all — that is why the OTP is deliberately left alive below. What it
- * does stop is a login from somewhere else entirely, and what it risks is a team
- * that logged in from home first arriving on campus to a 403. Hence the release
- * action on the admin Teams screen: `POST /api/admin/teams` with
- * `{ action: 'release_login' }`.
- */
+// We still use this to populate the field so we know *where* they logged in from.
 function clientIp(req: Request): string {
   const forwarded = req.headers.get('x-forwarded-for');
   const first = forwarded?.split(',')[0]?.trim();
@@ -59,25 +43,24 @@ export async function POST(req: Request) {
   const ip = clientIp(req);
   const teamIp = challenge.teams.active_login_ip;
 
-  if (teamIp && teamIp !== ip && ip !== 'unknown') {
+  if (teamIp) {
     return NextResponse.json(
       {
         success: false,
         error:
-          'Your team is already logged in from another device or network. An organizer can release it from the admin Teams screen.',
+          'Your team has already logged in. Per rules, only one device is allowed. If your device crashed, an organizer must release your login from the admin Teams screen.',
       },
       { status: 403 },
     );
   }
 
-  if (!teamIp && ip !== 'unknown') {
-    await supabaseServer.from('teams').update({ active_login_ip: ip }).eq('id', challenge.team_id);
-  }
+  // Record the IP to lock out any further logins
+  await supabaseServer.from('teams').update({ active_login_ip: ip !== 'unknown' ? ip : 'recorded' }).eq('id', challenge.team_id);
 
   await setSessionCookie(token);
 
-  // Intentionally NOT deleting the OTP here so that multiple teammates 
-  // on the same network can still use it before it expires.
+  // We delete the OTP challenge here to prevent multiple uses of the same OTP.
+  await supabaseServer.from('otp_challenges').delete().eq('id', challenge_id);
 
   return NextResponse.json({ success: true, redirect: '/dashboard' });
 }
