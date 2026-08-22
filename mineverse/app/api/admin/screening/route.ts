@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
       window: {
         starts_at: round?.starts_at ?? null,
         ends_at: round?.ends_at ?? null,
-        state: windowState({ startsAt: round?.starts_at ?? null, endsAt: round?.ends_at ?? null }),
+        state: windowState({ startsAt: round?.starts_at ?? null, endsAt: round?.ends_at ?? null, status: round?.status ?? null }),
       },
       config: {
         duration_minutes: SCREENING_DURATION_MINUTES,

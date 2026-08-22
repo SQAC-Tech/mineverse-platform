@@ -81,3 +81,48 @@ describe('scoring constants', () => {
     }
   });
 });
+
+
+/**
+ * Closing the round has to close the round.
+ *
+ * `windowState` read the timestamps and nothing else, so marking the screening
+ * completed from the console did exactly nothing — the admin action writes
+ * `status` and leaves `ends_at` alone, and `ends_at` was all anyone read. An
+ * organizer who opened the qualifier early to test it could close it, watch the
+ * console agree, and still have it open to every team until the clock ran out.
+ */
+describe('the round status', () => {
+  const OPEN_NOW = at('2026-08-22T18:28:00Z');
+
+  it('closes the window even while the clock says open', () => {
+    expect(windowState({ ...WINDOW, status: 'active' }, OPEN_NOW)).toBe('open');
+    expect(windowState({ ...WINDOW, status: 'completed' }, OPEN_NOW)).toBe('closed');
+    expect(windowState({ ...WINDOW, status: 'locked' }, OPEN_NOW)).toBe('closed');
+  });
+
+  it('stops a team starting, which is the only thing the window gates', () => {
+    expect(canStart({ ...WINDOW, status: 'active' }, OPEN_NOW)).toBe(true);
+    expect(canStart({ ...WINDOW, status: 'completed' }, OPEN_NOW)).toBe(false);
+  });
+
+  it('cannot be re-opened by the clock alone', () => {
+    // A completed round is closed before its window, inside it, and after it.
+    for (const moment of [at('2026-08-21T18:00:00Z'), OPEN_NOW, at('2026-08-23T18:00:00Z')]) {
+      expect(windowState({ ...WINDOW, status: 'completed' }, moment)).toBe('closed');
+    }
+  });
+
+  it('leaves the pure boundary behaviour alone when no status is given', () => {
+    // The other tests in this file pass no status; an absent one must not be
+    // read as "not active" or every one of them would flip to closed.
+    expect(windowState(WINDOW, OPEN_NOW)).toBe('open');
+    expect(windowState({ ...WINDOW, status: null }, OPEN_NOW)).toBe('open');
+  });
+
+  it('still reports an unconfigured round as unset, not closed', () => {
+    // "Nobody has scheduled this" and "an organizer shut it" are different
+    // things and the console shows them differently.
+    expect(windowState({ startsAt: null, endsAt: null, status: 'locked' })).toBe('unset');
+  });
+});
