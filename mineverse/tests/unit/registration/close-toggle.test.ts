@@ -27,6 +27,35 @@ describe('the registration switch', () => {
     expect(route).toMatch(/403/);
   });
 
+  it('is enforced by the email-verification step that comes before it', () => {
+    // Gating `/api/register` alone left the door open one step further back: a
+    // closed form still mailed a verification code to anybody who asked, and
+    // only refused at the final submit. That spends real mail on people who
+    // cannot register, and tells them registration is live.
+    const send = read('app', 'api', 'otp', 'send', 'route.ts');
+    expect(send).toMatch(/isRegistrationOpen/);
+    expect(send).toMatch(/403/);
+
+    const verify = read('app', 'api', 'otp', 'verify', 'route.ts');
+    expect(verify).toMatch(/isRegistrationOpen/);
+    // Scoped to registration challenges — this route looks a challenge up by id
+    // alone, so an unconditional gate would break any other purpose using it.
+    expect(verify).toMatch(/purpose === 'registration'/);
+  });
+
+  it('closes the OTP send before the mail is spent', () => {
+    // Measured inside the handler, not the whole file — the imports name these
+    // same symbols at the top and would make any ordering look correct.
+    const send = read('app', 'api', 'otp', 'send', 'route.ts');
+    const body = send.slice(send.indexOf('export async function POST'));
+    const gate = body.indexOf('isRegistrationOpen');
+    const parse = body.indexOf('await req.json()');
+    const limit = body.indexOf('consumeRateLimit(');
+    expect(gate).toBeGreaterThan(-1);
+    expect(gate).toBeLessThan(parse);
+    expect(gate).toBeLessThan(limit);
+  });
+
   it('is checked before the request body is even read', () => {
     // A closed form has nothing to say about a malformed payload or a spent
     // rate-limit budget, and answering those first leaks that it is still live.

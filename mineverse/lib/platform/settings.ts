@@ -1,5 +1,5 @@
 import { supabaseServer } from '@/lib/supabase/server';
-import { isEventDay, isScreeningDay } from '@/lib/auth/otp';
+import { istDateString, isEventDay, isScreeningDay } from '@/lib/auth/otp';
 
 /**
  * Switches an organizer can flip without a redeploy.
@@ -26,6 +26,24 @@ const db = supabaseServer as unknown as {
     delete: () => { eq: (column: string, value: string) => PromiseLike<{ error: unknown }> };
   };
 };
+
+/**
+ * Round 0's window, read directly rather than through `lib/screening/service`.
+ *
+ * Keeps the login path off the screening module — this runs on every OTP
+ * request, and the alternative pulls the whole qualifier in behind it.
+ */
+const roundsDb = supabaseServer as unknown as {
+  from: (table: string) => {
+    select: (columns: string) => {
+      eq: (column: string, value: number) => {
+        maybeSingle: () => PromiseLike<{ data: { starts_at: string | null; ends_at: string | null } | null }>;
+      };
+    };
+  };
+};
+
+const SCREENING_ROUND_ID = 0;
 
 export const REGISTRATION_OPEN_KEY = 'registration_open';
 export const LOGIN_OPEN_KEY = 'login_open';
@@ -135,8 +153,82 @@ export async function clearRegistrationOverride(): Promise<boolean> {
  * wrong date on the evening of the qualifier means a redeploy while 90 teams
  * wait.
  */
-export function loginOpenDefault(now: Date = new Date()): boolean {
-  return isEventDay(now) || isScreeningDay(now);
+interface ScreeningWindowRow {
+  starts_at: string | null;
+  ends_at: string | null;
+}
+
+/** Cached alongside the settings, for the same reason: this is on the OTP path. */
+async function readScreeningWindow(): Promise<ScreeningWindowRow> {
+  const hit = cache.get(SCREENING_WINDOW_CACHE_KEY);
+  if (hit && hit.expiresAt > Date.now()) return hit.value as ScreeningWindowRow;
+
+  try {
+    const { data } = await roundsDb
+      .from('rounds')
+      .select('starts_at, ends_at')
+      .eq('id', SCREENING_ROUND_ID)
+      .maybeSingle();
+
+    const value: ScreeningWindowRow = { starts_at: data?.starts_at ?? null, ends_at: data?.ends_at ?? null };
+    cache.set(SCREENING_WINDOW_CACHE_KEY, { value, expiresAt: Date.now() + CACHE_TTL_MS });
+    return value;
+  } catch (error) {
+    console.error('Reading the screening window failed:', error);
+    return { starts_at: null, ends_at: null };
+  }
+}
+
+const SCREENING_WINDOW_CACHE_KEY = '__screening_window';
+
+/**
+ * Whether the schedule alone opens login.
+ *
+ * The screening day comes off round 0's own window first, and only falls back
+ * to `SCREENING_DATE`. That ordering matters: the window is set in the console
+ * by whoever schedules the qualifier, so it cannot drift from the day teams are
+ * actually told to turn up. An env var has to be set correctly in two places
+ * and is silently wrong in the third — which is exactly how the login screen
+ * ended up naming event day on the evening of the screening.
+ */
+export function loginOpenDefault(now: Date = new Date(), screeningStartsAt?: string | null): boolean {
+  if (isEventDay(now) || isScreeningDay(now)) return true;
+  return Boolean(screeningStartsAt) && istDateString(new Date(screeningStartsAt!)) === istDateString(now);
+}
+
+/**
+ * When login next opens, phrased for someone who turned up on the wrong day.
+ *
+ * The screening entry carries its time because that is what a team is waiting
+ * for; event day does not, because the reporting time is in their mail and the
+ * gate opens at midnight either way.
+ */
+export function nextLoginOpening(state: LoginState, now: Date = new Date()): string | null {
+  const options: Array<{ at: Date; label: string }> = [];
+
+  if (state.screening_starts_at) {
+    const at = new Date(state.screening_starts_at);
+    options.push({
+      at,
+      label: `${at.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short' })} at ${at.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour: 'numeric', minute: '2-digit', hour12: true })} for the screening round`,
+    });
+  }
+
+  if (state.event_date) {
+    const at = new Date(`${state.event_date}T00:00:00+05:30`);
+    options.push({
+      at,
+      label: new Date(`${state.event_date}T09:00:00+05:30`).toLocaleString('en-IN', {
+        timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short',
+      }),
+    });
+  }
+
+  const upcoming = options
+    .filter((option) => option.at.getTime() > now.getTime())
+    .sort((a, b) => a.at.getTime() - b.at.getTime());
+
+  return upcoming[0]?.label ?? null;
 }
 
 export interface LoginState {
@@ -146,11 +238,13 @@ export interface LoginState {
   scheduled: boolean;
   event_date: string | null;
   screening_date: string | null;
+  /** Round 0's window start, the authoritative screening day. */
+  screening_starts_at: string | null;
 }
 
 export async function getLoginState(now: Date = new Date()): Promise<LoginState> {
-  const scheduled = loginOpenDefault(now);
-  const stored = await readSetting(LOGIN_OPEN_KEY);
+  const [stored, window] = await Promise.all([readSetting(LOGIN_OPEN_KEY), readScreeningWindow()]);
+  const scheduled = loginOpenDefault(now, window.starts_at);
 
   return {
     open: typeof stored === 'boolean' ? stored : scheduled,
@@ -158,6 +252,7 @@ export async function getLoginState(now: Date = new Date()): Promise<LoginState>
     scheduled,
     event_date: process.env.EVENT_DATE ?? null,
     screening_date: process.env.SCREENING_DATE ?? null,
+    screening_starts_at: window.starts_at,
   };
 }
 

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { istDateString, isEventDay, isScreeningDay } from '@/lib/auth/otp';
-import { loginOpenDefault } from '@/lib/platform/settings';
+import { loginOpenDefault, nextLoginOpening, type LoginState } from '@/lib/platform/settings';
 
 /**
  * Teams have to be able to log in on the evening of their own qualifier.
@@ -102,5 +102,60 @@ describe('the route that enforces it', () => {
     // A team that turned up on the wrong evening needs to know which one is
     // right; "not today" sends them to the organizers' phones.
     expect(route).toMatch(/Login opens on/);
+  });
+});
+
+
+/**
+ * The refusal has to name the right day.
+ *
+ * It listed `SCREENING_DATE` and `EVENT_DATE` straight from the environment, so
+ * a deployment that had not set the first one told teams "Login opens on
+ * 2026-08-24" on the evening of the screening — the one day it most needed to
+ * be right. Round 0's window is the authoritative answer: it is set in the
+ * console by whoever schedules the qualifier, so it cannot drift from the day
+ * teams were told to turn up.
+ */
+describe('the screening day, taken from round 0', () => {
+  const withWindow = (startsAt: string | null): LoginState => ({
+    open: false,
+    source: 'schedule',
+    scheduled: false,
+    event_date: '2026-08-24',
+    screening_date: null,
+    screening_starts_at: startsAt,
+  });
+
+  it('opens login on the day the window starts, with no env var set', () => {
+    delete process.env.SCREENING_DATE;
+    expect(loginOpenDefault(SCREENING_EVENING, '2026-08-22T18:00:00+05:30')).toBe(true);
+  });
+
+  it('does not open login on other days', () => {
+    delete process.env.SCREENING_DATE;
+    expect(loginOpenDefault(DAY_BETWEEN, '2026-08-22T18:00:00+05:30')).toBe(false);
+  });
+
+  it('names the screening time, not event day, while the screening is still ahead', () => {
+    const noon = new Date('2026-08-22T12:00:00+05:30');
+    const label = nextLoginOpening(withWindow('2026-08-22T18:00:00+05:30'), noon);
+    expect(label).toMatch(/22 Aug/);
+    expect(label).toMatch(/6:00 pm/i);
+    expect(label).toMatch(/screening/i);
+  });
+
+  it('moves on to event day once the screening has started', () => {
+    const evening = new Date('2026-08-22T19:00:00+05:30');
+    expect(nextLoginOpening(withWindow('2026-08-22T18:00:00+05:30'), evening)).toBe('24 Aug');
+  });
+
+  it('falls back to event day when no window is set', () => {
+    const noon = new Date('2026-08-22T12:00:00+05:30');
+    expect(nextLoginOpening(withWindow(null), noon)).toBe('24 Aug');
+  });
+
+  it('says nothing rather than something wrong once every date is past', () => {
+    const after = new Date('2026-09-01T12:00:00+05:30');
+    expect(nextLoginOpening(withWindow('2026-08-22T18:00:00+05:30'), after)).toBeNull();
   });
 });
