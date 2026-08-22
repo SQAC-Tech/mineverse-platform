@@ -171,6 +171,8 @@ export function CaveRoundShell() {
   const [slot, setSlot] = useState(1);
   const [now, setNow] = useState(() => Date.now());
   const [offline, setOffline] = useState(false);
+  const [roundStatus, setRoundStatus] = useState<string | null>(null);
+  const [guardianUnlocked, setGuardianUnlocked] = useState(false);
 
   const refresh = useCallback(async () => {
     const [round, resourceResult, teamResult, historyResult] = await Promise.allSettled([
@@ -183,12 +185,34 @@ export function CaveRoundShell() {
     if (round.status === 'fulfilled' && round.value.success) {
       setQuestions(round.value.data.questions ?? []);
       setEndsAt(round.value.data.ends_at ?? null);
-    } else requestFailed = true;
+      setRoundStatus(round.value.data.status ?? null);
+      setGuardianUnlocked(round.value.data.guardian_unlocked ?? false);
+    } else {
+      // An organizer closing the round mid-play is not a network failure, and
+      // showing "offline" for it leaves the team staring at a paper the server
+      // has already stopped accepting. Same handling as the other biome rounds.
+      if (round.status === 'fulfilled' && !round.value.success) {
+        const code = round.value.error?.code;
+        if (code === 'ROUND_NOT_ACTIVE' || code === 'ROUND_LOCKED') {
+          toast.error('This round has been closed by an administrator.');
+          await proctor?.finish();
+          router.push('/dashboard');
+          return;
+        }
+      }
+      requestFailed = true;
+    }
     if (resourceResult.status === 'fulfilled' && resourceResult.value.success) setResourceData(resourceResult.value.data);
     else requestFailed = true;
     if (teamResult.status === 'fulfilled' && teamResult.value.success) setTeam(teamResult.value.team ?? null);
     if (historyResult.status === 'fulfilled' && historyResult.value.success) setHistory(historyResult.value.data.entries ?? []);
     setOffline(requestFailed);
+    // `proctor` and `router` are deliberately not dependencies. `useProctor`
+    // returns a fresh object every render, so listing it would give `refresh` a
+    // new identity each time and the 10s poll below — keyed on `refresh` — would
+    // be torn down and rebuilt before it ever fired. Both are only touched on
+    // the redirect path, where a render-old closure does the same thing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -233,7 +257,10 @@ export function CaveRoundShell() {
   const question = activeQuestions[currentIndex];
   const timeLeft = endsAt ? Math.max(0, Math.floor((new Date(endsAt).getTime() - now) / 1000)) : 0;
   const timer = timeParts(timeLeft);
-  const roundLocked = Boolean(endsAt) && timeLeft === 0;
+  // Closed by the clock or closed by an organizer; either way nothing more can
+  // be written, and the autosave below reads this to stop trying.
+  const roundLocked =
+    (Boolean(endsAt) && timeLeft === 0) || roundStatus === 'completed' || roundStatus === 'locked';
   const activeEvent = resourceData?.active_modifiers?.[0];
   const eventRemaining = activeEvent?.expires_at
     ? Math.max(0, Math.floor((new Date(activeEvent.expires_at).getTime() - now) / 1000))
@@ -654,6 +681,10 @@ export function CaveRoundShell() {
                 idleText="The cave is quiet. Organizers announce world events."
               />
 
+              {/* The boss is off until an organizer unlocks the round's toggle.
+                  `startGuardianBattle` refuses a locked boss on the server too,
+                  so this is the matching half rather than the whole gate. */}
+              {guardianUnlocked && (
               <section className="round-ui__panel round-ui__card">
                 <p className="round-ui__panel-title">Skeleton archer</p>
                 <div className="round-ui__art">
@@ -664,6 +695,7 @@ export function CaveRoundShell() {
                   <Swords size={16} /> Challenge
                 </button>
               </section>
+              )}
 
             </aside>
           ) : (
