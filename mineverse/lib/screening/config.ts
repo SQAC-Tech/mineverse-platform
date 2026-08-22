@@ -204,12 +204,33 @@ export const LATE_START_WARNING_MS = SCREENING_DURATION_MS;
 export interface ScreeningWindow {
   startsAt: string | null;
   endsAt: string | null;
+  /**
+   * `rounds.status`. Optional so the pure boundary tests can leave it out, but
+   * every real caller passes it — see the note in `windowState`.
+   */
+  status?: string | null;
 }
 
 export type WindowState = 'before' | 'open' | 'closed' | 'unset';
 
 export function windowState(window: ScreeningWindow, now: number = Date.now()): WindowState {
   if (!window.startsAt || !window.endsAt) return 'unset';
+
+  /**
+   * The round's own switch closes it, whatever the clock says.
+   *
+   * This checked the timestamps and nothing else, so closing the round from the
+   * console did exactly nothing: the admin action writes `status = 'completed'`
+   * and leaves `ends_at` alone, and `ends_at` was the only thing anyone read.
+   * An organizer who opened the qualifier early to test it could mark it closed,
+   * watch the console agree, and still have it open to all 90 teams until the
+   * clock happened to run out.
+   *
+   * Checked before the timestamps because it is the more authoritative of the
+   * two: the window is a schedule, and this is a human overriding it.
+   */
+  if (window.status !== undefined && window.status !== null && window.status !== 'active') return 'closed';
+
   if (now < new Date(window.startsAt).getTime()) return 'before';
   if (now >= new Date(window.endsAt).getTime()) return 'closed';
   return 'open';

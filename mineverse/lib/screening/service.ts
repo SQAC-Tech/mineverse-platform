@@ -175,7 +175,7 @@ export async function startAttempt(
     }
   }
 
-  if (!canStart({ startsAt: round.starts_at, endsAt: round.ends_at })) {
+  if (!canStart({ startsAt: round.starts_at, endsAt: round.ends_at, status: round.status })) {
     if (!DEV_OPEN_SCREENING) {
       return { ok: false, status: 403, code: 'WINDOW_CLOSED', message: 'The screening round is not open.' };
     }
