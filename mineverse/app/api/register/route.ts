@@ -6,9 +6,31 @@ import { supabaseServer } from '@/lib/supabase/server';
 import { sendRegistrationReceivedEmail } from '@/lib/email';
 import { env } from '@/lib/env';
 import { verifyTurnstileToken } from '@/lib/turnstile';
+import { isRegistrationOpen } from '@/lib/platform/settings';
 
 export async function POST(req: Request) {
   const ip = clientIp(req);
+
+  /**
+   * Registration has to be closed here, not only on the landing page.
+   *
+   * `registration_open` reached exactly two places — the landing page and
+   * `/api/event/config` — and both of them only decide whether to *show* the
+   * button. This endpoint never looked at it, so turning registration off hid
+   * the call to action and left the door open: `/register` still rendered for
+   * anyone holding the link, and a direct POST always worked. It is checked
+   * first, before the rate limit and before the body is read, because a closed
+   * form has nothing to say about either.
+   */
+  if (!(await isRegistrationOpen())) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Registrations are closed. Contact the organizers if you think this is a mistake.',
+      },
+      { status: 403 },
+    );
+  }
 
   // Flood guard only. Everyone registers from SRMIST wifi, which puts the whole
   // campus behind one public IP, so this budget is shared by hundreds of people
