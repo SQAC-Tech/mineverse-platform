@@ -29,21 +29,7 @@ import { CodeWorkspace } from '@/components/game/code/CodeWorkspace';
 import { runtimesFor } from '@/lib/gameplay/code/runtimes';
 import { useAnswerAutosave } from '@/hooks/useAnswerAutosave';
 import type { CraftedItem, DashboardProgress } from '@/features/dashboard/types';
-import {
-  RESOURCE_META,
-  buildQuestionTabs,
-  payoutList,
-  promptBlocks,
-  questionTypeLabel,
-  roundChrome,
-  roundChoice,
-  roundCraft,
-  roundGuardian,
-  roundObjective,
-  roundPvp,
-  type ResourceKey,
-  type ShellQuestion,
-} from './round-presentation';
+import { RESOURCE_META, buildQuestionTabs, languagePrompts, payoutList, promptBlocks, questionTypeLabel, roundChoice, roundChrome, roundCraft, roundGuardian, roundObjective, roundPvp, type ResourceKey, type ShellQuestion } from './round-presentation';
 import './round-ui.css';
 import { Hotbar } from '@/components/game/inventory/Hotbar';
 import { MinecraftCraftingTable } from './MinecraftCraftingTable';
@@ -93,16 +79,15 @@ function statusLabel(status: string | null) {
 
 /** `content` carries the question body, but only a string is safe to render. */
 function questionBody(question: Question, language: string | null) {
-  const contentObj = question.content as any;
-  if (contentObj && typeof contentObj === 'object' && contentObj.language_prompts) {
-    const prompts = contentObj.language_prompts;
-    if (language && prompts[language]) {
-      return prompts[language];
-    }
-    const firstKey = Object.keys(prompts)[0];
-    if (firstKey && prompts[firstKey]) {
-      return prompts[firstKey];
-    }
+  const prompts = languagePrompts(question);
+  if (prompts) {
+    // Falls back to any language's body before the generic prompt: for a coding
+    // question, another runtime's starter code still reads as the question,
+    // where the generic prompt may not. Kept as this shell had it — every live
+    // question carries all five runtimes, so it does not fire today.
+    if (language && prompts[language]) return prompts[language];
+    const first = Object.values(prompts)[0];
+    if (first) return first;
   }
   return typeof question.content === 'string' && question.content.trim() ? question.content : question.prompt;
 }
@@ -681,13 +666,10 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
                       <span className="round-ui__type-badge">{questionTypeLabel(currentQuestion.type)}</span>
                     </p>
                     {currentQuestion.title && <p className="round-ui__question-title">{currentQuestion.title}</p>}
-                    <QuestionPrompt question={currentQuestion} language={languages[currentQuestion.id] ?? runtimesFor(currentQuestion.language_options?.length ? currentQuestion.language_options : ['python', 'cpp', 'java', 'javascript', 'c'])[0]?.id ?? null} />
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                      <label className="round-ui__field-label" style={{ margin: 0 }} htmlFor={`answer-${currentQuestion.id}`}>Your answer</label>
-                      {['coding', 'code_completion', 'debugging', 'debug_output'].includes(currentQuestion.type) && (
+                    {['coding', 'code_completion', 'debugging', 'debug_output', 'output'].includes(currentQuestion.type) && (
+                      <div style={{ marginBottom: '16px' }}>
                         <select
-                          className="round-ui__field"
-                          style={{ width: 'auto', padding: '6px 12px', fontSize: '13px', display: 'block', backgroundColor: 'rgba(255, 255, 255, 0.1)', color: '#fff', border: '1px solid rgba(255, 255, 255, 0.2)', borderRadius: '4px', cursor: 'pointer', appearance: 'auto' }}
+                          style={{ width: 'auto', padding: '6px 12px', fontSize: '13px', display: 'inline-block', backgroundColor: 'rgba(0, 0, 0, 0.6)', color: '#fff', border: '1px solid rgba(255, 255, 255, 0.2)', borderRadius: '4px', cursor: 'pointer', appearance: 'auto', minHeight: 'auto', fontFamily: 'var(--rd-font-mono)' }}
                           value={languages[currentQuestion.id] ?? runtimesFor(currentQuestion.language_options?.length ? currentQuestion.language_options : ['python', 'cpp', 'java', 'javascript', 'c'])[0]?.id ?? ''}
                           onChange={(e) => {
                             setLanguages((prev) => ({ ...prev, [currentQuestion.id]: e.target.value }));
@@ -701,7 +683,11 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
                             </option>
                           ))}
                         </select>
-                      )}
+                      </div>
+                    )}
+                    <QuestionPrompt question={currentQuestion} language={languages[currentQuestion.id] ?? runtimesFor(currentQuestion.language_options?.length ? currentQuestion.language_options : ['python', 'cpp', 'java', 'javascript', 'c'])[0]?.id ?? null} />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <label className="round-ui__field-label" style={{ margin: 0 }} htmlFor={`answer-${currentQuestion.id}`}>Your answer</label>
                     </div>
                     {usesEditor(currentQuestion) ? (
                       <>
@@ -874,37 +860,6 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
 
         <div className="round-ui__foot">
           <section className="round-ui__panel round-ui__inventory">
-            {craft && (
-              <div className="round-ui__inventory-actions" style={{ position: 'relative' }}>
-                <button
-                  type="button"
-                  className="mc-crafting-toggle-btn"
-                  onClick={() => setCraftingOpen(!craftingOpen)}
-                  title="Open Crafting Table"
-                >
-                  <img src="/crafting_table_icon.png" alt="Crafting Table" />
-                </button>
-                {craftingOpen && (
-                  <div className="mc-crafting-popover">
-                    <button 
-                      className="mc-crafting-close" 
-                      onClick={() => setCraftingOpen(false)}
-                      title="Close"
-                    >×</button>
-                    <MinecraftCraftingTable
-                      craft={craft}
-                      canCraft={canCraft}
-                      crafting={crafting}
-                      craftShortfall={craftShortfall}
-                      onCraft={() => {
-                        void craftRoundItem();
-                        if (canCraft) setCraftingOpen(false);
-                      }}
-                    />
-                  </div>
-                )}
-              </div>
-            )}
             <div className="round-ui__inventory-main">
               <div className="round-ui__inventory-head">
                 <b>YOUR INVENTORY</b>
@@ -1003,6 +958,38 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
             />
           </div>
         </div>
+      )}
+
+      {craft && (
+        <>
+          <button
+            type="button"
+            className="mc-crafting-toggle-btn"
+            onClick={() => setCraftingOpen(!craftingOpen)}
+            title="Open Crafting Table"
+          >
+            <img src="/crafting.svg" alt="Crafting Table" />
+          </button>
+          {craftingOpen && (
+            <div className="mc-crafting-popover">
+              <button 
+                className="mc-crafting-close" 
+                onClick={() => setCraftingOpen(false)}
+                title="Close"
+              >×</button>
+              <MinecraftCraftingTable
+                craft={craft}
+                canCraft={canCraft}
+                crafting={crafting}
+                craftShortfall={craftShortfall}
+                onCraft={() => {
+                  void craftRoundItem();
+                  if (canCraft) setCraftingOpen(false);
+                }}
+              />
+            </div>
+          )}
+        </>
       )}
     </main>
   );

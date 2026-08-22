@@ -14,7 +14,6 @@ import {
   Clock3,
   CloudRain,
   Flag,
-  Hammer,
   Home,
   LockKeyhole,
   Pickaxe,
@@ -36,7 +35,7 @@ import { ChoicePanel } from '@/components/game/choices/ChoicePanel';
 import { GuardianArena } from './GuardianArena';
 import { NotificationTray, type LedgerEntry } from './NotificationTray';
 import { WorldEvent } from './WorldEvent';
-import { payoutList, promptBlocks, questionTypeLabel, roundGuardian } from './round-presentation';
+import { languagePrompts, payoutList, promptBlocks, questionTypeLabel, roundGuardian } from './round-presentation';
 import './round-ui.css';
 
 type CaveTab = 'aptitudes' | 'debugging' | 'completion' | 'output';
@@ -119,26 +118,6 @@ function statusLabel(status: string | null) {
   return status.replace(/_/g, ' ');
 }
 
-/** `content` carries the question body, but only a string is safe to render. */
-function questionBody(question: Question) {
-  return typeof question.content === 'string' && question.content.trim() ? question.content : question.prompt;
-}
-
-/** Prose stays prose; code goes into a real code block. */
-function QuestionPrompt({ question }: { question: Question }) {
-  return (
-    <div className="round-ui__prompt-blocks">
-      {promptBlocks(questionBody(question)).map((block, index) =>
-        block.kind === 'code' ? (
-          <pre key={index} className="round-ui__code"><code>{block.body}</code></pre>
-        ) : (
-          <p key={index} className="round-ui__prompt">{block.body}</p>
-        ),
-      )}
-    </div>
-  );
-}
-
 function initials(name: string | null | undefined) {
   if (!name) return 'MV';
   const words = name.trim().split(/\s+/).slice(0, 2);
@@ -160,6 +139,7 @@ export function CaveRoundShell() {
   const [endsAt, setEndsAt] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<CaveTab>('aptitudes');
   const [activeIndexes, setActiveIndexes] = useState<Record<CaveTab, number>>({ aptitudes: 0, debugging: 0, completion: 0, output: 0 });
+  const [languages, setLanguages] = useState<Record<string, string>>({});
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [lockingSection, setLockingSection] = useState(false);
@@ -255,6 +235,12 @@ export function CaveRoundShell() {
   const activeQuestions = grouped[activeTab];
   const currentIndex = Math.min(activeIndexes[activeTab], Math.max(0, activeQuestions.length - 1));
   const question = activeQuestions[currentIndex];
+  
+  const currentLanguage = question ? (languages[question.id] ?? runtimesFor(question.language_options?.length ? question.language_options : ['python', 'cpp', 'java', 'javascript', 'c'])[0]?.id ?? 'python') : 'python';
+  // The language-specific body when the question has one for the selected
+  // runtime, the generic prompt otherwise. See `languagePrompts`.
+  const activePrompt = (question && languagePrompts(question)?.[currentLanguage]) ?? question?.prompt ?? '';
+
   const timeLeft = endsAt ? Math.max(0, Math.floor((new Date(endsAt).getTime() - now) / 1000)) : 0;
   const timer = timeParts(timeLeft);
   // Closed by the clock or closed by an organizer; either way nothing more can
@@ -575,7 +561,32 @@ export function CaveRoundShell() {
                       <span className="round-ui__type-badge">{questionTypeLabel(question.type)}</span>
                     </p>
                     {question.title && <p className="round-ui__question-title">{question.title}</p>}
-                    <QuestionPrompt question={question} />
+                    
+                    {['coding', 'code_completion', 'debugging', 'debug_output', 'output'].includes(question.type) && (
+                      <div style={{ marginBottom: '16px' }}>
+                        <select
+                          style={{ width: 'auto', padding: '6px 12px', fontSize: '13px', display: 'inline-block', backgroundColor: 'rgba(0, 0, 0, 0.6)', color: '#fff', border: '1px solid rgba(255, 255, 255, 0.2)', borderRadius: '4px', cursor: 'pointer', appearance: 'auto', minHeight: 'auto', fontFamily: 'var(--rd-font-mono)' }}
+                          value={currentLanguage}
+                          onChange={(e) => setLanguages((prev) => ({ ...prev, [question.id]: e.target.value }))}
+                          disabled={readOnly}
+                        >
+                          {runtimesFor(question.language_options?.length ? question.language_options : ['python', 'cpp', 'java', 'javascript', 'c']).map((rt) => (
+                            <option key={rt.id} value={rt.id}>{rt.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    <div className="round-ui__prompt-blocks">
+                      {promptBlocks(activePrompt).map((block, index) =>
+                        block.kind === 'code' ? (
+                          <pre key={index} className="round-ui__code"><code>{block.body}</code></pre>
+                        ) : (
+                          <p key={index} className="round-ui__prompt">{block.body}</p>
+                        ),
+                      )}
+                    </div>
+                    
                     <label className="round-ui__field-label" htmlFor={`cave-answer-${question.id}`}>Your answer</label>
                     <textarea
                       id={`cave-answer-${question.id}`}
@@ -729,8 +740,13 @@ export function CaveRoundShell() {
               <Hotbar balance={resourceData?.balance} activeSlot={slot} onSelect={setSlot} />
             </div>
             <div className="round-ui__inventory-actions">
-              <button type="button" className="round-ui__craft" onClick={() => setModal('crafting')}>
-                <Hammer size={15} /> Craft stone pickaxe
+              <button
+                type="button"
+                className="mc-crafting-toggle-btn"
+                onClick={() => setModal('crafting')}
+                title="Open Crafting Table"
+              >
+                <img src="/crafting.svg" alt="Crafting Table" />
               </button>
               <button type="button" className="round-ui__craft round-ui__craft--alt" onClick={() => setModal('marketplace')}>
                 <ShoppingBag size={15} /> Marketplace
