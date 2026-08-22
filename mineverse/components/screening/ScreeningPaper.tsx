@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { CheckCircle2, ChevronRight, Home, RefreshCw } from 'lucide-react';
+import { toast } from 'sonner';
 import { useProctorSession } from '@/components/game/proctor/ProctorProvider';
 import { DEV_OPEN_SCREENING, GAUNTLET_PUZZLES } from '@/lib/screening/config';
 import { GauntletTopBar } from './GauntletTopBar';
@@ -50,6 +51,12 @@ export function ScreeningPaper({ initial }: { initial: GauntletAttempt }) {
   const [isFinalCompleted, setIsFinalCompleted] = useState<boolean>(
     initial.status === 'submitted' || initial.status === 'expired'
   );
+  
+  useEffect(() => {
+    if (isFinalCompleted) {
+      router.push('/');
+    }
+  }, [isFinalCompleted, router]);
   const [dialogueVisible, setDialogueVisible] = useState<boolean>(true);
   const [dialogueText, setDialogueText] = useState<string | null>(null);
   const [boardVisible, setBoardVisible] = useState<boolean>(false);
@@ -107,10 +114,14 @@ export function ScreeningPaper({ initial }: { initial: GauntletAttempt }) {
       }
       await proctor?.finish();
       setIsFinalCompleted(true);
-      setDialogueText(disqualified ? 'You have been disqualified for violating proctor rules.' : FINAL_VERDICT_TEXT);
-      setDialogueVisible(true);
+      if (disqualified) {
+        toast.error('You have been disqualified for violating proctor rules.');
+      } else {
+        toast.success(FINAL_VERDICT_TEXT);
+      }
+      router.push('/');
     },
-    [proctor],
+    [proctor, router],
   );
 
   useEffect(() => {
@@ -127,10 +138,12 @@ export function ScreeningPaper({ initial }: { initial: GauntletAttempt }) {
       const timer = setTimeout(() => {
         setOutroEnded(true);
         if (proctor) void proctor.finish().catch(() => {});
+        toast.success(FINAL_VERDICT_TEXT);
+        router.push('/');
       }, 5500);
       return () => clearTimeout(timer);
     }
-  }, [showOutroVideo, proctor]);
+  }, [showOutroVideo, proctor, router]);
 
   const handleResetAttempt = async () => {
     setResetting(true);
@@ -262,17 +275,27 @@ export function ScreeningPaper({ initial }: { initial: GauntletAttempt }) {
           }}
           onTimeUpdate={(e) => {
             const v = e.currentTarget;
-            if (v.duration > 0 && v.currentTime >= v.duration - 0.4) {
+            if (v.duration > 0 && v.currentTime >= v.duration - 0.4 && !outroEnded) {
               setOutroEnded(true);
               if (proctor) void proctor.finish().catch(() => {});
+              toast.success(FINAL_VERDICT_TEXT);
+              router.push('/');
             }
           }}
           onEnded={() => {
-            setOutroEnded(true);
-            if (proctor) void proctor.finish().catch(() => {});
+            if (!outroEnded) {
+              setOutroEnded(true);
+              if (proctor) void proctor.finish().catch(() => {});
+              toast.success(FINAL_VERDICT_TEXT);
+              router.push('/');
+            }
           }}
           onError={() => {
-            setOutroEnded(true);
+            if (!outroEnded) {
+              setOutroEnded(true);
+              toast.success(FINAL_VERDICT_TEXT);
+              router.push('/');
+            }
           }}
           className="absolute inset-0 w-full h-full object-cover"
         >
@@ -288,10 +311,12 @@ export function ScreeningPaper({ initial }: { initial: GauntletAttempt }) {
               onClick={() => {
                 setOutroEnded(true);
                 if (proctor) void proctor.finish().catch(() => {});
+                toast.success(FINAL_VERDICT_TEXT);
+                router.push('/');
               }}
               className="bg-stone-900/90 hover:bg-stone-800 border border-amber-500/60 text-amber-300 font-mono text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-xl cursor-pointer backdrop-blur"
             >
-              <span>VIEW VERDICT &gt;</span>
+              <span>SKIP VIDEO &gt;</span>
             </button>
           </div>
         )}
@@ -365,66 +390,9 @@ export function ScreeningPaper({ initial }: { initial: GauntletAttempt }) {
   /* STEP E: FINAL COMPLETION VERDICT DISPLAYED IN-PAGE MATCHING GATEKEEPER CARD DESIGN */
   if (isFinalCompleted) {
     return (
-      <div className="h-screen w-screen max-h-screen bg-stone-950 text-zinc-100 font-sans select-none flex flex-col justify-between overflow-hidden relative">
-        {/* BACKGROUND ATMOSPHERIC VIDEO */}
-        <ScreeningVideoBackground playbackRate={1.5} onVideoComplete={() => {}} />
-
-        {/* MINIMAL TOP BAR */}
-        <GauntletTopBar remainingSeconds={0} />
-
-        {/* CENTERED IN-PAGE GATEKEEPER VERDICT CARD MATCHING EXACT SCREENSHOT DESIGN */}
-        <main className="flex-1 max-w-xl w-full mx-auto p-4 flex flex-col items-center justify-center relative z-10">
-          <div className="bg-stone-900/95 border-2 border-stone-800 rounded-2xl p-5 sm:p-6 shadow-2xl backdrop-blur relative overflow-hidden select-none w-full animate-in fade-in zoom-in-95 duration-500">
-            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-600 via-amber-500 to-emerald-600" />
-
-            {/* HEADER */}
-            <div className="flex items-center justify-between border-b border-stone-800 pb-2.5 mb-3">
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-xs uppercase tracking-widest text-emerald-400 font-extrabold flex items-center gap-1.5">
-                  <span className="text-emerald-400 animate-pulse">✨</span> THE GATEKEEPER SPEAKS
-                </span>
-              </div>
-              <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-stone-950 border border-stone-800 text-amber-400 font-bold">
-                TRIALS COMPLETE
-              </span>
-            </div>
-
-            {/* INNER DIALOGUE BOX (EXACT SCREENSHOT STYLE) */}
-            <div className="bg-stone-950/90 border border-stone-800 rounded-xl p-4 font-mono text-xs text-zinc-200 leading-relaxed shadow-inner flex flex-col gap-2 mb-5">
-              <div className="flex items-center gap-1.5 text-amber-400 font-bold text-[10px] uppercase tracking-widest pb-1 border-b border-stone-900">
-                <span>&gt;_ GOLEM VERDICT & MESSAGE LOG</span>
-              </div>
-
-              <p className={`${proctor?.flagged ? 'text-red-500' : 'text-emerald-400'} font-bold text-xs sm:text-sm leading-relaxed tracking-wide my-1`}>
-                "{proctor?.flagged ? 'You have been disqualified for violating proctor rules.' : FINAL_VERDICT_TEXT}"
-              </p>
-            </div>
-
-            {/* ACTION BUTTONS: RETURN TO MAIN SCREEN & RE-TEST */}
-            <div className="flex flex-col sm:flex-row items-center gap-3 w-full">
-              <button
-                type="button"
-                onClick={() => router.push('/')}
-                className="w-full sm:flex-1 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:from-emerald-500 hover:to-teal-500 text-stone-950 font-mono font-black py-3 px-4 rounded-xl transition-all shadow-[0_0_20px_rgba(16,185,129,0.4)] text-xs flex items-center justify-center gap-2 cursor-pointer uppercase tracking-widest"
-              >
-                <Home className="w-4 h-4 text-stone-950" />
-                <span>RETURN TO MAIN SCREEN</span>
-              </button>
-
-              {DEV_OPEN_SCREENING && (
-                <button
-                  type="button"
-                  onClick={handleResetAttempt}
-                  disabled={resetting}
-                  className="w-full sm:flex-1 bg-stone-950 hover:bg-stone-800 border border-stone-700 text-purple-300 font-mono font-bold py-3 px-4 rounded-xl transition-all text-xs flex items-center justify-center gap-2 cursor-pointer shadow-md disabled:opacity-50"
-                >
-                  <RefreshCw className={`w-4 h-4 text-purple-400 ${resetting ? 'animate-spin' : ''}`} />
-                  <span>RE-TEST SCREENING (DEV)</span>
-                </button>
-              )}
-            </div>
-          </div>
-        </main>
+      <div className="h-screen w-screen max-h-screen bg-stone-950 flex flex-col justify-center items-center">
+        <Loader2 className="w-8 h-8 text-emerald-500 animate-spin mb-4" />
+        <p className="text-emerald-400 font-mono uppercase tracking-widest text-sm">Redirecting to home...</p>
       </div>
     );
   }
