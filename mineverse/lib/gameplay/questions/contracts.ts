@@ -10,6 +10,11 @@ export interface QuestionRow {
   prompt: string;
   content: unknown;
   order_index: number;
+  /**
+   * Rows sharing this within a round are interchangeable versions of one slot.
+   * See `variants.ts` — this is the key the per-team pick is grouped on.
+   */
+  variant_group?: string | null;
   language_options: string[] | null;
   /** Worked examples, safe to show. Never `hidden_test_cases`. */
   sample_test_cases?: unknown;

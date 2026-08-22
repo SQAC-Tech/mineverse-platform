@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
   AlertTriangle, Award, Clock, Download, Mail, RefreshCw, RotateCcw, Send, Trophy, Users,
@@ -24,14 +24,47 @@ interface RankedTeam {
   result: 'shortlisted' | 'rejected' | null;
 }
 
+interface PuzzleDetail {
+  id: number;
+  title: string;
+  solved: boolean;
+  solved_at: string | null;
+  tries: number;
+  answer: string | null;
+}
+
+interface AttemptDetail {
+  team_id: string;
+  team_code: string;
+  team_name: string;
+  status: 'in_progress' | 'submitted' | 'expired';
+  started_at: string;
+  submitted_at: string | null;
+  auto_submitted: boolean;
+  total_score: number;
+  correct_count: number;
+  elapsed_seconds: number;
+  tries: number;
+  year: number | null;
+  word_assigned: string | null;
+  image_assigned: string | null;
+  puzzles: PuzzleDetail[];
+}
+
 interface Data {
   window: { starts_at: string | null; ends_at: string | null; state: string };
-  config: { duration_minutes: number; question_count: number; grant: Record<string, number> };
+  config: { duration_minutes: number; question_count: number; grant: Record<string, number>; max_score: number };
   stats: { eligible_teams: number; in_progress: number; submitted: number; not_started: number; swept: number };
   ranked: RankedTeam[];
+  attempts: AttemptDetail[];
   preview: { cut: number; contested: RankedTeam[]; committed: boolean } | null;
   mail: Record<string, number>;
   committed: boolean;
+}
+
+function mmss(seconds: number) {
+  const minutes = Math.floor(seconds / 60);
+  return `${minutes}:${String(seconds % 60).padStart(2, '0')}`;
 }
 
 function ist(iso: string | null) {
@@ -47,6 +80,7 @@ export default function ScreeningAdminPage() {
   const [cut, setCut] = useState(20);
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState<null | 'commit' | 'clear' | 'announce' | 'results'>(null);
+  const [openAttempt, setOpenAttempt] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const res = await apiCall<Data>(`/api/admin/screening?cut=${cut}`);
@@ -82,22 +116,47 @@ export default function ScreeningAdminPage() {
     void load();
   };
 
-  const exportCsv = () => {
-    if (!data) return;
-    const header = 'rank,team_code,team_name,total_score,raw_score,bonus,correct,submitted_at,auto_submitted,result';
-    const body = data.ranked
-      .map((team) => [
-        team.rank, team.team_code, JSON.stringify(team.team_name), team.total_score, team.raw_score,
-        team.bonus_points, team.correct_count, team.submitted_at ?? '', team.auto_submitted, team.result ?? '',
-      ].join(','))
-      .join('\n');
-    const blob = new Blob([`${header}\n${body}`], { type: 'text/csv' });
+  const download = (name: string, header: string, rows: string[]) => {
+    const blob = new Blob([[header, ...rows].join('\n')], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `screening-ranking-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = `${name}-${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
     URL.revokeObjectURL(url);
+  };
+
+  const exportCsv = () => {
+    if (!data) return;
+    download(
+      'screening-ranking',
+      'rank,team_code,team_name,total_score,raw_score,bonus,correct,submitted_at,auto_submitted,result',
+      data.ranked.map((team) => [
+        team.rank, team.team_code, JSON.stringify(team.team_name), team.total_score, team.raw_score,
+        team.bonus_points, team.correct_count, team.submitted_at ?? '', team.auto_submitted, team.result ?? '',
+      ].join(',')),
+    );
+  };
+
+  /**
+   * The answers themselves, one row per team per puzzle.
+   *
+   * Long form rather than a column per puzzle: it survives a fourth puzzle
+   * being added, and it is the shape a spreadsheet can pivot.
+   */
+  const exportAnswers = () => {
+    if (!data) return;
+    download(
+      'screening-answers',
+      'team_code,team_name,status,year,word_assigned,image_assigned,puzzle,solved,tries,answer,solved_at',
+      data.attempts.flatMap((attempt) =>
+        attempt.puzzles.map((puzzle) => [
+          attempt.team_code, JSON.stringify(attempt.team_name), attempt.status, attempt.year ?? '',
+          attempt.word_assigned ?? '', JSON.stringify(attempt.image_assigned ?? ''), puzzle.id,
+          puzzle.solved, puzzle.tries, JSON.stringify(puzzle.answer ?? ''), puzzle.solved_at ?? '',
+        ].join(',')),
+      ),
+    );
   };
 
   const contested = data?.preview?.contested ?? [];
@@ -225,6 +284,114 @@ export default function ScreeningAdminPage() {
                     )}
                   </td>
                 </tr>
+              );
+            })
+          )}
+        </Table>
+      </Panel>
+
+      <Panel
+        title="Attempts"
+        subtitle="What every team actually typed, including the teams still sitting it. This is the record to open when a team disputes a result."
+        actions={
+          <Btn small onClick={exportAnswers} disabled={data.attempts.length === 0}>
+            <Download size={11} /> Answers CSV
+          </Btn>
+        }
+      >
+        <Table head={['Team', 'Progress', 'Score', 'Tries', 'Took', 'State', '']}>
+          {data.attempts.length === 0 ? (
+            <Empty colSpan={7}>Nobody has started the Gauntlet yet.</Empty>
+          ) : (
+            data.attempts.map((attempt) => {
+              const open = openAttempt === attempt.team_id;
+              return (
+                <Fragment key={attempt.team_id}>
+                  <tr>
+                    <td>
+                      <div style={{ fontWeight: 600 }}>{attempt.team_code}</div>
+                      <div className="n-panel-sub">{attempt.team_name}</div>
+                    </td>
+                    <td>
+                      {/* Three pips rather than "2/3": which puzzle stalled them
+                          is the question an organiser is actually asking. */}
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        {attempt.puzzles.map((puzzle) => (
+                          <span
+                            key={puzzle.id}
+                            title={`${puzzle.title} — ${puzzle.solved ? 'solved' : 'not solved'}, ${puzzle.tries} ${puzzle.tries === 1 ? 'try' : 'tries'}`}
+                            style={{
+                              width: 18, height: 18, display: 'grid', placeItems: 'center',
+                              fontSize: 10, fontVariantNumeric: 'tabular-nums',
+                              border: '1px solid var(--n-line, #333)',
+                              background: puzzle.solved ? 'var(--ok, #4ade80)' : 'transparent',
+                              color: puzzle.solved ? '#08160c' : 'inherit',
+                              opacity: puzzle.solved || puzzle.tries > 0 ? 1 : 0.45,
+                            }}
+                          >
+                            {puzzle.id}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                    <td style={{ fontVariantNumeric: 'tabular-nums' }}>
+                      <strong>{attempt.total_score}</strong>
+                      <span className="n-panel-sub"> / {data.config.max_score}</span>
+                    </td>
+                    <td style={{ fontVariantNumeric: 'tabular-nums' }}>
+                      {attempt.tries}
+                      {/* Far more answers than puzzles means guessing, which is
+                          worth a second look before a team is shortlisted. */}
+                      {attempt.tries >= 15 && (
+                        <div style={{ fontSize: 10, color: 'var(--warn, #f2c14e)' }}>heavy guessing</div>
+                      )}
+                    </td>
+                    <td style={{ fontVariantNumeric: 'tabular-nums' }}>{mmss(attempt.elapsed_seconds)}</td>
+                    <td>
+                      <Pill tone={attempt.status === 'in_progress' ? 'live' : attempt.status === 'submitted' ? 'ok' : 'idle'}>
+                        {attempt.status === 'in_progress' ? 'sitting it' : attempt.status}
+                      </Pill>
+                    </td>
+                    <td>
+                      <Btn small onClick={() => setOpenAttempt(open ? null : attempt.team_id)}>
+                        {open ? 'Hide' : 'Answers'}
+                      </Btn>
+                    </td>
+                  </tr>
+                  {open && (
+                    <tr>
+                      <td colSpan={7} style={{ background: 'rgba(0,0,0,0.25)' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '4px 2px 10px' }}>
+                          <div className="n-panel-sub" style={{ fontSize: 11 }}>
+                            Started {ist(attempt.started_at)} ·{' '}
+                            {attempt.submitted_at ? `handed in ${ist(attempt.submitted_at)}` : 'not handed in'}
+                            {attempt.auto_submitted && ' (ran out of time)'}
+                            {attempt.word_assigned && ` · word ${attempt.word_assigned}`}
+                            {attempt.image_assigned && ` · image ${attempt.image_assigned}`}
+                            {attempt.year !== null && ` · year ${attempt.year} paper`}
+                          </div>
+                          {attempt.puzzles.map((puzzle) => (
+                            <div key={puzzle.id} style={{ fontSize: 11.5, lineHeight: 1.6 }}>
+                              <Pill tone={puzzle.solved ? 'ok' : puzzle.tries > 0 ? 'warn' : 'idle'}>
+                                {puzzle.solved ? 'solved' : puzzle.tries > 0 ? 'tried' : 'untouched'}
+                              </Pill>{' '}
+                              <strong>{puzzle.title}</strong>
+                              <div className="n-panel-sub">
+                                {puzzle.tries} {puzzle.tries === 1 ? 'answer' : 'answers'} submitted
+                                {puzzle.solved_at ? ` · solved ${ist(puzzle.solved_at)}` : ''}
+                              </div>
+                              {puzzle.answer !== null && (
+                                <div style={{ fontFamily: 'var(--n-mono, monospace)', fontSize: 11.5, wordBreak: 'break-all' }}>
+                                  {puzzle.answer}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               );
             })
           )}

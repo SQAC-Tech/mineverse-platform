@@ -830,6 +830,7 @@ export type Database = {
       }
       guardian_battles: {
         Row: {
+          answers: Json
           attempt_number: number
           completed_at: string | null
           consumed_items: string[] | null
@@ -849,6 +850,7 @@ export type Database = {
           total_questions: number | null
         }
         Insert: {
+          answers?: Json
           attempt_number: number
           completed_at?: string | null
           consumed_items?: string[] | null
@@ -868,6 +870,7 @@ export type Database = {
           total_questions?: number | null
         }
         Update: {
+          answers?: Json
           attempt_number?: number
           completed_at?: string | null
           consumed_items?: string[] | null

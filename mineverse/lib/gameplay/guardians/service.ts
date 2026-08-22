@@ -263,9 +263,27 @@ export async function resolveGuardianBattle(
   const answerByQuestion = new Map(answers.map((entry) => [entry.question_id, entry.answer_text]));
 
   let correctCount = 0;
+  // Kept, not just counted. A guardian is all-or-nothing and a loss costs
+  // resources, so "we typed that and it marked us wrong" is a dispute somebody
+  // has to settle at a desk — and until this was recorded there was nothing on
+  // the server to settle it with, only the final tally.
+  const answerLog: Array<{
+    question_id: string;
+    order_index: number;
+    answer_text: string | null;
+    correct: boolean;
+  }> = [];
+
   for (const question of questions) {
-    const result = checkDeterministicAnswer(answerByQuestion.get(question.id), question.expected_answer);
+    const given = answerByQuestion.get(question.id);
+    const result = checkDeterministicAnswer(given, question.expected_answer);
     if (result === true) correctCount += 1;
+    answerLog.push({
+      question_id: question.id,
+      order_index: question.order_index,
+      answer_text: given ?? null,
+      correct: result === true,
+    });
   }
 
   const withinDeadline =
@@ -337,6 +355,7 @@ export async function resolveGuardianBattle(
       score: correctCount,
       correct_count: correctCount,
       total_questions: questions.length,
+      answers: answerLog,
       reward_ledger_id: won ? ledgerId : null,
       penalty_ledger_id: won ? null : ledgerId,
       consumed_items: [
