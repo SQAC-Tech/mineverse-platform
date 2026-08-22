@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
     ]);
     // `pack_size` rides alongside `data` rather than inside it: `data` is null when
     // a team has never attempted the guardian, and callers rely on that.
-    return NextResponse.json({ success: true, data: status, pack_size });
+    return NextResponse.json({ success: true, data: status, pack_size, server_time: new Date().toISOString() });
   } catch (error: any) {
     console.error('Get Guardian Status Error:', error);
     return NextResponse.json({ success: false, error: { code: 'SERVER_ERROR' } }, { status: 500 });

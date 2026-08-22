@@ -88,6 +88,7 @@ export function GuardianArena({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  const [clockOffset, setClockOffset] = useState(0);
   const [packSize, setPackSize] = useState<number | null>(null);
   const firstInput = useRef<HTMLInputElement | null>(null);
 
@@ -98,6 +99,9 @@ export function GuardianArena({
       const res = await fetch(`/api/team/guardian/status?guardian_name=${guardianName}&round_id=${roundId}`, { cache: 'no-store' });
       const json = await res.json();
       if (json.success) {
+        if (json.server_time) {
+          setClockOffset(Date.now() - new Date(json.server_time).getTime());
+        }
         setState(json.data ?? null);
         if (typeof json.pack_size === 'number') setPackSize(json.pack_size);
         // A battle already in progress ships its pack with the status, so a reload
@@ -120,11 +124,13 @@ export function GuardianArena({
     return () => window.clearInterval(tick);
   }, []);
 
+  const serverNow = now - clockOffset;
+
   const cooldownLeft = state?.retry_after
-    ? Math.max(0, Math.ceil((new Date(state.retry_after).getTime() - now) / 1000))
+    ? Math.max(0, Math.ceil((new Date(state.retry_after).getTime() - serverNow) / 1000))
     : 0;
   const deadlineLeft = state?.deadline_at
-    ? Math.max(0, Math.ceil((new Date(state.deadline_at).getTime() - now) / 1000))
+    ? Math.max(0, Math.ceil((new Date(state.deadline_at).getTime() - serverNow) / 1000))
     : null;
   const inBattle = state?.status === 'started';
   const answeredCount = questions.filter((question) => (answers[question.id] ?? '').trim().length > 0).length;
@@ -152,6 +158,9 @@ export function GuardianArena({
       if (!json.success) {
         setError(json.error?.message ?? startErrorCopy(json.error?.code));
         return;
+      }
+      if (json.data?.server_time) {
+        setClockOffset(Date.now() - new Date(json.data.server_time).getTime());
       }
       setState(json.data);
       setQuestions(json.data.questions ?? []);
@@ -275,6 +284,15 @@ export function GuardianArena({
               </p>
             ) : questions.map((question, index) => {
               const filled = (answers[question.id] ?? '').trim().length > 0;
+              const currentLanguage = languages[question.id] ?? 'python';
+              let activePrompt = question.prompt;
+              const contentObj = question.content as any;
+              if (contentObj && typeof contentObj === 'object' && contentObj.language_prompts) {
+                if (typeof contentObj.language_prompts[currentLanguage] === 'string') {
+                  activePrompt = contentObj.language_prompts[currentLanguage];
+                }
+              }
+
               return (
                 <div key={question.id} className={filled ? 'gd__question gd__question--done' : 'gd__question'}>
                   <div className="gd__q-head">
@@ -286,7 +304,7 @@ export function GuardianArena({
                   {/* A label collapses whitespace, so a code listing inside one lost
                       its indentation entirely. Prose and code are split instead. */}
                   <div className="round-ui__prompt-blocks">
-                    {promptBlocks(question.prompt).map((block, blockIndex) =>
+                    {promptBlocks(activePrompt).map((block, blockIndex) =>
                       block.kind === 'code' ? (
                         <pre key={blockIndex} className="round-ui__code"><code>{block.body}</code></pre>
                       ) : (
