@@ -123,7 +123,6 @@ export function ScreeningLoginCard({
         openWindow, // Always enabled whenever the window is open!
       )}
 
-      {card('dashboard', 'TEAM DASHBOARD', 'Your team, payment and event details', null, true)}
     </div>
   );
 }

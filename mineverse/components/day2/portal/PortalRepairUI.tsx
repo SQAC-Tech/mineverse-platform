@@ -275,8 +275,8 @@ export function PortalRepairUI() {
         </div>
 
         <footer className="pr-foot">
-          <Link href="/dashboard" className="pr-back">
-            <ArrowLeft size={13} /> BACK TO DASHBOARD
+          <Link href="/" className="pr-back">
+            <ArrowLeft size={13} /> BACK TO HOME
           </Link>
 
           <div className="pr-mission">
