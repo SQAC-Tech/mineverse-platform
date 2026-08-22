@@ -681,13 +681,10 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
                       <span className="round-ui__type-badge">{questionTypeLabel(currentQuestion.type)}</span>
                     </p>
                     {currentQuestion.title && <p className="round-ui__question-title">{currentQuestion.title}</p>}
-                    <QuestionPrompt question={currentQuestion} language={languages[currentQuestion.id] ?? runtimesFor(currentQuestion.language_options?.length ? currentQuestion.language_options : ['python', 'cpp', 'java', 'javascript', 'c'])[0]?.id ?? null} />
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                      <label className="round-ui__field-label" style={{ margin: 0 }} htmlFor={`answer-${currentQuestion.id}`}>Your answer</label>
-                      {['coding', 'code_completion', 'debugging', 'debug_output'].includes(currentQuestion.type) && (
+                    {['coding', 'code_completion', 'debugging', 'debug_output', 'output'].includes(currentQuestion.type) && (
+                      <div style={{ marginBottom: '16px' }}>
                         <select
-                          className="round-ui__field"
-                          style={{ width: 'auto', padding: '6px 12px', fontSize: '13px', display: 'block', backgroundColor: 'rgba(255, 255, 255, 0.1)', color: '#fff', border: '1px solid rgba(255, 255, 255, 0.2)', borderRadius: '4px', cursor: 'pointer', appearance: 'auto' }}
+                          style={{ width: 'auto', padding: '6px 12px', fontSize: '13px', display: 'inline-block', backgroundColor: 'rgba(0, 0, 0, 0.6)', color: '#fff', border: '1px solid rgba(255, 255, 255, 0.2)', borderRadius: '4px', cursor: 'pointer', appearance: 'auto', minHeight: 'auto', fontFamily: 'var(--rd-font-mono)' }}
                           value={languages[currentQuestion.id] ?? runtimesFor(currentQuestion.language_options?.length ? currentQuestion.language_options : ['python', 'cpp', 'java', 'javascript', 'c'])[0]?.id ?? ''}
                           onChange={(e) => {
                             setLanguages((prev) => ({ ...prev, [currentQuestion.id]: e.target.value }));
@@ -701,7 +698,11 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
                             </option>
                           ))}
                         </select>
-                      )}
+                      </div>
+                    )}
+                    <QuestionPrompt question={currentQuestion} language={languages[currentQuestion.id] ?? runtimesFor(currentQuestion.language_options?.length ? currentQuestion.language_options : ['python', 'cpp', 'java', 'javascript', 'c'])[0]?.id ?? null} />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <label className="round-ui__field-label" style={{ margin: 0 }} htmlFor={`answer-${currentQuestion.id}`}>Your answer</label>
                     </div>
                     {usesEditor(currentQuestion) ? (
                       <>
@@ -874,37 +875,6 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
 
         <div className="round-ui__foot">
           <section className="round-ui__panel round-ui__inventory">
-            {craft && (
-              <div className="round-ui__inventory-actions" style={{ position: 'relative' }}>
-                <button
-                  type="button"
-                  className="mc-crafting-toggle-btn"
-                  onClick={() => setCraftingOpen(!craftingOpen)}
-                  title="Open Crafting Table"
-                >
-                  <img src="/crafting_table_icon.png" alt="Crafting Table" />
-                </button>
-                {craftingOpen && (
-                  <div className="mc-crafting-popover">
-                    <button 
-                      className="mc-crafting-close" 
-                      onClick={() => setCraftingOpen(false)}
-                      title="Close"
-                    >×</button>
-                    <MinecraftCraftingTable
-                      craft={craft}
-                      canCraft={canCraft}
-                      crafting={crafting}
-                      craftShortfall={craftShortfall}
-                      onCraft={() => {
-                        void craftRoundItem();
-                        if (canCraft) setCraftingOpen(false);
-                      }}
-                    />
-                  </div>
-                )}
-              </div>
-            )}
             <div className="round-ui__inventory-main">
               <div className="round-ui__inventory-head">
                 <b>YOUR INVENTORY</b>
@@ -1003,6 +973,38 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
             />
           </div>
         </div>
+      )}
+
+      {craft && (
+        <>
+          <button
+            type="button"
+            className="mc-crafting-toggle-btn"
+            onClick={() => setCraftingOpen(!craftingOpen)}
+            title="Open Crafting Table"
+          >
+            <img src="/crafting.svg" alt="Crafting Table" />
+          </button>
+          {craftingOpen && (
+            <div className="mc-crafting-popover">
+              <button 
+                className="mc-crafting-close" 
+                onClick={() => setCraftingOpen(false)}
+                title="Close"
+              >×</button>
+              <MinecraftCraftingTable
+                craft={craft}
+                canCraft={canCraft}
+                crafting={crafting}
+                craftShortfall={craftShortfall}
+                onCraft={() => {
+                  void craftRoundItem();
+                  if (canCraft) setCraftingOpen(false);
+                }}
+              />
+            </div>
+          )}
+        </>
       )}
     </main>
   );

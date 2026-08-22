@@ -160,6 +160,7 @@ export function CaveRoundShell() {
   const [endsAt, setEndsAt] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<CaveTab>('aptitudes');
   const [activeIndexes, setActiveIndexes] = useState<Record<CaveTab, number>>({ aptitudes: 0, debugging: 0, completion: 0, output: 0 });
+  const [languages, setLanguages] = useState<Record<string, string>>({});
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [lockingSection, setLockingSection] = useState(false);
@@ -255,6 +256,16 @@ export function CaveRoundShell() {
   const activeQuestions = grouped[activeTab];
   const currentIndex = Math.min(activeIndexes[activeTab], Math.max(0, activeQuestions.length - 1));
   const question = activeQuestions[currentIndex];
+  
+  let activePrompt = question?.prompt ?? '';
+  const currentLanguage = question ? (languages[question.id] ?? runtimesFor(question.language_options?.length ? question.language_options : ['python', 'cpp', 'java', 'javascript', 'c'])[0]?.id ?? 'python') : 'python';
+  const contentObj = question?.content as any;
+  if (contentObj && typeof contentObj === 'object' && contentObj.language_prompts) {
+    if (typeof contentObj.language_prompts[currentLanguage] === 'string') {
+      activePrompt = contentObj.language_prompts[currentLanguage];
+    }
+  }
+
   const timeLeft = endsAt ? Math.max(0, Math.floor((new Date(endsAt).getTime() - now) / 1000)) : 0;
   const timer = timeParts(timeLeft);
   // Closed by the clock or closed by an organizer; either way nothing more can
@@ -575,7 +586,32 @@ export function CaveRoundShell() {
                       <span className="round-ui__type-badge">{questionTypeLabel(question.type)}</span>
                     </p>
                     {question.title && <p className="round-ui__question-title">{question.title}</p>}
-                    <QuestionPrompt question={question} />
+                    
+                    {['coding', 'code_completion', 'debugging', 'debug_output', 'output'].includes(question.type) && (
+                      <div style={{ marginBottom: '16px' }}>
+                        <select
+                          style={{ width: 'auto', padding: '6px 12px', fontSize: '13px', display: 'inline-block', backgroundColor: 'rgba(0, 0, 0, 0.6)', color: '#fff', border: '1px solid rgba(255, 255, 255, 0.2)', borderRadius: '4px', cursor: 'pointer', appearance: 'auto', minHeight: 'auto', fontFamily: 'var(--rd-font-mono)' }}
+                          value={currentLanguage}
+                          onChange={(e) => setLanguages((prev) => ({ ...prev, [question.id]: e.target.value }))}
+                          disabled={readOnly}
+                        >
+                          {runtimesFor(question.language_options?.length ? question.language_options : ['python', 'cpp', 'java', 'javascript', 'c']).map((rt) => (
+                            <option key={rt.id} value={rt.id}>{rt.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    <div className="round-ui__prompt-blocks">
+                      {promptBlocks(activePrompt).map((block, index) =>
+                        block.kind === 'code' ? (
+                          <pre key={index} className="round-ui__code"><code>{block.body}</code></pre>
+                        ) : (
+                          <p key={index} className="round-ui__prompt">{block.body}</p>
+                        ),
+                      )}
+                    </div>
+                    
                     <label className="round-ui__field-label" htmlFor={`cave-answer-${question.id}`}>Your answer</label>
                     <textarea
                       id={`cave-answer-${question.id}`}
@@ -729,8 +765,13 @@ export function CaveRoundShell() {
               <Hotbar balance={resourceData?.balance} activeSlot={slot} onSelect={setSlot} />
             </div>
             <div className="round-ui__inventory-actions">
-              <button type="button" className="round-ui__craft" onClick={() => setModal('crafting')}>
-                <Hammer size={15} /> Craft stone pickaxe
+              <button
+                type="button"
+                className="mc-crafting-toggle-btn"
+                onClick={() => setModal('crafting')}
+                title="Open Crafting Table"
+              >
+                <img src="/crafting.svg" alt="Crafting Table" />
               </button>
               <button type="button" className="round-ui__craft round-ui__craft--alt" onClick={() => setModal('marketplace')}>
                 <ShoppingBag size={15} /> Marketplace
