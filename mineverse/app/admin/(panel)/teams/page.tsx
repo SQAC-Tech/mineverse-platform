@@ -170,6 +170,60 @@ function ReleaseLogin({ team, onReleased }: { team: TeamRow; onReleased: () => v
   );
 }
 
+/**
+ * Clears every pin in one go.
+ *
+ * The per-team button above is the desk fix for one arrival. This is the one
+ * for the morning of the event: teams pin themselves during the screening two
+ * days earlier — from hostels, home broadband and mobile data — so by event day
+ * essentially every pin points somewhere that is not the venue, and the whole
+ * roster is refused at the door. Clearing that ninety times, each behind a row
+ * expansion, is not a job anyone finishes while a queue is forming.
+ */
+function ReleaseAllLogins({ pinned, onReleased }: { pinned: number; onReleased: () => void }) {
+  const [arming, setArming] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  if (pinned === 0) {
+    return <span className="n-panel-sub" style={{ fontSize: 11.5 }}>No logins pinned</span>;
+  }
+
+  const releaseAll = async () => {
+    setBusy(true);
+    const res = await apiCall<{ released: number }>('/api/admin/teams', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'release_all_logins', confirm: 'RELEASE ALL' }),
+    });
+    setBusy(false);
+    setArming(false);
+    if (!res.ok) return toast.error(res.message);
+    toast.success(`${res.data?.released ?? 0} logins released`);
+    onReleased();
+  };
+
+  if (!arming) {
+    return (
+      <Btn small onClick={() => setArming(true)}>
+        <Unlock size={12} /> Release all logins ({pinned})
+      </Btn>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+      <span className="n-panel-sub" style={{ fontSize: 11.5 }}>
+        Let all {pinned} teams log in from any network?
+      </span>
+      <Btn small disabled={busy} onClick={() => void releaseAll()}>
+        {busy ? 'Releasing…' : `Yes, release ${pinned}`}
+      </Btn>
+      <Btn small variant="ghost" disabled={busy} onClick={() => setArming(false)}>
+        Cancel
+      </Btn>
+    </div>
+  );
+}
+
 function DeleteTeam({ team, onDeleted }: { team: TeamRow; onDeleted: () => void }) {
   const [arming, setArming] = useState(false);
   const [typed, setTyped] = useState('');
@@ -269,6 +323,7 @@ export default function AdminTeamsPage() {
   const verified = teams.filter((t) => t.is_payment_verified).length;
   const participants = teams.reduce((sum, t) => sum + (t.team_size ?? 0), 0);
   const checkedIn = teams.filter((t) => (t.attendance_records?.length ?? 0) > 0).length;
+  const pinned = teams.filter((t) => t.active_login_ip).length;
 
   return (
     <>
@@ -291,21 +346,29 @@ export default function AdminTeamsPage() {
         <StatTile label="Participants" value={participants} />
         <StatTile label="Payment verified" value={verified} />
         <StatTile label="Checked in" value={checkedIn} hint="Has at least one attendance record" />
+        <StatTile
+          label="Logins pinned"
+          value={pinned}
+          hint="Refused from any other network until released"
+        />
       </Grid>
 
       <div style={{ marginTop: 12 }}>
         <Panel
           title={`Roster (${visible.length})`}
           actions={
-            <div style={{ position: 'relative' }}>
-              <Search size={12} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-portal)' }} />
-              <input
-                className="n-input"
-                style={{ paddingLeft: 24, width: 210 }}
-                placeholder="Team, code, member or RA no."
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-              />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <ReleaseAllLogins pinned={pinned} onReleased={load} />
+              <div style={{ position: 'relative' }}>
+                <Search size={12} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-portal)' }} />
+                <input
+                  className="n-input"
+                  style={{ paddingLeft: 24, width: 210 }}
+                  placeholder="Team, code, member or RA no."
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                />
+              </div>
             </div>
           }
         >
@@ -321,7 +384,15 @@ export default function AdminTeamsPage() {
                       {team.is_payment_verified ? 'verified' : 'pending'}
                     </Pill>
                   </td>
-                  <td><Pill tone={statusTone(team.status)}>{team.status}</Pill></td>
+                  <td>
+                    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                      <Pill tone={statusTone(team.status)}>{team.status}</Pill>
+                      {/* Visible without expanding the row — the release control
+                          itself lives in the detail panel, and a desk cannot
+                          hunt for it one team at a time. */}
+                      {team.active_login_ip && <Pill tone="warn">login pinned</Pill>}
+                    </div>
+                  </td>
                   <td>{team.total_score ?? 0}</td>
                   <td style={{ textAlign: 'right' }}>
                     <Btn

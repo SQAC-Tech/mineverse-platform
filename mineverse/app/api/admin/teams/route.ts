@@ -39,6 +39,46 @@ export async function POST(req: Request) {
   const action = String(body?.action ?? '');
   const teamId = String(body?.team_id ?? '');
 
+  /**
+   * Clears every pin at once.
+   *
+   * One team at a time is the right shape for a desk fixing one arrival. It is
+   * the wrong shape the morning of the event: teams pin themselves during the
+   * screening two days earlier, from hostel wifi and mobile data, so on the day
+   * every pin points at a network that is not the venue and the whole roster
+   * needs clearing before the doors open. Ninety teams through a per-team
+   * button, each behind a row expansion, is not a thing anyone will finish.
+   *
+   * Gated on an explicit confirm string rather than a bare action, because this
+   * is the one call that opens every team to a new network simultaneously.
+   */
+  if (action === 'release_all_logins') {
+    if (String(body?.confirm ?? '') !== 'RELEASE ALL') {
+      return NextResponse.json(
+        { success: false, error: 'Confirmation required' },
+        { status: 400 },
+      );
+    }
+
+    const { data: released, error: releaseAllErr } = await supabaseServer
+      .from('teams')
+      .update({ active_login_ip: null })
+      .not('active_login_ip', 'is', null)
+      .select('team_code');
+
+    if (releaseAllErr) {
+      console.error('Releasing all login pins failed:', releaseAllErr);
+      return NextResponse.json(
+        { success: false, error: 'Database error: ' + releaseAllErr.message },
+        { status: 500 },
+      );
+    }
+
+    const count = released?.length ?? 0;
+    console.warn(`[teams] ALL login pins released (${count} teams) by panel-admin`);
+    return NextResponse.json({ success: true, data: { released: count } });
+  }
+
   if (action !== 'release_login') {
     return NextResponse.json({ success: false, error: 'Unknown action' }, { status: 400 });
   }
