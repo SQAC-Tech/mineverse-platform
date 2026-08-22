@@ -78,6 +78,25 @@ export default function AdminEventsPage() {
     }
   };
 
+  const triggerWithRound = async (item: CatalogItem, selectedRoundId: number) => {
+    setBusy(item.key);
+    const res = await apiCall<{ announcement: string; affected_teams: number }>(
+      '/api/admin/events/trigger',
+      { method: 'POST', body: JSON.stringify({ event_key: item.key, round_id: selectedRoundId, scope: 'all' }) },
+    );
+    setBusy(null);
+    setConfirming(null);
+
+    if (res.ok) {
+      toast.success(`${item.label} triggered for ${res.data.affected_teams} teams in Round ${selectedRoundId}`, {
+        description: res.data.announcement,
+      });
+      void load();
+    } else {
+      toast.error(res.message);
+    }
+  };
+
   const expire = async (id: string) => {
     setBusy(id);
     const res = await apiCall('/api/admin/events/expire', { method: 'POST', body: JSON.stringify({ event_id: id }) });
@@ -185,8 +204,9 @@ export default function AdminEventsPage() {
           }
           confirmLabel="Trigger event"
           onCancel={() => setConfirming(null)}
-          onConfirm={() => trigger(confirming)}
+          onConfirm={(roundId) => triggerWithRound(confirming, roundId)}
           busy={busy === confirming.key}
+          defaultRound={confirming.round_id}
         />
       )}
     </>
@@ -194,15 +214,18 @@ export default function AdminEventsPage() {
 }
 
 function ConfirmDialog({
-  title, body, confirmLabel, onCancel, onConfirm, busy,
+  title, body, confirmLabel, onCancel, onConfirm, busy, defaultRound,
 }: {
   title: string;
   body: React.ReactNode;
   confirmLabel: string;
   onCancel: () => void;
-  onConfirm: () => void;
+  onConfirm: (roundId: number) => void;
   busy?: boolean;
+  defaultRound?: number;
 }) {
+  const [selectedRound, setSelectedRound] = useState(defaultRound ?? 5);
+
   return (
     <div
       role="dialog"
@@ -217,9 +240,21 @@ function ConfirmDialog({
         <div className="n-panel-head"><div className="n-panel-title">{title}</div></div>
         <div className="n-panel-body">
           {body}
+          <div style={{ marginTop: 12 }}>
+            <label className="n-field-label">Target Round</label>
+            <select
+              className="n-field"
+              value={selectedRound}
+              onChange={(e) => setSelectedRound(Number(e.target.value))}
+            >
+              {[1, 2, 3, 4, 5].map((r) => (
+                <option key={r} value={r}>Round {r}</option>
+              ))}
+            </select>
+          </div>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
             <Btn variant="ghost" onClick={onCancel}>Cancel</Btn>
-            <Btn variant="primary" disabled={busy} onClick={onConfirm}>{busy ? 'Working…' : confirmLabel}</Btn>
+            <Btn variant="primary" disabled={busy} onClick={() => onConfirm(selectedRound)}>{busy ? 'Working…' : confirmLabel}</Btn>
           </div>
         </div>
       </div>

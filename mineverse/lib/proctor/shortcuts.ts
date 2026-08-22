@@ -40,6 +40,10 @@ export function classifyShortcut(event: KeyboardEvent): ShortcutDecision {
   // Escape leaves fullscreen, which is the whole enforcement.
   if (key === 'escape') return stop('fullscreen-exit');
 
+  // Screenshots
+  if (key === 'printscreen') return stop('screenshot');
+  if (mod && event.shiftKey && ['s', '3', '4', '5'].includes(key)) return stop('screenshot');
+
   // Alt on its own opens the browser menu bar on Windows; Alt+Tab and Alt+Arrow
   // leave the page entirely.
   if (key === 'alt') return stop('alt-menu');

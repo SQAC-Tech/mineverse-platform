@@ -78,7 +78,19 @@ export default function RootLayout({
         <div className="relative z-10 flex-grow flex flex-col">
           {children}
         </div>
-        <Toaster richColors position="bottom-right" />
+        <Toaster 
+          position="top-right" 
+          toastOptions={{ 
+            className: 'minecraft-toast',
+            classNames: {
+              toast: 'minecraft-toast',
+              title: 'minecraft-toast-title',
+              description: 'minecraft-toast-description',
+              success: 'minecraft-toast-success',
+              error: 'minecraft-toast-error',
+            }
+          }} 
+        />
       </body>
     </html>
   );

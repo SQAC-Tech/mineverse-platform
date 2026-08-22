@@ -13,6 +13,7 @@ type RoundRow = {
   description: string | null;
   time_allotted: number;
   status: 'locked' | 'active' | 'completed';
+  guardian_unlocked: boolean;
   starts_at: string | null;
   ends_at: string | null;
 };
@@ -44,7 +45,7 @@ export default function AdminRoundsPage() {
     return () => window.clearInterval(tick);
   }, []);
 
-  const act = async (id: number, action: 'toggle' | 'extend', minutes?: number) => {
+  const act = async (id: number, action: 'toggle' | 'extend' | 'toggle_boss', minutes?: number) => {
     setBusy(id);
     const res = await apiCall<{ newStatus?: string }>('/api/admin/rounds/action', {
       method: 'POST',
@@ -137,6 +138,12 @@ export default function AdminRoundsPage() {
                       <Square size={12} /> End round
                     </Btn>
                   </>
+                )}
+                
+                {round.status !== 'locked' && (
+                  <Btn variant={round.guardian_unlocked ? "ghost" : "primary"} disabled={busy === round.id} onClick={() => act(round.id, 'toggle_boss')}>
+                     {round.guardian_unlocked ? 'Lock Boss' : 'Unlock Boss'}
+                  </Btn>
                 )}
 
                 {round.status === 'completed' && (

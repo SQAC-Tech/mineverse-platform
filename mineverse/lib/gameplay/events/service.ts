@@ -103,6 +103,23 @@ export async function triggerWorldEvent(params: TriggerWorldEventParams) {
     };
   }
 
+  // Sweep any events that have already passed their ends_at time but are still marked active
+  const nowIsoForSweep = new Date().toISOString();
+  await db
+    .from('world_events')
+    .update({ status: 'expired' })
+    .eq('status', 'active')
+    .lt('ends_at', nowIsoForSweep);
+
+  // Delete any expired events of this type for this round so we don't hit the unique constraint
+  // when re-triggering an event that already ran.
+  await db
+    .from('world_events')
+    .delete()
+    .eq('event_key', config.key)
+    .eq('round_id', params.roundId)
+    .eq('status', 'expired');
+
   const { data: round, error: roundError } = await db
     .from('rounds')
     .select('id, status')

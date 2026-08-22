@@ -151,11 +151,12 @@ export async function recordProctorEvents(
     return { ok: false, status: 500, code: 'EVENT_WRITE_FAILED' };
   }
 
-  return recountSession(session.id, session.round_id, session.status);
+  return recountSession(session.id, teamId, session.round_id, session.status);
 }
 
 async function recountSession(
   sessionId: string,
+  teamId: string,
   roundId: number,
   currentStatus: string,
 ): Promise<ServiceResult<{ warning_count: number; key_violation_count: number; status: string }>> {
@@ -173,6 +174,10 @@ async function recountSession(
   const flagged = isFlagged({ warning_count, key_violation_count }, rules);
   // Only ever escalates here. Clearing a flag is an organizer's decision.
   const status = currentStatus === 'ended' ? 'ended' : flagged ? 'flagged' : currentStatus;
+
+  if (flagged && currentStatus !== 'flagged' && currentStatus !== 'ended') {
+    await db.from('team_round_access').update({ is_locked: true }).eq('team_id', teamId).eq('round_id', roundId);
+  }
 
   const { error } = await db
     .from('proctor_sessions')

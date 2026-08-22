@@ -83,6 +83,7 @@ export function GuardianArena({
   const [state, setState] = useState<GuardianState | null>(null);
   const [questions, setQuestions] = useState<GuardianQuestion[]>([]);
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [languages, setLanguages] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -155,6 +156,7 @@ export function GuardianArena({
       setState(json.data);
       setQuestions(json.data.questions ?? []);
       setAnswers({});
+      setLanguages({});
       // The clock is already running server-side, so put the cursor in question 1.
       window.setTimeout(() => firstInput.current?.focus(), 60);
     } catch {
@@ -293,16 +295,33 @@ export function GuardianArena({
                     )}
                   </div>
 
-                  <input
-                    id={`gd-${question.id}`}
-                    ref={index === 0 ? firstInput : undefined}
-                    className="gd__input"
-                    value={answers[question.id] ?? ''}
-                    onChange={(event) => setAnswers((prev) => ({ ...prev, [question.id]: event.target.value }))}
-                    placeholder="Your answer"
-                    disabled={outOfTime}
-                    autoComplete="off"
-                  />
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <select
+                      className="round-ui__field"
+                      style={{ width: '130px', padding: '8px', height: '100%', cursor: 'pointer' }}
+                      value={languages[question.id] ?? 'python'}
+                      onChange={(e) => setLanguages(prev => ({ ...prev, [question.id]: e.target.value }))}
+                      disabled={outOfTime}
+                    >
+                      <option value="python">Python</option>
+                      <option value="c">C</option>
+                      <option value="cpp">C++</option>
+                      <option value="java">Java</option>
+                      <option value="javascript">JavaScript</option>
+                    </select>
+
+                    <input
+                      id={`gd-${question.id}`}
+                      ref={index === 0 ? firstInput : undefined}
+                      className="gd__input"
+                      value={answers[question.id] ?? ''}
+                      onChange={(event) => setAnswers((prev) => ({ ...prev, [question.id]: event.target.value }))}
+                      placeholder="Your answer"
+                      disabled={outOfTime}
+                      autoComplete="off"
+                      style={{ flex: 1, margin: 0 }}
+                    />
+                  </div>
                 </div>
               );
             })}

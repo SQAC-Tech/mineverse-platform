@@ -56,5 +56,13 @@ export async function POST(req: Request) {
     }
   }
 
+  if (action === 'toggle_boss') {
+    const { data: round } = await supabaseServer.from('rounds').select('guardian_unlocked').eq('id', round_id).single();
+    if (!round) return NextResponse.json({ success: false, error: 'Round not found' }, { status: 404 });
+    const newStatus = !round.guardian_unlocked;
+    await supabaseServer.from('rounds').update({ guardian_unlocked: newStatus }).eq('id', round_id);
+    return NextResponse.json({ success: true, newStatus: newStatus ? 'boss unlocked' : 'boss locked' });
+  }
+
   return NextResponse.json({ success: false, error: 'Invalid action' }, { status: 400 });
 }

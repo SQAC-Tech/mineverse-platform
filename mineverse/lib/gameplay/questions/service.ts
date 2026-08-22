@@ -68,6 +68,8 @@ export async function getSafeQuestionsForRound(teamId: string, roundId: number) 
       round_name: access.round.name,
       team_code: team?.team_code ?? null,
       ends_at: access.round.ends_at,
+      status: access.round.status,
+      guardian_unlocked: access.round.guardian_unlocked,
       server_time: new Date().toISOString(),
       questions: (questions ?? []).map((question: QuestionRow) => serializeSafeQuestion(question, submissionsByQuestion.get(question.id))),
     },

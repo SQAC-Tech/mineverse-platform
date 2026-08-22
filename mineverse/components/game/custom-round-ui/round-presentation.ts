@@ -75,6 +75,7 @@ export interface ShellQuestion {
   /** Worked examples for a coding question. Never the hidden grading cases. */
   sample_test_cases?: Array<{ stdin: string; stdout: string; explanation?: string }>;
   pays?: Record<string, number>;
+  language_prompts?: Record<string, string>;
 }
 
 const QUESTION_TYPE_META: Record<string, { label: string; Icon: LucideIcon }> = {
