@@ -1612,6 +1612,7 @@ export type Database = {
           guardian_name: string | null
           hidden_test_cases: Json | null
           id: string
+          is_coding_question: boolean | null
           language_options: string[]
           logic_puzzle_variant: string | null
           order_index: number
@@ -1633,6 +1634,7 @@ export type Database = {
           guardian_name?: string | null
           hidden_test_cases?: Json | null
           id?: string
+          is_coding_question?: boolean | null
           language_options?: string[]
           logic_puzzle_variant?: string | null
           order_index: number
@@ -1654,6 +1656,7 @@ export type Database = {
           guardian_name?: string | null
           hidden_test_cases?: Json | null
           id?: string
+          is_coding_question?: boolean | null
           language_options?: string[]
           logic_puzzle_variant?: string | null
           order_index?: number
@@ -1848,6 +1851,7 @@ export type Database = {
           day: number
           description: string | null
           ends_at: string | null
+          guardian_unlocked: boolean | null
           id: number
           name: string
           sequence: number
@@ -1860,6 +1864,7 @@ export type Database = {
           day: number
           description?: string | null
           ends_at?: string | null
+          guardian_unlocked?: boolean | null
           id?: number
           name: string
           sequence: number
@@ -1872,6 +1877,7 @@ export type Database = {
           day?: number
           description?: string | null
           ends_at?: string | null
+          guardian_unlocked?: boolean | null
           id?: number
           name?: string
           sequence?: number
@@ -2332,6 +2338,7 @@ export type Database = {
           completion_time: number
           created_at: string
           id: string
+          active_login_ip: string | null
           is_payment_verified: boolean
           qr_token: string | null
           status: string
@@ -2345,6 +2352,7 @@ export type Database = {
           completion_time?: number
           created_at?: string
           id?: string
+          active_login_ip?: string | null
           is_payment_verified?: boolean
           qr_token?: string | null
           status?: string
@@ -2358,6 +2366,7 @@ export type Database = {
           completion_time?: number
           created_at?: string
           id?: string
+          active_login_ip?: string | null
           is_payment_verified?: boolean
           qr_token?: string | null
           status?: string

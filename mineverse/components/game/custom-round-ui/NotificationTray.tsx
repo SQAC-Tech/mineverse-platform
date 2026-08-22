@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Bell, X } from 'lucide-react';
+import { X } from 'lucide-react';
+import { triggerAchievement } from '@/components/AchievementToast';
 
 export interface LedgerEntry {
   id: string;
@@ -61,6 +62,23 @@ export function NotificationTray({ entries, pendingGrading, storageKey }: Notifi
     if (newest) window.localStorage.setItem(storageKey, newest);
   };
 
+  // Trigger achievement toast for new notifications
+  const prevEntriesLength = useRef(entries.length);
+  useEffect(() => {
+    if (entries.length > prevEntriesLength.current) {
+      // New entries added
+      const newEntries = entries.slice(0, entries.length - prevEntriesLength.current);
+      newEntries.forEach(entry => {
+        const parts = deltaParts(entry.delta);
+        const desc = parts.length === 0 
+          ? 'Inventory updated' 
+          : parts.map(({ resource, value }) => `${value > 0 ? '+' : ''}${value} ${resource}`).join(', ');
+        triggerAchievement(sourceLabel(entry), desc);
+      });
+    }
+    prevEntriesLength.current = entries.length;
+  }, [entries]);
+
   const toggle = () => {
     setOpen((wasOpen) => {
       if (!wasOpen) markSeen();
@@ -93,7 +111,7 @@ export function NotificationTray({ entries, pendingGrading, storageKey }: Notifi
         aria-expanded={open}
         onClick={toggle}
       >
-        <Bell size={22} aria-hidden="true" />
+        <span style={{ fontSize: '18px' }} aria-hidden="true">🔔</span>
         {badge && <em className="round-ui__dot">{badge}</em>}
       </button>
 

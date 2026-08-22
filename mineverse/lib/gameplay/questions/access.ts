@@ -3,7 +3,7 @@ import { DEV_UNLOCK_ALL_ROUNDS, noteDevUnlockBypass } from '@/lib/gameplay/dev-m
 import { isDemoTeamId, noteDemoBypass } from '@/lib/gameplay/demo-teams';
 
 export type Dev4RoundAccess =
-  | { ok: true; round: { id: number; name: string; status: string; starts_at: string | null; ends_at: string | null; time_allotted: number } }
+  | { ok: true; round: { id: number; name: string; status: string; starts_at: string | null; ends_at: string | null; time_allotted: number; guardian_unlocked: boolean } }
   | { ok: false; status: number; code: string; message?: string };
 
 const db = supabaseServer as any;
@@ -11,7 +11,7 @@ const db = supabaseServer as any;
 export async function verifyDev4RoundAccess(teamId: string, roundId: number): Promise<Dev4RoundAccess> {
   const { data: round, error: roundError } = await db
     .from('rounds')
-    .select('id, name, status, starts_at, ends_at, time_allotted')
+    .select('id, name, status, starts_at, ends_at, time_allotted, guardian_unlocked')
     .eq('id', roundId)
     .single();
 

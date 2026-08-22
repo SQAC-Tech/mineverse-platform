@@ -6,10 +6,12 @@ import { RESOURCE_META, type ResourceKey } from '@/components/game/custom-round-
 interface HotbarProps {
   /** Live balances. A missing key reads as zero, never as an empty slot. */
   balance: Partial<Record<ResourceKey, number>> | null | undefined;
-  /** 1–9. The highlighted slot; purely cosmetic, as in the game. */
+  /** Crafted items to display */
+  crafted?: { item: string; label: string; crafted: boolean }[];
+  /** 1–N. The highlighted slot; purely cosmetic, as in the game. */
   activeSlot?: number;
   onSelect?: (slot: number) => void;
-  /** Caps the bar's width so nine slots stay square. */
+  /** Caps the bar's width so slots stay square. */
   maxWidth?: string;
 }
 
@@ -22,30 +24,49 @@ interface HotbarProps {
  * this, so the dashboard genuinely shows the same inventory rather than one that
  * looks like it.
  */
-export function Hotbar({ balance, activeSlot, onSelect, maxWidth }: HotbarProps) {
+export function Hotbar({ balance, activeSlot, onSelect, maxWidth, crafted = [] }: HotbarProps) {
+  // Combine base resources and any successfully crafted items
+  const craftedAcquired = crafted.filter(c => c.crafted);
+  const totalSlots = Math.max(9, RESOURCE_META.length + craftedAcquired.length);
+  
   return (
     <div
       className="mv-hotbar"
       aria-label="Inventory hotbar"
-      style={maxWidth ? ({ ['--hb-max' as string]: maxWidth } as React.CSSProperties) : undefined}
+      style={maxWidth ? ({ ['--hb-max' as string]: maxWidth, gridTemplateColumns: `repeat(${totalSlots}, 1fr)` } as React.CSSProperties) : { gridTemplateColumns: `repeat(${totalSlots}, minmax(40px, 1fr))` }}
     >
-      {Array.from({ length: 9 }).map((_, index) => {
+      {Array.from({ length: totalSlots }).map((_, index) => {
         const slot = index + 1;
-        const item = RESOURCE_META[index];
-        const count = item ? balance?.[item.key] ?? 0 : 0;
+        const resourceItem = index < RESOURCE_META.length ? RESOURCE_META[index] : null;
+        const craftedIndex = index - RESOURCE_META.length;
+        const craftedItem = craftedIndex >= 0 && craftedIndex < craftedAcquired.length ? craftedAcquired[craftedIndex] : null;
+        
+        let icon = null;
+        let count: number | string = '';
+        let label = 'Empty slot';
+        
+        if (resourceItem) {
+          icon = resourceItem.icon;
+          count = balance?.[resourceItem.key] ?? 0;
+          label = `${resourceItem.label}: ${count}`;
+        } else if (craftedItem) {
+          icon = `/${craftedItem.item}.jpg`;
+          count = 1;
+          label = craftedItem.label;
+        }
 
         return (
           <button
-            key={item?.key ?? `empty-${slot}`}
+            key={resourceItem?.key ?? craftedItem?.item ?? `empty-${slot}`}
             type="button"
-            title={item?.label ?? 'Empty slot'}
-            aria-label={item ? `${item.label}: ${count}` : 'Empty inventory slot'}
+            title={label}
+            aria-label={label}
             className={activeSlot === slot ? 'mv-slot mv-slot--active' : 'mv-slot'}
             onClick={() => onSelect?.(slot)}
           >
-            {item && (
+            {icon && (
               <>
-                <img src={item.icon} alt="" />
+                <img src={icon} alt="" />
                 <b>{count}</b>
               </>
             )}

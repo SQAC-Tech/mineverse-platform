@@ -293,4 +293,58 @@
 /* For the round/game screens, where the pointer is an aiming reticle. */
 .cursor-crosshair {
   cursor: var(--mv-cursor-crosshair);
+}/* Minecraft Achievement Sonner Toasts */
+.minecraft-toast[data-sonner-toast] {
+  background-color: #212121 !important;
+  border: 2px solid #555 !important;
+  border-radius: 8px !important;
+  padding: 16px !important;
+  box-shadow: inset 2px 2px 0px rgba(255,255,255,0.1), inset -2px -2px 0px rgba(0,0,0,0.3), 0 4px 6px rgba(0,0,0,0.5) !important;
+  font-family: var(--font-minecraft), monospace !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 16px !important;
+  color: white !important;
+}
+
+.minecraft-toast-title {
+  color: #FFFF55 !important;
+  text-shadow: 1px 1px 0 #000 !important;
+  font-size: 14px !important;
+  letter-spacing: 0.5px !important;
+  margin-bottom: 4px !important;
+}
+
+.minecraft-toast-description {
+  color: white !important;
+  font-size: 12px !important;
+  line-height: 1.4 !important;
+}
+
+.minecraft-toast-error .minecraft-toast-title {
+  color: #FF5555 !important;
+}
+
+/* Hide sonner default icon if possible, we could add our own icon via before pseudo-element or leave it */
+.minecraft-toast [data-icon] {
+  display: none !important;
+}
+
+.minecraft-toast::before {
+  content: '??';
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 40px;
+  height: 40px;
+  background-color: #5D8C3E;
+  border: 2px solid #3E5C29;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.minecraft-toast-error::before {
+  content: '??';
+  background-color: #aa0000;
+  border: 2px solid #550000;
 }
