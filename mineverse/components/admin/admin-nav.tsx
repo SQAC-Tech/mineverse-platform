@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, CreditCard, Users, Clock, ClipboardCheck,
-  Zap, Swords, Coins, Trophy, ClipboardList, Eye, Moon,
+  Zap, Swords, Coins, Trophy, ClipboardList, Eye, Moon, FileText,
 } from 'lucide-react';
 
 /**
@@ -45,6 +45,10 @@ const NAV_GROUPS = [
   {
     group: 'Results',
     items: [
+      // Sits above Grading on purpose: "what did they write" is the question
+      // asked first, and the grading queue only ever shows the few answers the
+      // grader could not decide by itself.
+      { name: 'Submissions', href: '/admin/submissions', icon: FileText },
       { name: 'Grading', href: '/admin/grading', icon: ClipboardCheck },
       { name: 'Qualification', href: '/admin/qualification', icon: Trophy },
     ],

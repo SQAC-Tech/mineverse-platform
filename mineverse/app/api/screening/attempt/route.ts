@@ -36,8 +36,19 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ success: false, error: { code: 'UNAUTHORIZED' } }, { status: 401 });
   }
 
-  if (!rateLimit(`screening-answer:${session.team_id}`, 300, 60_000)) {
-    return NextResponse.json({ success: false, error: { code: 'RATE_LIMITED' } }, { status: 429 });
+  // Puzzle 1's answer is a number and puzzle 3's is a short word, so the limit
+  // is the only thing standing between a team and guessing them. At the 300 a
+  // minute this shipped with, the four-digit PIN space is exhausted inside the
+  // 30-minute attempt; at 20 it is not, and no human types twenty answers a
+  // minute to three puzzles.
+  if (!rateLimit(`screening-answer:${session.team_id}`, 20, 60_000)) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: { code: 'RATE_LIMITED', message: 'Too many answers too quickly. Wait a moment and try again.' },
+      },
+      { status: 429 },
+    );
   }
 
   try {

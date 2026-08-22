@@ -3,7 +3,8 @@ import { supabaseServer } from '@/lib/supabase/server';
 import { consumeRateLimit, retryHint, tooManyRequests } from '@/lib/rate-limit';
 import { clientIp } from '@/lib/request-ip';
 import { sendOtpEmail } from '@/lib/email';
-import { generateOtp, hashOtp, isEventDay } from '@/lib/auth/otp';
+import { generateOtp, hashOtp } from '@/lib/auth/otp';
+import { getLoginState, nextLoginOpening } from '@/lib/platform/settings';
 import { env } from '@/lib/env';
 import { verifyTurnstileToken } from '@/lib/turnstile';
 import { isDemoTeamCode } from '@/lib/gameplay/demo-teams';
@@ -65,9 +66,31 @@ export async function POST(req: Request) {
     }
   }
 
-  // Event-day gate applies only to real teams, never to the demo team
-  if (!isDemoTeam && !isEventDay() && process.env.NODE_ENV === 'production') {
-    return NextResponse.json({ success: false, error: 'Login is only available on event day.' }, { status: 403 });
+  /**
+   * The login gate. Applies to real teams only, never to a demo team.
+   *
+   * This read `isEventDay()` alone, which locked every team out of the
+   * screening qualifier — it runs on its own evening, days before the event, so
+   * `EVENT_DATE` is not that day. `SCREENING_DATE` opens it too, and an
+   * organizer can override both from the console without a redeploy.
+   *
+   * The message names the day rather than saying "not today", because a team
+   * that mistook the date needs to know which one is right.
+   */
+  if (!isDemoTeam && process.env.NODE_ENV === 'production') {
+    const login = await getLoginState();
+    if (!login.open) {
+      const opensOn = nextLoginOpening(login);
+      return NextResponse.json(
+        {
+          success: false,
+          error: opensOn
+            ? `Login opens on ${opensOn}. Check the mail we sent you for the timings.`
+            : 'Login is closed right now. Contact the organizers.',
+        },
+        { status: 403 },
+      );
+    }
   }
 
   const { data: team } = await supabaseServer

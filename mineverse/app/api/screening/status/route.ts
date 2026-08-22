@@ -8,7 +8,8 @@ import {
   SCREENING_QUESTION_COUNT,
   windowState,
 } from '@/lib/screening/config';
-import { getScreeningRound } from '@/lib/screening/service';
+import { getScreeningRound, getTeamYear } from '@/lib/screening/service';
+import { academicYearLabel } from '@/lib/registration-no';
 import { supabaseServer } from '@/lib/supabase/server';
 
 /**
@@ -59,10 +60,18 @@ export async function GET() {
       .eq('id', session.team_id)
       .single();
 
+    // Shown, not asked. The instructions screen used to put a pair of radio
+    // buttons here and post the answer to `start`; the year is read off the
+    // roster now, and this is the team seeing what was read rather than
+    // choosing it. Safe to expose — it is their own registration numbers.
+    const year = await getTeamYear(session.team_id);
+
     payload.team = {
       attempt_status: attempt?.status ?? null,
       submitted_at: attempt?.submitted_at ?? null,
       payment_verified: Boolean(team?.is_payment_verified),
+      year,
+      year_label: academicYearLabel(year),
     };
   }
 

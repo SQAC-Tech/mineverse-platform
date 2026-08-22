@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, Fragment } from 'react';
 import { toast } from 'sonner';
-import { RefreshCw, Search, ChevronDown, UserPlus, Trash2, AlertTriangle, Download } from 'lucide-react';
+import { RefreshCw, Search, ChevronDown, UserPlus, Trash2, AlertTriangle, Download, Unlock } from 'lucide-react';
 import { Panel, Btn, Pill, statusTone, Table, Empty, Loading, PageTitle, apiCall, Grid, StatTile, Field } from '@/components/admin/nether-ui';
 
 /** Mirrors `teams_team_size_check` in the database. */
@@ -24,6 +24,8 @@ type TeamRow = {
   is_payment_verified: boolean;
   total_score: number;
   created_at: string;
+  /** Set on first login; a different network is refused until it is released. */
+  active_login_ip?: string | null;
   members?: Member[];
   attendance_records?: { checkpoint_id: number; members_present: number }[];
 };
@@ -133,6 +135,41 @@ function AddMemberForm({ teamId, onAdded }: { teamId: string; onAdded: () => voi
  * asks for the team code to be typed out — the same friction GitHub puts on
  * deleting a repo, for the same reason.
  */
+/**
+ * Frees a team that logged in somewhere else first.
+ *
+ * `POST /api/auth/login/verify` pins a team to the address it first logs in
+ * from. Everyone in the venue shares one SRMIST NAT address, so on the day this
+ * is invisible — until a team that logged in from home the night before walks in
+ * and is refused, with nothing they can do about it. This is the desk fix.
+ */
+function ReleaseLogin({ team, onReleased }: { team: TeamRow; onReleased: () => void }) {
+  const [busy, setBusy] = useState(false);
+
+  if (!team.active_login_ip) return null;
+
+  const release = async () => {
+    setBusy(true);
+    const res = await apiCall('/api/admin/teams', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'release_login', team_id: team.id }),
+    });
+    setBusy(false);
+    if (!res.ok) return toast.error(res.message);
+    toast.success(`${team.team_code} can log in from this network now`);
+    onReleased();
+  };
+
+  return (
+    <div style={{ marginTop: 10, fontSize: 11.5 }}>
+      <span className="n-panel-sub">Login pinned to {team.active_login_ip}. </span>
+      <Btn small disabled={busy} onClick={() => void release()}>
+        <Unlock size={12} /> {busy ? 'Releasing…' : 'Release login'}
+      </Btn>
+    </div>
+  );
+}
+
 function DeleteTeam({ team, onDeleted }: { team: TeamRow; onDeleted: () => void }) {
   const [arming, setArming] = useState(false);
   const [typed, setTyped] = useState('');
@@ -353,6 +390,8 @@ export default function AdminTeamsPage() {
                             </div>
                           </div>
                         )}
+
+                        <ReleaseLogin team={team} onReleased={() => void load()} />
 
                         <DeleteTeam
                           team={team}

@@ -7,9 +7,30 @@ import { sendOtpEmail } from '@/lib/email';
 import { generateOtp, hashOtp } from '@/lib/auth/otp';
 import { env } from '@/lib/env';
 import { verifyTurnstileToken } from '@/lib/turnstile';
+import { isRegistrationOpen } from '@/lib/platform/settings';
 
 export async function POST(req: Request) {
   const ip = clientIp(req);
+
+  /**
+   * Step one of registration, so it closes when registration does.
+   *
+   * `/api/register` was gated and this was not, which left the door open one
+   * step further back: a closed form still mailed a verification code to
+   * anybody who asked, and only refused at the final submit. That spends real
+   * mail on people who cannot register, and tells them registration is live.
+   *
+   * Checked before the rate limit and before the body is read — the same order
+   * as `/api/register`, because a closed form has nothing to say about a
+   * malformed payload or a spent budget.
+   */
+  if (!(await isRegistrationOpen())) {
+    return NextResponse.json(
+      { success: false, error: 'Registrations are closed. Contact the organizers if you think this is a mistake.' },
+      { status: 403 },
+    );
+  }
+
   const body = await req.json();
   const parsed = otpSendSchema.safeParse(body);
 

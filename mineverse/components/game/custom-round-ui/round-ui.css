@@ -921,7 +921,23 @@
   display: flex;
   gap: 10px;
   justify-content: flex-end;
+  align-items: center;
   margin-top: 11px;
+  flex-wrap: wrap;
+}
+
+/*
+ * Answers now reach the server on their own, so this says so. Quietly: a team
+ * mid-question should be able to glance at it, not read it. It sits first in
+ * source order but is pushed to the left of the buttons, because the buttons
+ * are what the eye is going to.
+ */
+.round-ui__autosave {
+  order: -1;
+  margin-right: auto;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  opacity: 0.68;
 }
 
 .round-ui__btn {

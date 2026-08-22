@@ -2,6 +2,7 @@
 
 import { readDraft, writeDraft, purgeForeignDrafts } from '@/lib/client/answer-drafts';
 import { runtimesFor } from '@/lib/gameplay/code/runtimes';
+import { useAnswerAutosave } from '@/hooks/useAnswerAutosave';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -171,6 +172,8 @@ export function CaveRoundShell() {
   const [slot, setSlot] = useState(1);
   const [now, setNow] = useState(() => Date.now());
   const [offline, setOffline] = useState(false);
+  const [roundStatus, setRoundStatus] = useState<string | null>(null);
+  const [guardianUnlocked, setGuardianUnlocked] = useState(false);
 
   const refresh = useCallback(async () => {
     const [round, resourceResult, teamResult, historyResult] = await Promise.allSettled([
@@ -183,12 +186,34 @@ export function CaveRoundShell() {
     if (round.status === 'fulfilled' && round.value.success) {
       setQuestions(round.value.data.questions ?? []);
       setEndsAt(round.value.data.ends_at ?? null);
-    } else requestFailed = true;
+      setRoundStatus(round.value.data.status ?? null);
+      setGuardianUnlocked(round.value.data.guardian_unlocked ?? false);
+    } else {
+      // An organizer closing the round mid-play is not a network failure, and
+      // showing "offline" for it leaves the team staring at a paper the server
+      // has already stopped accepting. Same handling as the other biome rounds.
+      if (round.status === 'fulfilled' && !round.value.success) {
+        const code = round.value.error?.code;
+        if (code === 'ROUND_NOT_ACTIVE' || code === 'ROUND_LOCKED') {
+          toast.error('This round has been closed by an administrator.');
+          await proctor?.finish();
+          router.push('/dashboard');
+          return;
+        }
+      }
+      requestFailed = true;
+    }
     if (resourceResult.status === 'fulfilled' && resourceResult.value.success) setResourceData(resourceResult.value.data);
     else requestFailed = true;
     if (teamResult.status === 'fulfilled' && teamResult.value.success) setTeam(teamResult.value.team ?? null);
     if (historyResult.status === 'fulfilled' && historyResult.value.success) setHistory(historyResult.value.data.entries ?? []);
     setOffline(requestFailed);
+    // `proctor` and `router` are deliberately not dependencies. `useProctor`
+    // returns a fresh object every render, so listing it would give `refresh` a
+    // new identity each time and the 10s poll below — keyed on `refresh` — would
+    // be torn down and rebuilt before it ever fired. Both are only touched on
+    // the redirect path, where a render-old closure does the same thing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -243,7 +268,10 @@ export function CaveRoundShell() {
 
   const timeLeft = endsAt ? Math.max(0, Math.floor((new Date(endsAt).getTime() - now) / 1000)) : 0;
   const timer = timeParts(timeLeft);
-  const roundLocked = Boolean(endsAt) && timeLeft === 0;
+  // Closed by the clock or closed by an organizer; either way nothing more can
+  // be written, and the autosave below reads this to stop trying.
+  const roundLocked =
+    (Boolean(endsAt) && timeLeft === 0) || roundStatus === 'completed' || roundStatus === 'locked';
   const activeEvent = resourceData?.active_modifiers?.[0];
   const eventRemaining = activeEvent?.expires_at
     ? Math.max(0, Math.floor((new Date(activeEvent.expires_at).getTime() - now) / 1000))
@@ -256,6 +284,34 @@ export function CaveRoundShell() {
   const sectionReady = activeQuestions.length > 0 && answeredInSection === activeQuestions.length;
   const currentIsFinal = FINAL_STATUSES.includes(question?.submission_status ?? '');
   const readOnly = roundLocked || currentIsFinal;
+
+  /**
+   * Nothing typed survives only on the device. Same reasoning as
+   * `CustomRoundShell` — see `useAnswerAutosave`.
+   */
+  const autosave = useAnswerAutosave({
+    drafts,
+    enabled: !roundLocked,
+    resolve: (questionId, text) => {
+      const target = questions.find((entry) => entry.id === questionId);
+      if (!target || FINAL_STATUSES.includes(target.submission_status ?? '')) return null;
+      const isCode = target.type === 'coding' || target.type === 'code_completion';
+      return isCode
+        ? {
+            question_id: questionId,
+            code: text,
+            language: runtimesFor(target.language_options)[0]?.id ?? null,
+          }
+        : { question_id: questionId, answer_text: text };
+    },
+  });
+
+  // Moving off a question is the moment its answer is most likely finished.
+  useEffect(() => {
+    if (!question) return;
+    return () => { void autosave.flush(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [question?.id]);
 
   const updateDraft = (questionId: string, value: string) => {
     setDrafts((current) => ({ ...current, [questionId]: value }));
@@ -283,6 +339,7 @@ export function CaveRoundShell() {
         toast.error(data.error?.message ?? 'Could not save your answer.');
         return false;
       }
+      autosave.markSynced(target.id, answer);
       toast.success('Answer saved. You can still revise it until you submit the section.');
       await refresh();
       return true;
@@ -305,6 +362,19 @@ export function CaveRoundShell() {
   const answeredIds = questions.filter((question) => Boolean(question.submission_status)).map((question) => question.id);
   const unansweredCount = questions.length - answeredIds.length;
 
+  /** The answered set as the server sees it right now, not as of this render. */
+  const answeredIdsFromServer = async (): Promise<string[]> => {
+    try {
+      const json = await fetch(`/api/rounds/${ROUND_ID}/questions`, { cache: 'no-store' }).then((res) => res.json());
+      if (!json?.success) return answeredIds;
+      return (json.data.questions ?? [])
+        .filter((item: Question) => Boolean(item.submission_status))
+        .map((item: Question) => item.id);
+    } catch {
+      return answeredIds;
+    }
+  };
+
   /**
    * Ends the round for this team: locks every answer they saved, then drops them
    * back on the dashboard. Only answered questions are sent — the section endpoint
@@ -314,11 +384,16 @@ export function CaveRoundShell() {
   const finishRound = async () => {
     setFinishing(true);
     try {
-      if (answeredIds.length > 0) {
+      // Anything typed and not yet saved goes up before the round is locked, or
+      // finishing would be the one action that discards work.
+      await autosave.flush();
+      const ids = await answeredIdsFromServer();
+      await refresh();
+      if (ids.length > 0) {
         const response = await fetch('/api/submissions/section', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ round_id: 2, question_ids: answeredIds }),
+          body: JSON.stringify({ round_id: ROUND_ID, question_ids: ids }),
         });
         const json = await response.json();
         if (!json.success) {
@@ -569,6 +644,15 @@ export function CaveRoundShell() {
                         >
                           Save &amp; next <ChevronRight size={14} />
                         </button>
+                        <span
+                          className="round-ui__autosave"
+                          aria-live="polite"
+                          title="Answers are sent to the server on their own — you do not have to press Save for your work to be kept."
+                        >
+                          {autosave.pending > 0
+                            ? `${autosave.pending} not sent yet…`
+                            : 'All answers saved'}
+                        </span>
                       </div>
                     )}
                   </>
@@ -633,6 +717,10 @@ export function CaveRoundShell() {
                 idleText="The cave is quiet. Organizers announce world events."
               />
 
+              {/* The boss is off until an organizer unlocks the round's toggle.
+                  `startGuardianBattle` refuses a locked boss on the server too,
+                  so this is the matching half rather than the whole gate. */}
+              {guardianUnlocked && (
               <section className="round-ui__panel round-ui__card">
                 <p className="round-ui__panel-title">Skeleton archer</p>
                 <div className="round-ui__art">
@@ -643,6 +731,7 @@ export function CaveRoundShell() {
                   <Swords size={16} /> Challenge
                 </button>
               </section>
+              )}
 
             </aside>
           ) : (
