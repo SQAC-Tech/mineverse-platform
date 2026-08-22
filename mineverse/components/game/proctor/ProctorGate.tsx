@@ -120,10 +120,10 @@ export function ProctorGate({ proctor, roundId, roundName, eyebrow, themeClass }
           <button
             type="button"
             className="pgate__btn pgate__btn--quiet"
-            onClick={() => router.push('/dashboard')}
+            onClick={() => router.push('/landing')}
             disabled={proctor.starting}
           >
-            Back to dashboard
+            Back to home
           </button>
         </div>
 

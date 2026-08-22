@@ -74,7 +74,7 @@ export const GAUNTLET_PUZZLES: GauntletPuzzleConfig[] = [
     id: 3,
     title: "PUZZLE 3: The Enchantment Cipher",
     subtitle: "Pattern Recognition & String Manipulation",
-    prompt: "You hold a lamp forged in the NETHER BIOME, its eerie light revealing encrypted runes on the gate.\n\nThe Golem's voice echoes heavily:\n\n'The key lies in the origin of your light, but you must discard the physical vessel itself. Take only the two-word name of its home. Shift each letter of those words forward by the total number of characters they contain.'\n\nWhat is the final password?",
+    prompt: "You hold a lamp forged in the NETHER BIOME, its eerie light revealing encrypted runes on the gate.\n\nThe Golem's voice echoes heavily:\n\n'The key lies in the origin of your light, but you must discard the physical vessel itself. Take only the two-word name of its home. Shift each letter of those words forward by the total number of characters they contain.'\n\n(Note: Space is not to be counted as a character, nor to be written in the answer.)\n\nWhat is the final password?",
     errorMessage: "The cipher remains sealed. Try again.",
     successMessage: "Gate Opened. Server connection established.",
     expectedAnswer: applyCipher('NETHER BIOME'),
