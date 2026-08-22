@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { RefreshCw, Eye, EyeOff, CheckCircle2, Sparkles, Wand2 } from 'lucide-react';
 
 interface PictureSliderPuzzleProps {
-  onSolve: (answer: string) => void;
+  onSolve: (answer: string, moves?: number) => void;
   imageUrl?: string;
   gridSize?: number; // default 3 for 3x3
 }
@@ -102,7 +102,7 @@ export function PictureSliderPuzzle({
       if (checkSolved(newTiles)) {
         setIsSolved(true);
         setTimeout(() => {
-          onSolve('SLIDER_SOLVED');
+          onSolve('SLIDER_SOLVED', nextMoves);
         }, 600);
       }
     }
@@ -114,7 +114,7 @@ export function PictureSliderPuzzle({
     setTiles(solvedBoard);
     setIsSolved(true);
     setTimeout(() => {
-      onSolve('SLIDER_SOLVED');
+      onSolve('SLIDER_SOLVED', moves);
     }, 400);
   };
 

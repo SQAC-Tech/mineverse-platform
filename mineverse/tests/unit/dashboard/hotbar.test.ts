@@ -62,9 +62,15 @@ describe('inventory hotbar', () => {
     expect(hotbar).not.toMatch(/var\(--rd-/);
   });
 
-  it('draws its nine slots from the one resource catalog', () => {
+  it('draws its slots from the one resource catalog, never a second list', () => {
+    // This used to pin `length: 9`. The bar now grows past nine to show crafted
+    // items, so the literal is gone — but the thing the test was protecting is
+    // not the number, it is that the slots come from RESOURCE_META rather than
+    // from a copy of the catalog that can drift away from it.
     const component = read('components', 'game', 'inventory', 'Hotbar.tsx');
     expect(component).toMatch(/RESOURCE_META/);
-    expect(component).toMatch(/length: 9/);
+    expect(component).toMatch(/RESOURCE_META\.length/);
+    // Nine is the floor, so a team holding nothing crafted still sees a full bar.
+    expect(component).toMatch(/Math\.max\(9,/);
   });
 });

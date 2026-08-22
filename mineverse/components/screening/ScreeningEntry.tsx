@@ -240,8 +240,8 @@ export function ScreeningEntry() {
             <span className="scr__saving">
               {status.state === 'open' ? `Closes ${istTime(status.ends_at)} IST` : ''}
             </span>
-            <button type="button" className="scr__btn" onClick={() => router.push('/dashboard')}>
-              Back to dashboard
+            <button type="button" className="scr__btn" onClick={() => router.push('/')}>
+              Return to Main Screen
             </button>
             <button
               type="button"

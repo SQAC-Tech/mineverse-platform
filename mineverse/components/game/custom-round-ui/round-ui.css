@@ -2759,3 +2759,212 @@
   font-size: 14px;
   letter-spacing: 1px;
 }
+/* Minecraft Crafting Table */
+.mc-crafting-table {
+  background-color: #c6c6c6;
+  border: 4px solid;
+  border-top-color: #ffffff;
+  border-left-color: #ffffff;
+  border-bottom-color: #555555;
+  border-right-color: #555555;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  font-family: var(--font-minecraft), monospace;
+  image-rendering: pixelated;
+}
+
+.mc-grid-container {
+  display: flex;
+  flex-direction: column;
+}
+
+.mc-crafting-title {
+  color: #3f3f3f;
+  margin: 0 0 4px 4px;
+  font-size: 14px;
+}
+
+.mc-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 36px);
+  grid-template-rows: repeat(3, 36px);
+  gap: 2px;
+}
+
+.mc-slot {
+  width: 36px;
+  height: 36px;
+  background-color: #8b8b8b;
+  border: 2px solid;
+  border-top-color: #373737;
+  border-left-color: #373737;
+  border-bottom-color: #ffffff;
+  border-right-color: #ffffff;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mc-slot img {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+
+.mc-slot-count {
+  position: absolute;
+  bottom: 0;
+  right: 2px;
+  color: white;
+  text-shadow: 1px 1px 0 #3f3f3f;
+  font-size: 12px;
+}
+
+.mc-arrow {
+  width: 48px;
+  height: 32px;
+  background-color: #8b8b8b;
+  position: relative;
+  /* Make it look like an arrow */
+  clip-path: polygon(0 25%, 60% 25%, 60% 0%, 100% 50%, 60% 100%, 60% 75%, 0 75%);
+}
+
+.mc-result-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.mc-slot-result {
+  width: 52px;
+  height: 52px;
+}
+
+.mc-slot-result img {
+  width: 36px;
+  height: 36px;
+}
+
+.mc-slot-result:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.mc-slot-result:not(:disabled):hover {
+  background-color: #a0a0a0;
+  cursor: pointer;
+}
+
+.mc-result-meta {
+  text-align: center;
+  color: #3f3f3f;
+}
+
+.mc-result-label {
+  font-size: 14px;
+  margin: 0 0 2px 0;
+}
+
+.mc-result-cost {
+  font-size: 10px;
+  margin: 0;
+  opacity: 0.8;
+}
+/* Crafting Popover */
+.mc-crafting-toggle-btn {
+  width: 52px;
+  height: 52px;
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.1s;
+}
+
+.mc-crafting-toggle-btn:hover {
+  transform: scale(1.05);
+}
+
+.mc-crafting-toggle-btn img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.mc-crafting-popover {
+  position: absolute;
+  bottom: 100%;
+  right: 0;
+  margin-bottom: 16px;
+  z-index: 50;
+  background-color: #c6c6c6;
+  border: 4px solid;
+  border-top-color: #ffffff;
+  border-left-color: #ffffff;
+  border-bottom-color: #555555;
+  border-right-color: #555555;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  animation: popUp 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.mc-crafting-popover .mc-crafting-table {
+  border: none;
+  background: none;
+  padding: 24px;
+}
+
+.mc-crafting-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  background-color: #c6c6c6;
+  border: 2px solid;
+  border-top-color: #ffffff;
+  border-left-color: #ffffff;
+  border-bottom-color: #555555;
+  border-right-color: #555555;
+  font-family: var(--font-minecraft), monospace;
+  font-size: 16px;
+  line-height: 1;
+  color: #3f3f3f;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+}
+
+.mc-crafting-close:hover {
+  background-color: #d6d6d6;
+}
+
+.mc-crafting-close:active {
+  border-top-color: #555555;
+  border-left-color: #555555;
+  border-bottom-color: #ffffff;
+  border-right-color: #ffffff;
+  padding-top: 2px;
+  padding-left: 2px;
+}
+
+@keyframes popUp {
+  0% { opacity: 0; transform: translateY(10px) scale(0.95); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+/* Absolute position the crafting button */
+.round-ui__inventory {
+  position: relative;
+}
+.round-ui__inventory-actions {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 10;
+}

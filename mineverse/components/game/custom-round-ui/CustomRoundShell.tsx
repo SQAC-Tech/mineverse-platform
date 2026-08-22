@@ -46,6 +46,7 @@ import {
 } from './round-presentation';
 import './round-ui.css';
 import { Hotbar } from '@/components/game/inventory/Hotbar';
+import { MinecraftCraftingTable } from './MinecraftCraftingTable';
 
 interface CustomRoundShellProps {
   roundId: number;
@@ -91,15 +92,26 @@ function statusLabel(status: string | null) {
 }
 
 /** `content` carries the question body, but only a string is safe to render. */
-function questionBody(question: Question) {
+function questionBody(question: Question, language: string | null) {
+  const contentObj = question.content as any;
+  if (contentObj && typeof contentObj === 'object' && contentObj.language_prompts) {
+    const prompts = contentObj.language_prompts;
+    if (language && prompts[language]) {
+      return prompts[language];
+    }
+    const firstKey = Object.keys(prompts)[0];
+    if (firstKey && prompts[firstKey]) {
+      return prompts[firstKey];
+    }
+  }
   return typeof question.content === 'string' && question.content.trim() ? question.content : question.prompt;
 }
 
 /** Prose stays prose; code goes into a real code block instead of one flat wall. */
-function QuestionPrompt({ question }: { question: Question }) {
+function QuestionPrompt({ question, language }: { question: Question; language: string | null }) {
   return (
     <div className="round-ui__prompt-blocks">
-      {promptBlocks(questionBody(question)).map((block, index) =>
+      {promptBlocks(questionBody(question, language)).map((block, index) =>
         block.kind === 'code' ? (
           <pre key={index} className="round-ui__code"><code>{block.body}</code></pre>
         ) : (
@@ -137,6 +149,8 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
   const teamCode = team?.team_code ?? null;
   const [history, setHistory] = useState<LedgerEntry[]>([]);
   const [endsAt, setEndsAt] = useState<string | null>(null);
+  const [roundStatus, setRoundStatus] = useState<string | null>(null);
+  const [guardianUnlocked, setGuardianUnlocked] = useState(false);
   const [activeTab, setActiveTab] = useState<string | null>(null);
   const [questionIndex, setQuestionIndex] = useState<Record<string, number>>({});
   const [drafts, setDrafts] = useState<Record<string, string>>({});
@@ -146,6 +160,7 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
   const [confirmFinish, setConfirmFinish] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const [crafting, setCrafting] = useState(false);
+  const [craftingOpen, setCraftingOpen] = useState(false);
   const [guardianOpen, setGuardianOpen] = useState(false);
   const [railOpen, setRailOpen] = useState(true);
   const [activeSlot, setActiveSlot] = useState(1);
@@ -164,7 +179,18 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
     if (roundResult.status === 'fulfilled' && roundResult.value.success) {
       setQuestions(roundResult.value.data.questions ?? []);
       setEndsAt(roundResult.value.data.ends_at ?? null);
+      setRoundStatus(roundResult.value.data.status ?? null);
+      setGuardianUnlocked(roundResult.value.data.guardian_unlocked ?? false);
     } else {
+      if (roundResult.status === 'fulfilled' && !roundResult.value.success) {
+        const code = roundResult.value.error?.code;
+        if (code === 'ROUND_NOT_ACTIVE' || code === 'ROUND_LOCKED') {
+          toast.error('This round has been closed by an administrator.');
+          await proctor?.finish();
+          router.push('/dashboard');
+          return;
+        }
+      }
       failed = true;
     }
     if (resourcesResult.status === 'fulfilled' && resourcesResult.value.success) {
@@ -255,7 +281,7 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
     ? Math.max(0, Math.floor((new Date(activeEvent.expires_at).getTime() - now) / 1000))
     : null;
   const eventLive = Boolean(activeEvent) && (eventRemaining === null || eventRemaining > 0);
-  const isRoundLocked = remainingSeconds === 0 && Boolean(endsAt);
+  const isRoundLocked = (remainingSeconds === 0 && Boolean(endsAt)) || roundStatus === 'completed' || roundStatus === 'locked';
 
   // What the round's own recipe costs, against what the team is holding.
   const craftShortfall = craft
@@ -444,6 +470,13 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
       setFinishing(false);
     }
   };
+
+  useEffect(() => {
+    if (proctor?.flagged) {
+      toast.error('You have been disqualified for violating proctor rules.');
+      void finishRound();
+    }
+  }, [proctor?.flagged]);
 
   const craftRoundItem = async () => {
     if (!craft) return;
@@ -648,8 +681,28 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
                       <span className="round-ui__type-badge">{questionTypeLabel(currentQuestion.type)}</span>
                     </p>
                     {currentQuestion.title && <p className="round-ui__question-title">{currentQuestion.title}</p>}
-                    <QuestionPrompt question={currentQuestion} />
-                    <label className="round-ui__field-label" htmlFor={`answer-${currentQuestion.id}`}>Your answer</label>
+                    <QuestionPrompt question={currentQuestion} language={languages[currentQuestion.id] ?? runtimesFor(currentQuestion.language_options?.length ? currentQuestion.language_options : ['python', 'cpp', 'java', 'javascript', 'c'])[0]?.id ?? null} />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <label className="round-ui__field-label" style={{ margin: 0 }} htmlFor={`answer-${currentQuestion.id}`}>Your answer</label>
+                      {['coding', 'code_completion', 'debugging', 'debug_output'].includes(currentQuestion.type) && (
+                        <select
+                          className="round-ui__field"
+                          style={{ width: 'auto', padding: '6px 12px', fontSize: '13px', display: 'block', backgroundColor: 'rgba(255, 255, 255, 0.1)', color: '#fff', border: '1px solid rgba(255, 255, 255, 0.2)', borderRadius: '4px', cursor: 'pointer', appearance: 'auto' }}
+                          value={languages[currentQuestion.id] ?? runtimesFor(currentQuestion.language_options?.length ? currentQuestion.language_options : ['python', 'cpp', 'java', 'javascript', 'c'])[0]?.id ?? ''}
+                          onChange={(e) => {
+                            setLanguages((prev) => ({ ...prev, [currentQuestion.id]: e.target.value }));
+                            writeLanguage(teamCode, roundId, currentQuestion.id, e.target.value);
+                          }}
+                          disabled={readOnly}
+                        >
+                          {runtimesFor(currentQuestion.language_options?.length ? currentQuestion.language_options : ['python', 'cpp', 'java', 'javascript', 'c']).map((rt) => (
+                            <option key={rt.id} value={rt.id} style={{ backgroundColor: '#222', color: '#fff' }}>
+                              {rt.label}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
                     {usesEditor(currentQuestion) ? (
                       <>
                         {/* A program does not fit in this column, so the board
@@ -773,7 +826,7 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
                 idleText={chrome.eventIdleText}
               />
 
-              {guardian && (
+              {guardian && guardianUnlocked && (
               <section className="round-ui__panel round-ui__card">
                 <p className="round-ui__panel-title">
                   {guardian.label}
@@ -821,26 +874,44 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
 
         <div className="round-ui__foot">
           <section className="round-ui__panel round-ui__inventory">
+            {craft && (
+              <div className="round-ui__inventory-actions" style={{ position: 'relative' }}>
+                <button
+                  type="button"
+                  className="mc-crafting-toggle-btn"
+                  onClick={() => setCraftingOpen(!craftingOpen)}
+                  title="Open Crafting Table"
+                >
+                  <img src="/crafting_table_icon.png" alt="Crafting Table" />
+                </button>
+                {craftingOpen && (
+                  <div className="mc-crafting-popover">
+                    <button 
+                      className="mc-crafting-close" 
+                      onClick={() => setCraftingOpen(false)}
+                      title="Close"
+                    >×</button>
+                    <MinecraftCraftingTable
+                      craft={craft}
+                      canCraft={canCraft}
+                      crafting={crafting}
+                      craftShortfall={craftShortfall}
+                      onCraft={() => {
+                        void craftRoundItem();
+                        if (canCraft) setCraftingOpen(false);
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
             <div className="round-ui__inventory-main">
               <div className="round-ui__inventory-head">
                 <b>YOUR INVENTORY</b>
                 <span>{resources?.pending_grading ? 'Rewards pending grading' : 'Live resource balance'}</span>
               </div>
-              <Hotbar balance={resources?.balance} activeSlot={activeSlot} onSelect={setActiveSlot} />
+              <Hotbar balance={resources?.balance} activeSlot={activeSlot} onSelect={setActiveSlot} crafted={crafted} />
             </div>
-            {craft && (
-              <div className="round-ui__inventory-actions">
-                <button type="button" className="round-ui__craft" disabled={!canCraft || crafting} onClick={() => void craftRoundItem()}>
-                  <Trophy size={15} />
-                  {crafting
-                    ? 'Crafting…'
-                    : canCraft
-                      ? `Craft ${craft.label}`
-                      : `Need ${craftShortfall.map((entry) => `${entry.short} ${entry.key}`).join(', ')}`}
-                </button>
-                <span className="round-ui__craft-cost">{craft.costText}</span>
-              </div>
-            )}
           </section>
 
           <aside className="round-ui__panel round-ui__companion" aria-hidden="true">

@@ -329,6 +329,8 @@ export async function saveGauntletAnswer(
   teamId: string,
   puzzleId: number,
   answerText: string,
+  durationSeconds?: number,
+  moves?: number,
 ): Promise<Result<{ success: boolean; current_step: number; message?: string; completed?: boolean; seconds_remaining: number }>> {
   const attempt = await loadAttempt(teamId);
   if (!attempt) return { ok: false, status: 404, code: 'NO_ATTEMPT' };
@@ -419,6 +421,61 @@ export async function saveGauntletAnswer(
     console.error('Screening Gauntlet answer save failed:', error);
     return { ok: false, status: 500, code: 'SAVE_FAILED' };
   }
+
+  /**
+   * The relay mirror, for `/admin/relay-data`.
+   *
+   * A second copy of the same answer: `option_order.answers` is what the
+   * Gauntlet grades from, and `relay_screening_attempts` is the per-puzzle
+   * telemetry table the relay console reads. Kept because the timings and the
+   * slider move count only exist here — the client measures them and the state
+   * blob has nowhere to put them.
+   *
+   * Written with an upsert rather than a select-then-branch. Two answers landing
+   * together both saw no row and both inserted, and the second lost to the
+   * `team_id` unique constraint; the same fix `/api/screening/relay` already
+   * carries. Columns not named here keep whatever the row already had, so
+   * puzzle 3 does not blank out puzzle 1.
+   */
+  const relayUpdate: Record<string, unknown> = {
+    team_id: teamId,
+    word_assigned: optionOrder.word_assigned || 'UNKNOWN',
+  };
+
+  if (puzzleId === 1) {
+    relayUpdate.year1_answer = answerText.trim();
+    relayUpdate.year1_status = 'completed';
+    if (durationSeconds !== undefined) relayUpdate.year1_duration_seconds = durationSeconds;
+  }
+  if (puzzleId === 2) {
+    relayUpdate.year2_answer = answerText.trim();
+    relayUpdate.year2_status = 'completed';
+    if (durationSeconds !== undefined) relayUpdate.year2_duration_seconds = durationSeconds;
+    if (moves !== undefined) relayUpdate.year2_moves = moves;
+  }
+  if (puzzleId === 3) {
+    relayUpdate.year3_answer = answerText.trim();
+    relayUpdate.year3_status = 'completed';
+    if (durationSeconds !== undefined) relayUpdate.year3_duration_seconds = durationSeconds;
+  }
+
+  // Completion is derived from the puzzles actually solved, not from "this was
+  // puzzle 3". A team that solves 3 before 2 — or that has an older attempt
+  // where 1 was never recorded — must not be marked finished by arriving at the
+  // last id.
+  if (isCompleted) {
+    relayUpdate.is_completed = true;
+    relayUpdate.submitted_at = new Date().toISOString();
+  }
+
+  const { error: relayError } = await db
+    .from('relay_screening_attempts')
+    .upsert(relayUpdate, { onConflict: 'team_id' });
+
+  // Non-fatal: this table is a reporting mirror, and the answer is already
+  // safe in `screening_attempts`. Losing the console row must not cost a team
+  // the puzzle it just solved.
+  if (relayError) console.error('Relay mirror write failed:', relayError);
 
   // Finishing hands the paper in through the same function the deadline sweep
   // uses. It used to write `total_score: 100` inline here, which is how a
