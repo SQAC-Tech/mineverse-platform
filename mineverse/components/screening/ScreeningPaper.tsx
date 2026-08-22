@@ -52,11 +52,6 @@ export function ScreeningPaper({ initial }: { initial: GauntletAttempt }) {
     initial.status === 'submitted' || initial.status === 'expired'
   );
   
-  useEffect(() => {
-    if (isFinalCompleted) {
-      router.push('/');
-    }
-  }, [isFinalCompleted, router]);
   const [dialogueVisible, setDialogueVisible] = useState<boolean>(true);
   const [dialogueText, setDialogueText] = useState<string | null>(null);
   const [boardVisible, setBoardVisible] = useState<boolean>(false);
@@ -66,6 +61,11 @@ export function ScreeningPaper({ initial }: { initial: GauntletAttempt }) {
   const [resetting, setResetting] = useState(false);
   const submittedRef = useRef(false);
   const outroVideoRef = useRef<HTMLVideoElement>(null);
+  /** The proctor is torn down exactly once. See the teardown effect below. */
+  const proctorEndedRef = useRef(false);
+  /** Guards the verdict toast so no two completion paths can both fire it. */
+  const verdictShownRef = useRef(false);
+  const [confirmEnd, setConfirmEnd] = useState(false);
 
   const remaining = Math.max(0, Math.floor((deadline - now) / 1000));
   
@@ -103,6 +103,48 @@ export function ScreeningPaper({ initial }: { initial: GauntletAttempt }) {
     return () => window.clearInterval(tick);
   }, []);
 
+  /**
+   * The one way out of the paper.
+   *
+   * Every path that ends the test — the outro video ending, the skip button,
+   * the video failing to load, the timer running out, a proctor flag, the team
+   * pressing "End test" — sets `isFinalCompleted`. Nothing else tears the
+   * proctor down. That indirection is the point: the previous version called
+   * `proctor.finish()` inside each individual video callback, so the two paths
+   * that forgot it (`onError`, and the return-home button) left the browser
+   * locked in fullscreen with a live session. On the evening of 22 Aug four of
+   * the first fourteen finishers ended up in that state.
+   */
+  const completeTest = useCallback((message?: string) => {
+    if (verdictShownRef.current) return;
+    verdictShownRef.current = true;
+    setOutroEnded(true);
+    if (message) toast.error(message);
+    else toast.success(FINAL_VERDICT_TEXT);
+    setIsFinalCompleted(true);
+  }, []);
+
+  /**
+   * Teardown. Runs once, whatever route the team took to get here.
+   *
+   * `replace` rather than `push` so the back button cannot walk them into a
+   * paper they have already submitted. `finish()` is awaited but its failure is
+   * swallowed — the session is closed server-side by the reaper either way, and
+   * a network blip must not strand someone in fullscreen.
+   */
+  useEffect(() => {
+    if (!isFinalCompleted || proctorEndedRef.current) return;
+    proctorEndedRef.current = true;
+    void (async () => {
+      try {
+        await proctor?.finish();
+      } catch {
+        // Leaving regardless; see above.
+      }
+      router.replace('/');
+    })();
+  }, [isFinalCompleted, proctor, router]);
+
   const finish = useCallback(
     async (auto: boolean, disqualified: boolean = false) => {
       if (submittedRef.current) return;
@@ -112,16 +154,9 @@ export function ScreeningPaper({ initial }: { initial: GauntletAttempt }) {
       } catch {
         // Handled server side
       }
-      await proctor?.finish();
-      setIsFinalCompleted(true);
-      if (disqualified) {
-        toast.error('You have been disqualified for violating proctor rules.');
-      } else {
-        toast.success(FINAL_VERDICT_TEXT);
-      }
-      router.push('/');
+      completeTest(disqualified ? 'You have been disqualified for violating proctor rules.' : undefined);
     },
-    [proctor, router],
+    [completeTest],
   );
 
   useEffect(() => {
@@ -135,15 +170,10 @@ export function ScreeningPaper({ initial }: { initial: GauntletAttempt }) {
   useEffect(() => {
     if (showOutroVideo) {
       // Safety fallback timer: auto-reveal verdict after 5.5 seconds if video ends or stalls
-      const timer = setTimeout(() => {
-        setOutroEnded(true);
-        if (proctor) void proctor.finish().catch(() => {});
-        toast.success(FINAL_VERDICT_TEXT);
-        router.push('/');
-      }, 5500);
+      const timer = setTimeout(() => completeTest(), 5500);
       return () => clearTimeout(timer);
     }
-  }, [showOutroVideo, proctor, router]);
+  }, [showOutroVideo, completeTest]);
 
   const handleResetAttempt = async () => {
     setResetting(true);
@@ -275,28 +305,10 @@ export function ScreeningPaper({ initial }: { initial: GauntletAttempt }) {
           }}
           onTimeUpdate={(e) => {
             const v = e.currentTarget;
-            if (v.duration > 0 && v.currentTime >= v.duration - 0.4 && !outroEnded) {
-              setOutroEnded(true);
-              if (proctor) void proctor.finish().catch(() => {});
-              toast.success(FINAL_VERDICT_TEXT);
-              router.push('/');
-            }
+            if (v.duration > 0 && v.currentTime >= v.duration - 0.4) completeTest();
           }}
-          onEnded={() => {
-            if (!outroEnded) {
-              setOutroEnded(true);
-              if (proctor) void proctor.finish().catch(() => {});
-              toast.success(FINAL_VERDICT_TEXT);
-              router.push('/');
-            }
-          }}
-          onError={() => {
-            if (!outroEnded) {
-              setOutroEnded(true);
-              toast.success(FINAL_VERDICT_TEXT);
-              router.push('/');
-            }
-          }}
+          onEnded={() => completeTest()}
+          onError={() => completeTest()}
           className="absolute inset-0 w-full h-full object-cover"
         >
           <source src="/After_screening.mp4" type="video/mp4" />
@@ -308,12 +320,7 @@ export function ScreeningPaper({ initial }: { initial: GauntletAttempt }) {
           <div className="relative z-30 p-4 flex justify-end">
             <button
               type="button"
-              onClick={() => {
-                setOutroEnded(true);
-                if (proctor) void proctor.finish().catch(() => {});
-                toast.success(FINAL_VERDICT_TEXT);
-                router.push('/');
-              }}
+              onClick={() => completeTest()}
               className="bg-stone-900/90 hover:bg-stone-800 border border-amber-500/60 text-amber-300 font-mono text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-xl cursor-pointer backdrop-blur"
             >
               <span>SKIP VIDEO &gt;</span>
@@ -357,7 +364,7 @@ export function ScreeningPaper({ initial }: { initial: GauntletAttempt }) {
                 <div className="flex flex-col sm:flex-row items-center gap-3 w-full">
                   <button
                     type="button"
-                    onClick={() => router.push('/')}
+                    onClick={() => router.replace('/')}
                     className="w-full sm:flex-1 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:from-emerald-500 hover:to-teal-500 text-stone-950 font-mono font-black py-3 px-4 rounded-xl transition-all shadow-[0_0_20px_rgba(16,185,129,0.4)] text-xs flex items-center justify-center gap-2 cursor-pointer uppercase tracking-widest"
                   >
                     <Home className="w-4 h-4 text-stone-950" />
@@ -407,7 +414,44 @@ export function ScreeningPaper({ initial }: { initial: GauntletAttempt }) {
       />
 
       {/* MINIMAL TOP BAR */}
-      <GauntletTopBar remainingSeconds={remaining} />
+      <GauntletTopBar remainingSeconds={remaining} onEndTest={() => setConfirmEnd(true)} />
+
+      {/* END-TEST CONFIRMATION. Submitting is irreversible, so it is deliberately
+          two steps — the button sits next to a running clock and a misclick
+          would cost a team the whole round. */}
+      {confirmEnd && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-stone-950/85 backdrop-blur-sm p-4">
+          <div className="bg-stone-900 border-2 border-red-900/70 rounded-2xl p-6 max-w-md w-full shadow-2xl">
+            <h2 className="font-mono font-black uppercase tracking-widest text-red-400 text-sm mb-3">
+              End the screening?
+            </h2>
+            <p className="text-zinc-300 text-xs leading-relaxed mb-5">
+              Your answers so far will be submitted and the round will close for your team. You cannot
+              return to it, and any puzzle you have not solved stays unsolved. Your remaining time is
+              forfeited.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                type="button"
+                onClick={() => setConfirmEnd(false)}
+                className="w-full sm:flex-1 bg-stone-950 hover:bg-stone-800 border border-stone-700 text-zinc-300 font-mono font-bold py-2.5 px-4 rounded-xl text-xs uppercase tracking-widest transition-colors cursor-pointer"
+              >
+                Keep playing
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirmEnd(false);
+                  void finish(false);
+                }}
+                className="w-full sm:flex-1 bg-red-900 hover:bg-red-800 border border-red-700 text-red-100 font-mono font-black py-2.5 px-4 rounded-xl text-xs uppercase tracking-widest transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Submit &amp; exit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MAIN SINGLE-FRAME 2-COLUMN OVERLAY CONTAINER */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-2.5 sm:p-3.5 grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch relative z-10 overflow-hidden">
