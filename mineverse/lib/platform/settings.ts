@@ -1,4 +1,5 @@
 import { supabaseServer } from '@/lib/supabase/server';
+import { isEventDay, isScreeningDay } from '@/lib/auth/otp';
 
 /**
  * Switches an organizer can flip without a redeploy.
@@ -27,6 +28,7 @@ const db = supabaseServer as unknown as {
 };
 
 export const REGISTRATION_OPEN_KEY = 'registration_open';
+export const LOGIN_OPEN_KEY = 'login_open';
 
 const CACHE_TTL_MS = 5_000;
 
@@ -111,5 +113,85 @@ export async function clearRegistrationOverride(): Promise<boolean> {
     return false;
   }
   invalidateSetting(REGISTRATION_OPEN_KEY);
+  return true;
+}
+
+
+/* ------------------------------------------------------------ team login */
+
+/**
+ * Whether teams may log in at all right now.
+ *
+ * The gate used to be one line in `request-otp`: `isEventDay()`, or a 403. That
+ * is right for the game itself and wrong for everything before it — the
+ * screening qualifier runs two days ahead of the event, and on its own evening
+ * every real team would have been told "Login is only available on event day."
+ * The demo teams were the only accounts that could get in, which is exactly why
+ * it survived testing.
+ *
+ * Two dates open it now, `EVENT_DATE` and the optional `SCREENING_DATE`, and an
+ * organizer can override either from the console. The override matters more
+ * than it looks: both dates live in the Vercel environment, so without it a
+ * wrong date on the evening of the qualifier means a redeploy while 90 teams
+ * wait.
+ */
+export function loginOpenDefault(now: Date = new Date()): boolean {
+  return isEventDay(now) || isScreeningDay(now);
+}
+
+export interface LoginState {
+  open: boolean;
+  source: 'database' | 'schedule';
+  /** What the schedule alone would say, so the console can show both. */
+  scheduled: boolean;
+  event_date: string | null;
+  screening_date: string | null;
+}
+
+export async function getLoginState(now: Date = new Date()): Promise<LoginState> {
+  const scheduled = loginOpenDefault(now);
+  const stored = await readSetting(LOGIN_OPEN_KEY);
+
+  return {
+    open: typeof stored === 'boolean' ? stored : scheduled,
+    source: typeof stored === 'boolean' ? 'database' : 'schedule',
+    scheduled,
+    event_date: process.env.EVENT_DATE ?? null,
+    screening_date: process.env.SCREENING_DATE ?? null,
+  };
+}
+
+export async function isLoginOpen(now: Date = new Date()): Promise<boolean> {
+  return (await getLoginState(now)).open;
+}
+
+export async function setLoginOpen(open: boolean, actor: string): Promise<boolean> {
+  const { error } = await db.from('platform_settings').upsert(
+    {
+      key: LOGIN_OPEN_KEY,
+      value: open,
+      updated_at: new Date().toISOString(),
+      updated_by: actor,
+    },
+    { onConflict: 'key' },
+  );
+
+  if (error) {
+    console.error('Writing login_open failed:', error);
+    return false;
+  }
+
+  invalidateSetting(LOGIN_OPEN_KEY);
+  return true;
+}
+
+/** Hands the gate back to the schedule. See `clearRegistrationOverride`. */
+export async function clearLoginOverride(): Promise<boolean> {
+  const { error } = await db.from('platform_settings').delete().eq('key', LOGIN_OPEN_KEY);
+  if (error) {
+    console.error('Clearing login_open failed:', error);
+    return false;
+  }
+  invalidateSetting(LOGIN_OPEN_KEY);
   return true;
 }

@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { Users, CheckCircle2, Clock, Coins, Zap, Swords, AlertTriangle, DoorOpen, DoorClosed } from 'lucide-react';
+import { Users, CheckCircle2, Clock, Coins, Zap, Swords, AlertTriangle, DoorOpen, DoorClosed, KeyRound, Lock } from 'lucide-react';
 import { Panel, StatTile, Pill, statusTone, Grid, Loading, PageTitle, apiCall, Empty, Btn } from '@/components/admin/nether-ui';
 
 type TeamRow = { id: string; team_size: number; is_payment_verified: boolean; status: string };
@@ -11,6 +11,13 @@ type RoundRow = { id: number; name: string; day: number; sequence: number; statu
 type EventRow = { id: string; event_key: string; label: string; status: string; is_expired: boolean; round_id: number };
 type MatchRow = { id: string; status: string; winner_team_id: string | null };
 type RegistrationState = { open: boolean; source: 'database' | 'environment'; env_default: boolean };
+type LoginState = {
+  open: boolean;
+  source: 'database' | 'schedule';
+  scheduled: boolean;
+  event_date: string | null;
+  screening_date: string | null;
+};
 
 export default function AdminOverviewPage() {
   const [teams, setTeams] = useState<TeamRow[] | null>(null);
@@ -18,7 +25,9 @@ export default function AdminOverviewPage() {
   const [events, setEvents] = useState<EventRow[]>([]);
   const [matches, setMatches] = useState<MatchRow[]>([]);
   const [registration, setRegistration] = useState<RegistrationState | null>(null);
+  const [login, setLogin] = useState<LoginState | null>(null);
   const [confirmReg, setConfirmReg] = useState(false);
+  const [confirmLogin, setConfirmLogin] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -28,14 +37,17 @@ export default function AdminOverviewPage() {
       apiCall<RoundRow[]>('/api/admin/rounds'),
       apiCall<{ events: EventRow[] }>('/api/admin/events'),
       apiCall<{ matches: MatchRow[] }>('/api/admin/pvp/matches'),
-      apiCall<{ registration: RegistrationState }>('/api/admin/settings'),
+      apiCall<{ registration: RegistrationState; login: LoginState }>('/api/admin/settings'),
     ]);
 
     if (t.ok) setTeams(t.data); else setError(t.message);
     if (r.ok) setRounds(r.data ?? []);
     if (e.ok) setEvents(e.data.events ?? []);
     if (m.ok) setMatches(m.data.matches ?? []);
-    if (s.ok) setRegistration(s.data.registration);
+    if (s.ok) {
+      setRegistration(s.data.registration);
+      setLogin(s.data.login);
+    }
   }, []);
 
   useEffect(() => {
@@ -68,6 +80,31 @@ export default function AdminOverviewPage() {
     if (!res.ok) return toast.error(res.message);
     setRegistration((current) => (current ? { ...current, ...res.data } : current));
     toast.success('Back to the deployment default.');
+  };
+
+  const setLoginOpen = async (open: boolean) => {
+    setBusy(true);
+    const res = await apiCall<{ login: LoginState }>('/api/admin/settings', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'set_login_open', open }),
+    });
+    setBusy(false);
+    setConfirmLogin(false);
+    if (!res.ok) return toast.error(res.message);
+    setLogin(res.data.login);
+    toast.success(open ? 'Teams can log in.' : 'Team login is closed.');
+  };
+
+  const revertToSchedule = async () => {
+    setBusy(true);
+    const res = await apiCall<{ login: LoginState }>('/api/admin/settings', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'clear_login_override' }),
+    });
+    setBusy(false);
+    if (!res.ok) return toast.error(res.message);
+    setLogin(res.data.login);
+    toast.success('Back to the scheduled dates.');
   };
 
   if (error && !teams) {
@@ -154,6 +191,75 @@ export default function AdminOverviewPage() {
             Teams already registered are unaffected — this only stops new ones.
           </p>
         </Panel>
+      )}
+
+      {login && (
+        <Panel
+          title="Team login"
+          subtitle={
+            login.source === 'database'
+              ? 'Overridden from this panel. The scheduled dates are ignored until you hand it back.'
+              : `Open on the scheduled days only: ${[login.screening_date, login.event_date].filter(Boolean).join(' and ') || 'none set'}.`
+          }
+        >
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+            <Pill tone={login.open ? 'live' : 'idle'}>
+              {login.open ? <KeyRound size={11} /> : <Lock size={11} />}{' '}
+              {login.open ? 'teams can log in' : 'login closed'}
+            </Pill>
+
+            {login.open ? (
+              <Btn variant="danger" small disabled={busy} onClick={() => setConfirmLogin(true)}>
+                <Lock size={11} /> Close login
+              </Btn>
+            ) : (
+              <Btn variant="primary" small disabled={busy} onClick={() => void setLoginOpen(true)}>
+                <KeyRound size={11} /> Open login now
+              </Btn>
+            )}
+
+            {login.source === 'database' && (
+              <Btn small disabled={busy} onClick={() => void revertToSchedule()}>
+                Back to the schedule
+              </Btn>
+            )}
+          </div>
+
+          <p className="n-panel-sub" style={{ marginTop: 10, lineHeight: 1.6 }}>
+            Teams can only request an OTP while this is open, and the screening evening is not
+            event day — if the dates in the deployment are wrong, open it here rather than waiting
+            on a redeploy. Demo teams are never gated.
+            {login.source === 'database' && login.open !== login.scheduled && (
+              <> The schedule alone would say <strong>{login.scheduled ? 'open' : 'closed'}</strong> right now.</>
+            )}
+          </p>
+        </Panel>
+      )}
+
+      {confirmLogin && (
+        <div
+          role="alertdialog"
+          aria-modal="true"
+          style={{
+            position: 'fixed', inset: 0, zIndex: 60, display: 'grid', placeItems: 'center',
+            padding: 20, background: 'rgba(0,0,0,0.72)',
+          }}
+        >
+          <div className="n-panel" style={{ maxWidth: 440, width: '100%', padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div className="n-panel-title">Close team login?</div>
+            <p style={{ fontSize: 12, lineHeight: 1.6 }}>
+              No team will be able to request an OTP, including teams part-way through a round —
+              anyone already logged in keeps their session, but a dropped connection becomes a
+              locked-out team. Only do this between rounds.
+            </p>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <Btn onClick={() => setConfirmLogin(false)} disabled={busy}>Cancel</Btn>
+              <Btn variant="danger" disabled={busy} onClick={() => void setLoginOpen(false)}>
+                {busy ? 'Closing…' : 'Yes, close it'}
+              </Btn>
+            </div>
+          </div>
+        </div>
       )}
 
       {confirmReg && (

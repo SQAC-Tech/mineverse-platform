@@ -20,6 +20,12 @@ const serverEnvSchema = z.object({
   SMTP_FROM: z.string().optional().default(''),
   TURNSTILE_SECRET: z.string().min(1),
   EVENT_DATE: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  /**
+   * The day the screening qualifier runs, which is not event day. Optional:
+   * unset means only `EVENT_DATE` opens team login, which is how it behaved
+   * before the qualifier existed.
+   */
+  SCREENING_DATE: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   WHATSAPP_GROUP_LINK: z.string().url(),
   UPI_ID: z.string().min(3),
   UPI_PAYEE_NAME: z.string().min(1),
