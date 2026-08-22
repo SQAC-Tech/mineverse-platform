@@ -9,7 +9,7 @@ interface CraftingRecipe {
   label: string;
   cost: Partial<Record<ResourceKey, number>>;
   costText: string;
-  unlockRoundId?: number;
+  unlockRoundId?: number | null;
 }
 
 interface MinecraftCraftingTableProps {
