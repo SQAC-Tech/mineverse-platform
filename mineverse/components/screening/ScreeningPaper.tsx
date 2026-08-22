@@ -97,7 +97,7 @@ export function ScreeningPaper({ initial }: { initial: GauntletAttempt }) {
   }, []);
 
   const finish = useCallback(
-    async (auto: boolean) => {
+    async (auto: boolean, disqualified: boolean = false) => {
       if (submittedRef.current) return;
       submittedRef.current = true;
       try {
@@ -107,7 +107,7 @@ export function ScreeningPaper({ initial }: { initial: GauntletAttempt }) {
       }
       await proctor?.finish();
       setIsFinalCompleted(true);
-      setDialogueText(FINAL_VERDICT_TEXT);
+      setDialogueText(disqualified ? 'You have been disqualified for violating proctor rules.' : FINAL_VERDICT_TEXT);
       setDialogueVisible(true);
     },
     [proctor],
@@ -116,6 +116,10 @@ export function ScreeningPaper({ initial }: { initial: GauntletAttempt }) {
   useEffect(() => {
     if (remaining === 0 && !submittedRef.current && !isFinalCompleted) void finish(true);
   }, [remaining, finish, isFinalCompleted]);
+
+  useEffect(() => {
+    if (proctor?.flagged && !submittedRef.current && !isFinalCompleted) void finish(true, true);
+  }, [proctor?.flagged, finish, isFinalCompleted]);
 
   useEffect(() => {
     if (showOutroVideo) {
@@ -319,8 +323,8 @@ export function ScreeningPaper({ initial }: { initial: GauntletAttempt }) {
                     <span>&gt;_ GOLEM VERDICT & MESSAGE LOG</span>
                   </div>
 
-                  <p className="text-emerald-400 font-bold text-xs sm:text-sm leading-relaxed tracking-wide my-1">
-                    "{FINAL_VERDICT_TEXT}"
+                  <p className={`${proctor?.flagged ? 'text-red-500' : 'text-emerald-400'} font-bold text-xs sm:text-sm leading-relaxed tracking-wide my-1`}>
+                    "{proctor?.flagged ? 'You have been disqualified for violating proctor rules.' : FINAL_VERDICT_TEXT}"
                   </p>
                 </div>
 
@@ -391,8 +395,8 @@ export function ScreeningPaper({ initial }: { initial: GauntletAttempt }) {
                 <span>&gt;_ GOLEM VERDICT & MESSAGE LOG</span>
               </div>
 
-              <p className="text-emerald-400 font-bold text-xs sm:text-sm leading-relaxed tracking-wide my-1">
-                "{FINAL_VERDICT_TEXT}"
+              <p className={`${proctor?.flagged ? 'text-red-500' : 'text-emerald-400'} font-bold text-xs sm:text-sm leading-relaxed tracking-wide my-1`}>
+                "{proctor?.flagged ? 'You have been disqualified for violating proctor rules.' : FINAL_VERDICT_TEXT}"
               </p>
             </div>
 
