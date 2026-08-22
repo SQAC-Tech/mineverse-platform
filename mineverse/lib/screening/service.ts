@@ -1,5 +1,5 @@
 import { supabaseServer } from '@/lib/supabase/server';
-import { registrationYears } from '@/lib/registration-no';
+import { teamAcademicYear } from '@/lib/registration-no';
 import { noteDevUnlockBypass } from '@/lib/gameplay/dev-mode';
 import {
   applyCipher,
@@ -69,11 +69,42 @@ export interface SafeScreeningQuestion {
 /* ------------------------------------------------------------- eligibility */
 
 /**
+ * The year this team sits the screening as, read off the roster.
+ *
+ * Registration numbers carry the admission year, so the team never had to be
+ * asked. It used to be: the instructions screen showed a pair of radio buttons
+ * and posted the answer to `start`, which trusted it. That put the choice of
+ * paper in the hands of the team taking it — a second-year team could pick
+ * "1st Year", skip the code-reading variant, and also be scored against a
+ * first-year field.
+ *
+ * `teamAcademicYear` carries the rules and the reasoning; the only thing this
+ * adds is the database read. Members with no registration number count as
+ * second years, so this cannot be steered by leaving a field blank either.
+ */
+export async function getTeamYear(teamId: string, now: Date = new Date()): Promise<number> {
+  const { data: members } = await db
+    .from('members')
+    .select('registration_no')
+    .eq('team_id', teamId);
+
+  return teamAcademicYear(
+    (members ?? []).map((member: { registration_no: string | null }) => member.registration_no),
+    now,
+  );
+}
+
+/**
  * True when every member of the team is a first year.
  *
  * A team is the unit, so paying any team that merely contains a first year
  * would let one junior carry two seniors past an all-first-year team — the
  * opposite of favouring first years. See FIRST_YEAR_BONUS.
+ *
+ * Same rule as the paper, deliberately: a team that sits the first-year paper
+ * is exactly the team that collects the first-year bonus. Deriving both from
+ * `getTeamYear` is what keeps that true — they were two separate readings of
+ * the roster before, and only one of them was server-side.
  */
 export async function isFirstYearTeam(teamId: string, now: Date = new Date()): Promise<boolean> {
   const { data: members } = await db
@@ -81,12 +112,11 @@ export async function isFirstYearTeam(teamId: string, now: Date = new Date()): P
     .select('registration_no')
     .eq('team_id', teamId);
 
+  // An empty roster is not a first-year team. `teamAcademicYear` already
+  // returns 2 for one, but saying so here keeps the intent readable.
   if (!members?.length) return false;
 
-  const firstYearPrefix = registrationYears(now)[0].prefix;
-  return members.every((member: { registration_no: string | null }) =>
-    (member.registration_no ?? '').toUpperCase().startsWith(firstYearPrefix),
-  );
+  return (await getTeamYear(teamId, now)) === 1;
 }
 
 /* ------------------------------------------------------------------- start */
@@ -124,7 +154,7 @@ export async function resetAttempt(teamId: string): Promise<Result<{ reset: bool
  */
 export async function startAttempt(
   teamId: string,
-  options: { forceReset?: boolean; year?: number } = {},
+  options: { forceReset?: boolean } = {},
 ): Promise<Result<StartedAttempt>> {
   const round = await getScreeningRound();
   if (!round) {
@@ -170,7 +200,8 @@ export async function startAttempt(
   const startedAt = new Date();
   const word_assigned = RELAY_WORDS[Math.floor(Math.random() * RELAY_WORDS.length)];
   const image_assigned = PUZZLE_PHOTOS[Math.floor(Math.random() * PUZZLE_PHOTOS.length)];
-  const teamYear = options.year || 1;
+  // Read off the roster, never taken from the request. See `getTeamYear`.
+  const teamYear = await getTeamYear(teamId, startedAt);
   let code_snippets: Record<string, string> | undefined;
   
   if (teamYear >= 2) {

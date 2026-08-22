@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  AlertTriangle, CheckCircle2, ClipboardList, Clock, Loader2, ListChecks, ShieldCheck, Zap,
+  AlertTriangle, CheckCircle2, ClipboardList, Clock, GraduationCap, Loader2, ListChecks, ShieldCheck, Zap,
 } from 'lucide-react';
 import { ProctorProvider } from '@/components/game/proctor/ProctorProvider';
 import { ScreeningPaper } from './ScreeningPaper';
@@ -20,6 +20,9 @@ interface Status {
     attempt_status: string | null;
     submitted_at: string | null;
     payment_verified: boolean;
+    /** Read off the roster's registration numbers. Not a choice. */
+    year: number;
+    year_label: string;
   };
 }
 
@@ -54,7 +57,6 @@ export function ScreeningEntry() {
   const [status, setStatus] = useState<Status | null>(null);
   const [attempt, setAttempt] = useState<Attempt | null>(null);
   const [agreed, setAgreed] = useState(false);
-  const [year, setYear] = useState<number | null>(null);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -62,7 +64,8 @@ export function ScreeningEntry() {
     const isReset = typeof window !== 'undefined' && window.location.search.includes('reset=1');
 
     if (isReset) {
-      // Reset the attempt on the server but DO NOT auto-start. We want the user to pick their year.
+      // Reset the attempt on the server but DO NOT auto-start, so a reset lands
+      // back on the instructions rather than silently burning the clock.
       try {
         await fetch('/api/screening/reset', { method: 'POST' });
       } catch {
@@ -93,7 +96,7 @@ export function ScreeningEntry() {
       const res = await fetch(`/api/screening/start${forceReset ? '?reset=1' : ''}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reset: forceReset, year }),
+        body: JSON.stringify({ reset: forceReset }),
       });
       const json = await res.json();
       if (!json.success) {
@@ -196,29 +199,20 @@ export function ScreeningEntry() {
             </div>
           ) : (
             <div style={{ margin: '16px 16px 0', display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div style={{ fontSize: 14, fontWeight: 600 }}>Which year are the majority of your team members in?</div>
-              <div style={{ display: 'flex', gap: 16 }}>
-                <label style={{ display: 'flex', gap: 6, alignItems: 'center', cursor: 'pointer', fontSize: 14 }}>
-                  <input
-                    type="radio"
-                    name="teamYear"
-                    checked={year === 1}
-                    onChange={() => setYear(1)}
-                    style={{ accentColor: 'var(--rd-accent)' }}
-                  />
-                  1st Year
-                </label>
-                <label style={{ display: 'flex', gap: 6, alignItems: 'center', cursor: 'pointer', fontSize: 14 }}>
-                  <input
-                    type="radio"
-                    name="teamYear"
-                    checked={year === 2}
-                    onChange={() => setYear(2)}
-                    style={{ accentColor: 'var(--rd-accent)' }}
-                  />
-                  2nd Year (or higher)
-                </label>
-              </div>
+              {/* Shown, not asked. This was a pair of radio buttons whose answer
+                  was posted to `start` and trusted, which let a team pick which
+                  paper it sat. It is read off the roster now. */}
+              {status.team && (
+                <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '11px 13px', border: '1px solid var(--rd-edge-lit)', background: 'rgba(255,255,255,0.03)', fontSize: 13.5, lineHeight: 1.5 }}>
+                  <GraduationCap size={16} style={{ color: 'var(--rd-accent)', flex: 'none', marginTop: 2 }} aria-hidden="true" />
+                  <span>
+                    Your paper is set for <strong>{status.team.year_label}</strong>, from your
+                    registration numbers. A team with any second year in it sits the second-year
+                    paper. If that looks wrong, tell an organizer before you start — it cannot be
+                    changed once the clock is running.
+                  </span>
+                </div>
+              )}
 
               <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer', fontSize: 14, lineHeight: 1.5, marginTop: 8 }}>
                 <input
@@ -256,7 +250,7 @@ export function ScreeningEntry() {
               type="button"
               className="scr__btn scr__btn--submit"
               onClick={() => void start(false)}
-              disabled={Boolean(blocked) || !agreed || !year || starting}
+              disabled={Boolean(blocked) || !agreed || starting}
             >
               {starting ? <><Loader2 size={14} className="animate-spin" aria-hidden="true" /> Starting…</> : 'Start the screening'}
             </button>
