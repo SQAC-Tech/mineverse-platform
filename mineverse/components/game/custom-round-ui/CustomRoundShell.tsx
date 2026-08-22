@@ -29,21 +29,7 @@ import { CodeWorkspace } from '@/components/game/code/CodeWorkspace';
 import { runtimesFor } from '@/lib/gameplay/code/runtimes';
 import { useAnswerAutosave } from '@/hooks/useAnswerAutosave';
 import type { CraftedItem, DashboardProgress } from '@/features/dashboard/types';
-import {
-  RESOURCE_META,
-  buildQuestionTabs,
-  payoutList,
-  promptBlocks,
-  questionTypeLabel,
-  roundChrome,
-  roundChoice,
-  roundCraft,
-  roundGuardian,
-  roundObjective,
-  roundPvp,
-  type ResourceKey,
-  type ShellQuestion,
-} from './round-presentation';
+import { RESOURCE_META, buildQuestionTabs, languagePrompts, payoutList, promptBlocks, questionTypeLabel, roundChoice, roundChrome, roundCraft, roundGuardian, roundObjective, roundPvp, type ResourceKey, type ShellQuestion } from './round-presentation';
 import './round-ui.css';
 import { Hotbar } from '@/components/game/inventory/Hotbar';
 import { MinecraftCraftingTable } from './MinecraftCraftingTable';
@@ -93,16 +79,15 @@ function statusLabel(status: string | null) {
 
 /** `content` carries the question body, but only a string is safe to render. */
 function questionBody(question: Question, language: string | null) {
-  const contentObj = question.content as any;
-  if (contentObj && typeof contentObj === 'object' && contentObj.language_prompts) {
-    const prompts = contentObj.language_prompts;
-    if (language && prompts[language]) {
-      return prompts[language];
-    }
-    const firstKey = Object.keys(prompts)[0];
-    if (firstKey && prompts[firstKey]) {
-      return prompts[firstKey];
-    }
+  const prompts = languagePrompts(question);
+  if (prompts) {
+    // Falls back to any language's body before the generic prompt: for a coding
+    // question, another runtime's starter code still reads as the question,
+    // where the generic prompt may not. Kept as this shell had it — every live
+    // question carries all five runtimes, so it does not fire today.
+    if (language && prompts[language]) return prompts[language];
+    const first = Object.values(prompts)[0];
+    if (first) return first;
   }
   return typeof question.content === 'string' && question.content.trim() ? question.content : question.prompt;
 }

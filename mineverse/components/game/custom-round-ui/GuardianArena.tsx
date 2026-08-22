@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Check, ShieldAlert, Swords, Timer, Trophy } from 'lucide-react';
 import type { GuardianName } from '@/lib/gameplay/guardians/config';
-import { deltaList, promptBlocks } from './round-presentation';
+import { deltaList, languagePrompts, promptBlocks } from './round-presentation';
 
 interface GuardianArenaProps {
   guardianName: GuardianName;
@@ -285,13 +285,7 @@ export function GuardianArena({
             ) : questions.map((question, index) => {
               const filled = (answers[question.id] ?? '').trim().length > 0;
               const currentLanguage = languages[question.id] ?? 'python';
-              let activePrompt = question.prompt;
-              const contentObj = question.content as any;
-              if (contentObj && typeof contentObj === 'object' && contentObj.language_prompts) {
-                if (typeof contentObj.language_prompts[currentLanguage] === 'string') {
-                  activePrompt = contentObj.language_prompts[currentLanguage];
-                }
-              }
+              const activePrompt = languagePrompts(question)?.[currentLanguage] ?? question.prompt;
 
               return (
                 <div key={question.id} className={filled ? 'gd__question gd__question--done' : 'gd__question'}>

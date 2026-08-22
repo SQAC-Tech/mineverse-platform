@@ -14,7 +14,6 @@ import {
   Clock3,
   CloudRain,
   Flag,
-  Hammer,
   Home,
   LockKeyhole,
   Pickaxe,
@@ -36,7 +35,7 @@ import { ChoicePanel } from '@/components/game/choices/ChoicePanel';
 import { GuardianArena } from './GuardianArena';
 import { NotificationTray, type LedgerEntry } from './NotificationTray';
 import { WorldEvent } from './WorldEvent';
-import { payoutList, promptBlocks, questionTypeLabel, roundGuardian } from './round-presentation';
+import { languagePrompts, payoutList, promptBlocks, questionTypeLabel, roundGuardian } from './round-presentation';
 import './round-ui.css';
 
 type CaveTab = 'aptitudes' | 'debugging' | 'completion' | 'output';
@@ -117,26 +116,6 @@ function statusLabel(status: string | null) {
   if (!status) return 'Not started';
   if (status === 'submitted') return 'Saved';
   return status.replace(/_/g, ' ');
-}
-
-/** `content` carries the question body, but only a string is safe to render. */
-function questionBody(question: Question) {
-  return typeof question.content === 'string' && question.content.trim() ? question.content : question.prompt;
-}
-
-/** Prose stays prose; code goes into a real code block. */
-function QuestionPrompt({ question }: { question: Question }) {
-  return (
-    <div className="round-ui__prompt-blocks">
-      {promptBlocks(questionBody(question)).map((block, index) =>
-        block.kind === 'code' ? (
-          <pre key={index} className="round-ui__code"><code>{block.body}</code></pre>
-        ) : (
-          <p key={index} className="round-ui__prompt">{block.body}</p>
-        ),
-      )}
-    </div>
-  );
 }
 
 function initials(name: string | null | undefined) {
@@ -257,14 +236,10 @@ export function CaveRoundShell() {
   const currentIndex = Math.min(activeIndexes[activeTab], Math.max(0, activeQuestions.length - 1));
   const question = activeQuestions[currentIndex];
   
-  let activePrompt = question?.prompt ?? '';
   const currentLanguage = question ? (languages[question.id] ?? runtimesFor(question.language_options?.length ? question.language_options : ['python', 'cpp', 'java', 'javascript', 'c'])[0]?.id ?? 'python') : 'python';
-  const contentObj = question?.content as any;
-  if (contentObj && typeof contentObj === 'object' && contentObj.language_prompts) {
-    if (typeof contentObj.language_prompts[currentLanguage] === 'string') {
-      activePrompt = contentObj.language_prompts[currentLanguage];
-    }
-  }
+  // The language-specific body when the question has one for the selected
+  // runtime, the generic prompt otherwise. See `languagePrompts`.
+  const activePrompt = (question && languagePrompts(question)?.[currentLanguage]) ?? question?.prompt ?? '';
 
   const timeLeft = endsAt ? Math.max(0, Math.floor((new Date(endsAt).getTime() - now) / 1000)) : 0;
   const timer = timeParts(timeLeft);

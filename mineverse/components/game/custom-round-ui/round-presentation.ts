@@ -89,6 +89,36 @@ const QUESTION_TYPE_META: Record<string, { label: string; Icon: LucideIcon }> = 
   debug_output: { label: 'Debug & output', Icon: Bug },
 };
 
+/**
+ * The per-language prompt variants a coding question carries, if any.
+ *
+ * `content` is a jsonb column, so it arrives as `unknown` and the shape has to
+ * be checked rather than asserted. That check lived in three copies — one in
+ * each shell and one in the guardian arena — each casting through `any`, which
+ * is how three call sites end up disagreeing about the fallback without anyone
+ * noticing. The shape check is here; the fallback stays at the call site,
+ * because the shells genuinely want different ones.
+ *
+ * Live data: 60 questions across rounds 1, 2, 3 and 5 carry one, each with all
+ * five runtimes (c, cpp, java, python, javascript).
+ */
+export function languagePrompts(question: { content: unknown }): Record<string, string> | null {
+  const content = question.content;
+  if (!content || typeof content !== 'object') return null;
+
+  const prompts = (content as { language_prompts?: unknown }).language_prompts;
+  if (!prompts || typeof prompts !== 'object') return null;
+
+  const usable: Record<string, string> = {};
+  for (const [language, prompt] of Object.entries(prompts as Record<string, unknown>)) {
+    // A blank variant would render an empty question. Dropping it here lets
+    // every caller's `??` fall through to the generic prompt instead.
+    if (typeof prompt === 'string' && prompt.trim()) usable[language] = prompt;
+  }
+
+  return Object.keys(usable).length ? usable : null;
+}
+
 export function questionTypeLabel(type: string) {
   return QUESTION_TYPE_META[type]?.label ?? type.replace(/_/g, ' ');
 }
