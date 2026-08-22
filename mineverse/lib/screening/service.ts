@@ -154,7 +154,7 @@ export async function resetAttempt(teamId: string): Promise<Result<{ reset: bool
  */
 export async function startAttempt(
   teamId: string,
-  options: { forceReset?: boolean } = {},
+  options: { forceReset?: boolean; teamYear?: number } = {},
 ): Promise<Result<StartedAttempt>> {
   const round = await getScreeningRound();
   if (!round) {
@@ -200,8 +200,8 @@ export async function startAttempt(
   const startedAt = new Date();
   const word_assigned = RELAY_WORDS[Math.floor(Math.random() * RELAY_WORDS.length)];
   const image_assigned = PUZZLE_PHOTOS[Math.floor(Math.random() * PUZZLE_PHOTOS.length)];
-  // Read off the roster, never taken from the request. See `getTeamYear`.
-  const teamYear = await getTeamYear(teamId, startedAt);
+  // Read off the roster, never taken from the request unless provided in options.
+  const teamYear = options.teamYear ?? (await getTeamYear(teamId, startedAt));
   let code_snippets: Record<string, string> | undefined;
   
   if (teamYear >= 2) {

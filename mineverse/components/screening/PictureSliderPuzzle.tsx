@@ -108,15 +108,7 @@ export function PictureSliderPuzzle({
     }
   };
 
-  // Dev Instant Auto-Solve helper
-  const handleAutoSolve = () => {
-    const solvedBoard = Array.from({ length: totalTiles }, (_, i) => i);
-    setTiles(solvedBoard);
-    setIsSolved(true);
-    setTimeout(() => {
-      onSolve('SLIDER_SOLVED', moves);
-    }, 400);
-  };
+
 
   return (
     <div className="w-full flex flex-col items-center my-1 select-none">
@@ -168,16 +160,7 @@ export function PictureSliderPuzzle({
             <span>Reset</span>
           </button>
 
-          {process.env.NODE_ENV === 'development' && (
-            <button
-              type="button"
-              onClick={handleAutoSolve}
-              className="bg-purple-950/80 hover:bg-purple-900 border border-purple-600 text-purple-200 px-1.5 py-1 rounded text-[10px] flex items-center gap-1 cursor-pointer"
-              title="Dev Auto-Solve"
-            >
-              <Wand2 className="w-3 h-3 text-purple-400" />
-            </button>
-          )}
+
         </div>
       </div>
 

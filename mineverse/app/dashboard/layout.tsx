@@ -6,8 +6,8 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await getSession();
-  if (!session) redirect('/login');
+  // Always redirect to landing page (devs and users included)
+  redirect('/');
 
   return (
     <div className="w-full h-full">

@@ -275,6 +275,12 @@ export function useProctor(roundId: number, options: { enabled?: boolean } = {})
       );
     };
 
+    const onKeyUp = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() === 'printscreen') {
+        record('blocked_key', { key: 'printscreen', reason: 'screenshot' }, 'key_violation');
+      }
+    };
+
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
       record('reload_attempt');
       // Queue the beacon here too: pagehide is not guaranteed to run if the
@@ -296,6 +302,7 @@ export function useProctor(roundId: number, options: { enabled?: boolean } = {})
     // Capture phase, so a blocked shortcut never reaches the round UI's own
     // keyboard handlers (the hotbar listener in CustomRoundShell, for one).
     document.addEventListener('keydown', onKeyDown, true);
+    document.addEventListener('keyup', onKeyUp, true);
     window.addEventListener('beforeunload', onBeforeUnload);
     window.addEventListener('pagehide', onPageHide);
 
@@ -306,6 +313,7 @@ export function useProctor(roundId: number, options: { enabled?: boolean } = {})
       document.removeEventListener('paste', onClipboard);
       document.removeEventListener('contextmenu', onContextMenu);
       document.removeEventListener('keydown', onKeyDown, true);
+      document.removeEventListener('keyup', onKeyUp, true);
       window.removeEventListener('beforeunload', onBeforeUnload);
       window.removeEventListener('pagehide', onPageHide);
     };

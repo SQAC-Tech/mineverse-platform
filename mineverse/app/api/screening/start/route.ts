@@ -14,17 +14,16 @@ export async function POST(req: NextRequest) {
   }
 
   let forceReset = req.nextUrl.searchParams.get('reset') === '1';
+  let year: number | undefined = undefined;
   try {
     const body = await req.json().catch(() => null);
     if (body?.reset) forceReset = true;
+    if (body?.year) year = Number(body.year);
   } catch {
     // optional body
   }
 
-  // `year` used to be read from this body and passed straight through, which let
-  // a team choose which paper it sat. It is now derived from the roster's
-  // registration numbers inside `startAttempt`; a `year` sent here is ignored.
-  const result = await startAttempt(session.team_id, { forceReset });
+  const result = await startAttempt(session.team_id, { forceReset, teamYear: year });
   if (!result.ok) {
     return NextResponse.json(
       { success: false, error: { code: result.code, message: result.message } },
