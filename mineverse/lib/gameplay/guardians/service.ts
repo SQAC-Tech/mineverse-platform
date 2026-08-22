@@ -4,6 +4,7 @@ import { checkDeterministicAnswer } from '@/lib/gameplay/grading/deterministic';
 import { questionTitle } from '@/lib/gameplay/questions/contracts';
 import { pickVariants } from '@/lib/gameplay/questions/variants';
 import { Dev3GuardianBattle, Dev3ItemUse } from '@/lib/gameplay/types';
+import { DEV_UNLOCK_ALL_ROUNDS } from '@/lib/gameplay/dev-mode';
 
 // The rules themselves are plain data in `./config`, so a client component can read
 // the reward numbers without importing this file and its database client.
@@ -165,6 +166,34 @@ export async function startGuardianBattle(teamId: string, guardianName: Guardian
   const guardian = GUARDIANS[guardianName];
   if (!guardian) throw new Error('Invalid guardian');
   if (guardian.round_id !== roundId) throw new Error('Guardian not in this round');
+
+  /**
+   * The organiser's boss toggle, enforced here rather than only in the UI.
+   *
+   * `rounds.guardian_unlocked` defaults to false and the Rounds screen offers
+   * "Unlock Boss" against it, but the only thing reading it was
+   * `CustomRoundShell`, which hides the button. A hidden button is not a closed
+   * door: `POST /api/team/guardian/start` takes a guardian name and a round id
+   * and nothing else, so a team that had seen the request once could fight a
+   * locked boss — and win the resources — while the console said it was locked.
+   *
+   * Checked on start only. A fight already under way when an organiser locks the
+   * boss still resolves, because stranding a team mid-battle with its answers
+   * typed would be a worse failure than the one this prevents.
+   */
+  const { data: round } = await supabaseServer
+    .from('rounds')
+    .select('guardian_unlocked')
+    .eq('id', roundId)
+    .maybeSingle();
+
+  if (round && round.guardian_unlocked === false && !DEV_UNLOCK_ALL_ROUNDS) {
+    return {
+      success: false,
+      error: 'BOSS_LOCKED',
+      message: 'The guardian is not open yet. Wait for the organizers to unlock it.',
+    };
+  }
 
   const latestAttempt = await getGuardianStatus(teamId, guardianName);
 

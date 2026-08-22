@@ -1,3 +1,16 @@
+/**
+ * Creates the MNV-000 dev team and unlocks every round for it.
+ *
+ * `.env.local` points at the live event database, so this writes a team into the
+ * same table the real 90 do. That is fine on purpose — MNV-000 is a named demo
+ * code, see lib/gameplay/demo-teams.ts — but it deletes a member row and forces
+ * `is_locked = false`, so it is a dry run unless told otherwise, matching
+ * `seed-questions.mjs`.
+ *
+ *   node scripts/seed_dev.mjs             # show what it would do
+ *   node scripts/seed_dev.mjs --confirm   # write it
+ */
+
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
@@ -15,8 +28,19 @@ for (const line of (raw || '').split('\n')) {
 
 const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
+const confirm = process.argv.slice(2).includes('--confirm');
+
 async function seed() {
   const email = 'dev0@mineverse.test';
+
+  if (!confirm) {
+    console.log(
+      'Would upsert team MNV-000 ("Dev Team", payment verified), replace the member\n' +
+      `with ${email}, and unlock every round for it.\n\n` +
+      'Dry run only. Add --confirm to write.',
+    );
+    return;
+  }
   
   // 1. Delete existing member if any
   await db.from('members').delete().eq('college_email', email);
