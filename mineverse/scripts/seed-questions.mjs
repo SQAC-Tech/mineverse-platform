@@ -103,7 +103,14 @@ function toRow(question, roundId) {
     },
     reward: question.reward ?? {},
     expected_answer: question.expected_answer ?? null,
+    // Both halves of the test cases. `sample_test_cases` used to be missing from
+    // this list, which meant the column survived a re-seed by accident rather
+    // than by design — and `hidden_test_cases` beside it did not.
+    sample_test_cases: question.sample_test_cases ?? [],
     hidden_test_cases: question.hidden_test_cases ?? null,
+    // Rows sharing this within a round are interchangeable; one is served per
+    // team. NULL means the row goes to everybody.
+    variant_group: question.variant_group ?? null,
     rubric: question.rubric ?? null,
     guardian_name: question.guardian_name ?? null,
     logic_puzzle_variant: question.logic_puzzle_variant ?? null,
@@ -182,6 +189,31 @@ function validate(file, roundId) {
 
     if (['coding', 'code_completion'].includes(q.type) && (q.language_options ?? []).length === 0) {
       warnings.push(`${at}: no language_options — the UI submits a null language`);
+    }
+  }
+
+  // Every row in a variant group must be worth exactly what its siblings are
+  // worth, or which version a team was handed decides what its paper pays.
+  const groups = new Map();
+  for (const q of file.questions) {
+    if (!q.variant_group) continue;
+    const bucket = groups.get(q.variant_group) ?? [];
+    bucket.push(q);
+    groups.set(q.variant_group, bucket);
+  }
+  for (const [group, members] of groups) {
+    const [first] = members;
+    for (const member of members.slice(1)) {
+      const at = `variant group ${group}, order_index ${member.order_index}`;
+      if (member.type !== first.type) {
+        errors.push(`${at}: type "${member.type}" differs from "${first.type}" in the same group`);
+      }
+      if (stableStringify(member.reward ?? {}) !== stableStringify(first.reward ?? {})) {
+        errors.push(`${at}: reward differs from the rest of the group`);
+      }
+      if ((member.guardian_name ?? null) !== (first.guardian_name ?? null)) {
+        errors.push(`${at}: guardian_name differs from the rest of the group`);
+      }
     }
   }
 

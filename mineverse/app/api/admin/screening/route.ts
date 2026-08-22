@@ -9,6 +9,7 @@ import {
 } from '@/lib/screening/config';
 import { getScreeningRound, sweepExpiredAttempts } from '@/lib/screening/service';
 import { clearShortlist, commitShortlist, previewShortlist, rankTeams } from '@/lib/screening/shortlist';
+import { GAUNTLET_MAX_SCORE, listAttemptDetails } from '@/lib/screening/attempts';
 import { mailCounts, sendAnnouncement, sendResults } from '@/lib/screening/mailer';
 
 const db = supabaseServer as any;
@@ -30,11 +31,14 @@ export async function GET(req: NextRequest) {
   const round = await getScreeningRound();
   const cut = Number(req.nextUrl.searchParams.get('cut') ?? 0);
 
-  const [ranked, counts, teamTotal, inProgress] = await Promise.all([
+  const [ranked, counts, teamTotal, inProgress, attempts] = await Promise.all([
     rankTeams(),
     mailCounts(),
     db.from('teams').select('id', { count: 'exact', head: true }).eq('is_payment_verified', true),
     db.from('screening_attempts').select('id', { count: 'exact', head: true }).eq('status', 'in_progress'),
+    // Every attempt, including the ones still running — `ranked` cannot carry
+    // those, because an unfinished attempt has no score to rank it by.
+    listAttemptDetails(),
   ]);
 
   const preview = cut > 0 ? await previewShortlist(cut) : null;
@@ -51,6 +55,7 @@ export async function GET(req: NextRequest) {
         duration_minutes: SCREENING_DURATION_MINUTES,
         question_count: SCREENING_QUESTION_COUNT,
         grant: SCREENING_GRANT,
+        max_score: GAUNTLET_MAX_SCORE,
       },
       stats: {
         eligible_teams: teamTotal.count ?? 0,
@@ -60,6 +65,7 @@ export async function GET(req: NextRequest) {
         swept,
       },
       ranked,
+      attempts,
       preview,
       mail: counts,
       committed: ranked.some((team) => team.result !== null),

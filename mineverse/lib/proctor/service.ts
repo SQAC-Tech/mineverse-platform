@@ -175,6 +175,15 @@ async function recountSession(
   // Only ever escalates here. Clearing a flag is an organizer's decision.
   const status = currentStatus === 'ended' ? 'ended' : flagged ? 'flagged' : currentStatus;
 
+  // Crossing a budget takes the round away until a human looks at it.
+  //
+  // Note what this is and is not. `autoSubmitOnExhaustion` is off everywhere and
+  // deliberately so — sealing the work is irreversible. This is reversible: the
+  // team keeps every answer it has saved, and `clearProctorFlag` hands the round
+  // straight back. That is the whole reason the two have to move together, and
+  // they did not: clearing the flag reset the session and left `is_locked` set,
+  // so the console said "cleared" while the team still could not open the round
+  // and the only way back was re-toggling it for everybody.
   if (flagged && currentStatus !== 'flagged' && currentStatus !== 'ended') {
     await db.from('team_round_access').update({ is_locked: true }).eq('team_id', teamId).eq('round_id', roundId);
   }
@@ -301,11 +310,45 @@ export async function getSessionEvents(sessionId: string, limit = 300) {
 }
 
 /** Clears a flag after an organizer has looked at it. */
+/**
+ * Puts a flagged team back in the round.
+ *
+ * Undoes both halves of a flag. `recountSession` locks the team out of the round
+ * when a budget runs out, so resetting only `proctor_sessions.status` — which is
+ * all this did — left the team barred from a round the console had just declared
+ * clear. Four stray Escapes is the whole budget, and the only other way back was
+ * re-toggling the round, which restarts its clock for all ninety teams.
+ *
+ * The unlock is scoped to the session's own round, so clearing a Round 2 flag
+ * cannot open Round 3 early.
+ */
 export async function clearProctorFlag(sessionId: string): Promise<boolean> {
+  const { data: session } = await db
+    .from('proctor_sessions')
+    .select('team_id, round_id')
+    .eq('id', sessionId)
+    .maybeSingle();
+
   const { error } = await db
     .from('proctor_sessions')
     .update({ status: 'active' })
     .eq('id', sessionId)
     .eq('status', 'flagged');
-  return !error;
+
+  if (error) return false;
+
+  if (session) {
+    const { error: unlockError } = await db
+      .from('team_round_access')
+      .update({ is_locked: false })
+      .eq('team_id', session.team_id)
+      .eq('round_id', session.round_id);
+
+    if (unlockError) {
+      console.error('Proctor flag cleared but round stayed locked:', unlockError);
+      return false;
+    }
+  }
+
+  return true;
 }

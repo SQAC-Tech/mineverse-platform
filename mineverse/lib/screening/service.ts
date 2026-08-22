@@ -4,7 +4,6 @@ import { noteDevUnlockBypass } from '@/lib/gameplay/dev-mode';
 import {
   applyCipher,
   DEV_OPEN_SCREENING,
-  DIFFICULTY_POINTS,
   FIRST_YEAR_BONUS,
   GAUNTLET_PUZZLES,
   REQUIRE_PAYMENT_VERIFIED,
@@ -12,9 +11,8 @@ import {
   SCREENING_ROUND_ID,
   canStart,
   deadlineFrom,
-  type Difficulty,
+  scoreGauntlet,
 } from './config';
-import { applyOptionOrder, drawPaper, resolveSelectedIndex } from './draw';
 import { RELAY_WORDS, calculateCombinatorics, generateCodeSnippets } from './relayLogic';
 
 const db = supabaseServer as any;
@@ -209,11 +207,36 @@ export async function startAttempt(
 
 /* ------------------------------------------------------------------ attempt */
 
+/**
+ * Everything the Gauntlet knows about one attempt, stored in `option_order`.
+ *
+ * The column is misnamed: it belongs to the 25-question MCQ paper the screening
+ * used to be, where it held each team's shuffled option permutation. The
+ * Gauntlet reuses it as a state blob rather than migrating, which is a fair
+ * trade for a round that runs once — but it means this interface is the only
+ * description of the shape anywhere, so it is worth keeping honest.
+ */
+export interface GauntletState {
+  current_step?: number;
+  /** The text each solved puzzle was solved with, keyed by puzzle id. */
+  answers?: Record<string, string>;
+  /**
+   * Per-puzzle audit. `tries` counts every answer submitted, right or wrong, so
+   * an organiser looking at a dispute can tell a team that solved puzzle 1 in
+   * one go from a team that arrived at it after forty guesses.
+   */
+  progress?: Record<string, { tries: number; solved_at: string | null }>;
+  year?: number;
+  word_assigned?: string;
+  image_assigned?: string;
+  code_snippets?: Record<string, string>;
+}
+
 interface AttemptRow {
   id: string;
   team_id: string;
   question_ids: string[];
-  option_order: { current_step?: number; answers?: Record<number, string> } | any;
+  option_order: GauntletState | null;
   started_at: string;
   deadline_at: string;
   submitted_at: string | null;
@@ -228,6 +251,28 @@ async function loadAttempt(teamId: string): Promise<AttemptRow | null> {
     .eq('team_id', teamId)
     .maybeSingle();
   return (data as AttemptRow) ?? null;
+}
+
+/**
+ * The puzzles this attempt actually solved.
+ *
+ * Reads `progress` first because that is where a solve is recorded with its
+ * time, and falls back to the keys of `answers` for rows written before
+ * `progress` existed — those carry an entry only when the answer was accepted,
+ * so the two agree on which puzzles are done.
+ */
+export function solvedPuzzleIds(state: GauntletState | null | undefined): number[] {
+  const solved = new Set<number>();
+  for (const [key, entry] of Object.entries(state?.progress ?? {})) {
+    if (entry?.solved_at) solved.add(Number(key));
+  }
+  for (const key of Object.keys(state?.answers ?? {})) solved.add(Number(key));
+  return [...solved].filter((id) => Number.isInteger(id)).sort((a, b) => a - b);
+}
+
+/** Every answer submitted across the attempt, right or wrong. */
+export function totalTries(state: GauntletState | null | undefined): number {
+  return Object.values(state?.progress ?? {}).reduce((sum, entry) => sum + (entry?.tries ?? 0), 0);
 }
 
 export interface PlayerAttempt {
@@ -319,7 +364,34 @@ export async function saveGauntletAnswer(
     expected = applyCipher(imageName);
   }
 
-  if (cleanAnswer !== expected) {
+  const correct = cleanAnswer === expected;
+  const now = new Date().toISOString();
+  const key = String(puzzleId);
+  const previous = optionOrder.progress?.[key];
+
+  // Every attempt is recorded, not just the winning one. A wrong guess is the
+  // only evidence that a team was working rather than idle, and the count is
+  // what makes a brute-forced numeric PIN visible on the admin screen instead
+  // of looking identical to a team that got it first time.
+  const progress: GauntletState['progress'] = {
+    ...(optionOrder.progress ?? {}),
+    [key]: {
+      tries: (previous?.tries ?? 0) + 1,
+      solved_at: previous?.solved_at ?? (correct ? now : null),
+    },
+  };
+
+  if (!correct) {
+    // Persisted even on a wrong answer, so the try count survives a team that
+    // never gets there. Nothing else about the attempt changes.
+    const { error: missError } = await db
+      .from('screening_attempts')
+      .update({ option_order: { ...optionOrder, progress } })
+      .eq('id', attempt.id)
+      .eq('status', 'in_progress');
+
+    if (missError) console.error('Screening Gauntlet miss log failed:', missError);
+
     return {
       ok: false,
       status: 400,
@@ -328,34 +400,21 @@ export async function saveGauntletAnswer(
     };
   }
 
-  // Correct answer provided for this puzzle!
-  const currentAnswers = optionOrder.answers || {};
-  currentAnswers[puzzleId] = answerText.trim();
+  const currentAnswers = { ...(optionOrder.answers ?? {}), [key]: answerText.trim() };
   const nextStep = puzzleId + 1;
-  const isCompleted = puzzleId >= GAUNTLET_PUZZLES.length;
-
-  const newOptionOrder = {
-    ...optionOrder,
-    current_step: isCompleted ? 4 : nextStep,
-    answers: currentAnswers,
-  };
-
-  const updateFields: any = {
-    option_order: newOptionOrder,
-  };
-
-  if (isCompleted) {
-    const now = new Date().toISOString();
-    updateFields.status = 'submitted';
-    updateFields.submitted_at = now;
-    updateFields.total_score = 100;
-    updateFields.correct_count = 3;
-    updateFields.raw_score = 100;
-  }
+  const isCompleted = solvedPuzzleIds({ ...optionOrder, answers: currentAnswers, progress }).length
+    >= GAUNTLET_PUZZLES.length;
 
   const { error } = await db
     .from('screening_attempts')
-    .update(updateFields)
+    .update({
+      option_order: {
+        ...optionOrder,
+        current_step: isCompleted ? GAUNTLET_PUZZLES.length + 1 : nextStep,
+        answers: currentAnswers,
+        progress,
+      },
+    })
     .eq('id', attempt.id);
 
   if (error) {
@@ -363,49 +422,72 @@ export async function saveGauntletAnswer(
     return { ok: false, status: 500, code: 'SAVE_FAILED' };
   }
 
-  // Update relay_screening_attempts for all 3 puzzles
-  if (puzzleId >= 1 && puzzleId <= 3) {
-    const relayUpdate: any = {
-      team_id: teamId,
-      word_assigned: optionOrder.word_assigned || 'UNKNOWN',
-    };
-    if (puzzleId === 1) {
-      relayUpdate.year1_answer = answerText.trim();
-      relayUpdate.year1_status = 'completed';
-      if (durationSeconds !== undefined) relayUpdate.year1_duration_seconds = durationSeconds;
-    }
-    if (puzzleId === 2) {
-      relayUpdate.year2_answer = answerText.trim();
-      relayUpdate.year2_status = 'completed';
-      if (durationSeconds !== undefined) relayUpdate.year2_duration_seconds = durationSeconds;
-      if (moves !== undefined) relayUpdate.year2_moves = moves;
-    }
-    if (puzzleId === 3) {
-      relayUpdate.year3_answer = answerText.trim();
-      relayUpdate.year3_status = 'completed';
-      if (durationSeconds !== undefined) relayUpdate.year3_duration_seconds = durationSeconds;
-      relayUpdate.is_completed = true;
-      relayUpdate.submitted_at = new Date().toISOString();
-    }
+  /**
+   * The relay mirror, for `/admin/relay-data`.
+   *
+   * A second copy of the same answer: `option_order.answers` is what the
+   * Gauntlet grades from, and `relay_screening_attempts` is the per-puzzle
+   * telemetry table the relay console reads. Kept because the timings and the
+   * slider move count only exist here — the client measures them and the state
+   * blob has nowhere to put them.
+   *
+   * Written with an upsert rather than a select-then-branch. Two answers landing
+   * together both saw no row and both inserted, and the second lost to the
+   * `team_id` unique constraint; the same fix `/api/screening/relay` already
+   * carries. Columns not named here keep whatever the row already had, so
+   * puzzle 3 does not blank out puzzle 1.
+   */
+  const relayUpdate: Record<string, unknown> = {
+    team_id: teamId,
+    word_assigned: optionOrder.word_assigned || 'UNKNOWN',
+  };
 
-    const { data: existingRelay } = await db
-      .from('relay_screening_attempts')
-      .select('id')
-      .eq('team_id', teamId)
-      .maybeSingle();
-
-    if (existingRelay) {
-      await db.from('relay_screening_attempts').update(relayUpdate).eq('team_id', teamId);
-    } else {
-      await db.from('relay_screening_attempts').insert(relayUpdate);
-    }
+  if (puzzleId === 1) {
+    relayUpdate.year1_answer = answerText.trim();
+    relayUpdate.year1_status = 'completed';
+    if (durationSeconds !== undefined) relayUpdate.year1_duration_seconds = durationSeconds;
   }
+  if (puzzleId === 2) {
+    relayUpdate.year2_answer = answerText.trim();
+    relayUpdate.year2_status = 'completed';
+    if (durationSeconds !== undefined) relayUpdate.year2_duration_seconds = durationSeconds;
+    if (moves !== undefined) relayUpdate.year2_moves = moves;
+  }
+  if (puzzleId === 3) {
+    relayUpdate.year3_answer = answerText.trim();
+    relayUpdate.year3_status = 'completed';
+    if (durationSeconds !== undefined) relayUpdate.year3_duration_seconds = durationSeconds;
+  }
+
+  // Completion is derived from the puzzles actually solved, not from "this was
+  // puzzle 3". A team that solves 3 before 2 — or that has an older attempt
+  // where 1 was never recorded — must not be marked finished by arriving at the
+  // last id.
+  if (isCompleted) {
+    relayUpdate.is_completed = true;
+    relayUpdate.submitted_at = new Date().toISOString();
+  }
+
+  const { error: relayError } = await db
+    .from('relay_screening_attempts')
+    .upsert(relayUpdate, { onConflict: 'team_id' });
+
+  // Non-fatal: this table is a reporting mirror, and the answer is already
+  // safe in `screening_attempts`. Losing the console row must not cost a team
+  // the puzzle it just solved.
+  if (relayError) console.error('Relay mirror write failed:', relayError);
+
+  // Finishing hands the paper in through the same function the deadline sweep
+  // uses. It used to write `total_score: 100` inline here, which is how a
+  // completed attempt ended up skipping the first-year bonus that an expired
+  // one received — the two paths disagreed because there were two of them.
+  if (isCompleted) await submitAttempt(teamId);
 
   return {
     ok: true,
     data: {
       success: true,
-      current_step: isCompleted ? 4 : nextStep,
+      current_step: isCompleted ? GAUNTLET_PUZZLES.length + 1 : nextStep,
       message: puzzleConfig.successMessage,
       completed: isCompleted,
       seconds_remaining: Math.max(0, Math.floor((new Date(attempt.deadline_at).getTime() - Date.now()) / 1000)),
@@ -449,39 +531,42 @@ export async function submitAttempt(
     };
   }
 
-  const [{ data: questions }, { data: answers }] = await Promise.all([
-    db.from('screening_questions').select('id, difficulty, correct_index').in('id', attempt.question_ids),
-    db.from('screening_answers').select('question_id, selected_index').eq('attempt_id', attempt.id),
-  ]);
-
-  const byId = new Map<string, { difficulty: Difficulty; correct_index: number }>(
-    (questions ?? []).map((q: any) => [q.id as string, q]),
-  );
-  let rawScore = 0;
-  let correctCount = 0;
-
-  for (const answer of answers ?? []) {
-    const question = byId.get(answer.question_id);
-    if (!question) continue;
-    if (answer.selected_index === question.correct_index) {
-      correctCount += 1;
-      rawScore += DIFFICULTY_POINTS[question.difficulty as Difficulty] ?? 0;
-    }
-  }
+  // Scored from the puzzles this attempt solved, which live in the attempt's own
+  // state blob. It used to be scored against `screening_questions` joined to
+  // `screening_answers` — the tables the retired MCQ paper used and the Gauntlet
+  // never writes — so every attempt that reached here scored zero regardless of
+  // how far it got. A team that solved two puzzles and ran out of time was
+  // stored as a team that solved none.
+  const solved = solvedPuzzleIds(attempt.option_order);
+  const { raw_score: rawScore, correct_count: correctCount } = scoreGauntlet(solved);
 
   const bonus = (await isFirstYearTeam(teamId)) ? FIRST_YEAR_BONUS : 0;
   const submittedAt = new Date().toISOString();
+
+  /**
+   * Whether the clock ended this rather than the team.
+   *
+   * Derived from the deadline as well as the caller's flag, because the browser
+   * posts the same body whether the team pressed the button or the timer hit
+   * zero — the client knows which, but a field a player controls is not the
+   * place to record it. The deadline is on the server and cannot be argued with.
+   */
+  const ranOut = Boolean(options.auto) || Date.now() >= new Date(attempt.deadline_at).getTime();
+  const finished = solved.length >= GAUNTLET_PUZZLES.length;
 
   const { error } = await db
     .from('screening_attempts')
     .update({
       submitted_at: submittedAt,
-      auto_submitted: Boolean(options.auto),
+      auto_submitted: ranOut && !finished,
       raw_score: rawScore,
       bonus_points: bonus,
       total_score: rawScore + bonus,
       correct_count: correctCount,
-      status: options.auto ? 'expired' : 'submitted',
+      // A team that solved all three puzzles has submitted, even when it is the
+      // deadline sweep that writes the row — "expired" beside a full score
+      // reads as a bug to whoever is looking at the console at 11pm.
+      status: ranOut && !finished ? 'expired' : 'submitted',
     })
     .eq('id', attempt.id)
     // Guards the race between a manual submit and the deadline sweep: whichever
@@ -493,7 +578,7 @@ export async function submitAttempt(
     return { ok: false, status: 500, code: 'SUBMIT_FAILED' };
   }
 
-  return { ok: true, data: { submitted_at: submittedAt, auto_submitted: Boolean(options.auto) } };
+  return { ok: true, data: { submitted_at: submittedAt, auto_submitted: ranOut && !finished } };
 }
 
 /**

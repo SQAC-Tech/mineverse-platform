@@ -27,6 +27,7 @@ import { PvpPanel } from '../pvp/PvpPanel';
 import { EndRail } from '@/components/day2/end-round/EndRail';
 import { CodeWorkspace } from '@/components/game/code/CodeWorkspace';
 import { runtimesFor } from '@/lib/gameplay/code/runtimes';
+import { useAnswerAutosave } from '@/hooks/useAnswerAutosave';
 import type { CraftedItem, DashboardProgress } from '@/features/dashboard/types';
 import {
   RESOURCE_META,
@@ -298,6 +299,43 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
   const currentIsFinal = FINAL_STATUSES.includes(currentQuestion?.submission_status ?? '');
   const readOnly = isRoundLocked || currentIsFinal;
 
+  /**
+   * Nothing typed survives only on the device.
+   *
+   * Answers used to reach the server only when a team pressed Save, so a dead
+   * battery or a clock that ran out took everything unsaved with it — and once
+   * `ends_at` passes the submission endpoints refuse the round, so there is no
+   * recovering it afterwards.
+   */
+  const autosave = useAnswerAutosave({
+    drafts,
+    enabled: !isRoundLocked,
+    resolve: (questionId, text) => {
+      const question = questions.find((entry) => entry.id === questionId);
+      // A question already locked or graded cannot be revised, and a question
+      // this round no longer serves is not ours to write.
+      if (!question || FINAL_STATUSES.includes(question.submission_status ?? '')) return null;
+      const isCode = question.type === 'coding' || question.type === 'code_completion';
+      return isCode
+        ? {
+            question_id: questionId,
+            code: text,
+            language: languages[questionId] ?? runtimesFor(question.language_options)[0]?.id ?? null,
+          }
+        : { question_id: questionId, answer_text: text };
+    },
+  });
+
+  // Moving off a question is the moment its answer is most likely finished, and
+  // the moment a team stops looking at whether it saved.
+  useEffect(() => {
+    if (!currentQuestion) return;
+    return () => { void autosave.flush(); };
+    // Only the identity of the open question should trigger this, not the
+    // flush closure, which changes on every draft edit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentQuestion?.id]);
+
   const changeDraft = (questionId: string, value: string) => {
     setDrafts((current) => ({ ...current, [questionId]: value }));
     writeDraft(teamCode, roundId, questionId, value);
@@ -330,6 +368,7 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
         toast.error(json.error?.message ?? 'Could not save. Your draft is still on this device.');
         return false;
       }
+      autosave.markSynced(question.id, answer);
       toast.success('Answer saved. You can still revise it until you submit the section.');
       await refresh();
       return true;
@@ -377,6 +416,19 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
   const answeredIds = questions.filter((question) => Boolean(question.submission_status)).map((question) => question.id);
   const unansweredCount = questions.length - answeredIds.length;
 
+  /** The answered set as the server sees it right now, not as of this render. */
+  const answeredIdsFromServer = async (): Promise<string[]> => {
+    try {
+      const json = await fetch(`/api/rounds/${roundId}/questions`, { cache: 'no-store' }).then((res) => res.json());
+      if (!json?.success) return answeredIds;
+      return (json.data.questions ?? [])
+        .filter((question: Question) => Boolean(question.submission_status))
+        .map((question: Question) => question.id);
+    } catch {
+      return answeredIds;
+    }
+  };
+
   /**
    * Ends the round for this team: locks every answer they saved, then drops them
    * back on the dashboard. Only answered questions are sent — the section endpoint
@@ -386,11 +438,19 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
   const finishRound = async () => {
     setFinishing(true);
     try {
-      if (answeredIds.length > 0) {
+      // Anything typed and not yet saved goes up before the section is locked,
+      // or finishing would be the one action that discards work.
+      await autosave.flush();
+      // Re-read rather than trusting `answeredIds` from this render: the flush
+      // above may have just created the submissions that make a question
+      // answerable, and `refresh` cannot write into a closure already running.
+      const ids = await answeredIdsFromServer();
+      await refresh();
+      if (ids.length > 0) {
         const response = await fetch('/api/submissions/section', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ round_id: roundId, question_ids: answeredIds }),
+          body: JSON.stringify({ round_id: roundId, question_ids: ids }),
         });
         const json = await response.json();
         if (!json.success) {
@@ -691,6 +751,15 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
                         >
                           Save &amp; next <ChevronRight size={14} />
                         </button>
+                        <span
+                          className="round-ui__autosave"
+                          aria-live="polite"
+                          title="Answers are sent to the server on their own — you do not have to press Save for your work to be kept."
+                        >
+                          {autosave.pending > 0
+                            ? `${autosave.pending} not sent yet…`
+                            : 'All answers saved'}
+                        </span>
                       </div>
                     )}
                   </>

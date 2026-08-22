@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { supabaseServer } from '@/lib/supabase/server';
 import { verifyDev4RoundAccess } from './access';
+import { allowedQuestionIds, pickVariants } from './variants';
 
 const db = supabaseServer as any;
 
@@ -33,9 +34,9 @@ export async function getSafeQuestionsForRound(teamId: string, roundId: number) 
   // PvP pack is sealed the same way — it is revealed by `POST /api/admin/pvp/
   // matches/[id]/start`, so listing it here would hand every team the duel
   // questions before the duel.
-  const { data: questions, error: questionsError } = await db
+  const { data: allQuestions, error: questionsError } = await db
     .from('questions')
-    .select('id, round_id, type, prompt, content, order_index, language_options, sample_test_cases, time_limit_seconds, reward')
+    .select('id, round_id, type, prompt, content, order_index, variant_group, language_options, sample_test_cases, time_limit_seconds, reward')
     .eq('round_id', roundId)
     .is('guardian_name', null)
     .neq('type', 'pvp')
@@ -43,7 +44,17 @@ export async function getSafeQuestionsForRound(teamId: string, roundId: number) 
 
   if (questionsError) throw questionsError;
 
-  const questionIds = (questions ?? []).map((question: QuestionRow) => question.id);
+  // The team's own code, so the client can namespace its local answer drafts —
+  // shared lab machines otherwise hand the next team the previous team's typing
+  // — and so the paper can be picked for this team specifically.
+  const { data: team } = await db.from('teams').select('team_code').eq('id', teamId).maybeSingle();
+
+  // One variant per slot. The alternates are dropped here rather than filtered
+  // in the UI: a question that never leaves the server cannot be read out of a
+  // network tab by the team sitting next to the one it was written for.
+  const questions = pickVariants<QuestionRow>((allQuestions ?? []) as QuestionRow[], team?.team_code, roundId);
+
+  const questionIds = questions.map((question: QuestionRow) => question.id);
   const submissionsByQuestion = new Map<string, SubmissionRow>();
 
   if (questionIds.length > 0) {
@@ -57,10 +68,6 @@ export async function getSafeQuestionsForRound(teamId: string, roundId: number) 
     for (const submission of submissions ?? []) submissionsByQuestion.set(submission.question_id, submission);
   }
 
-  // The team's own code, so the client can namespace its local answer drafts.
-  // Shared lab machines otherwise hand the next team the previous team's typing.
-  const { data: team } = await db.from('teams').select('team_code').eq('id', teamId).maybeSingle();
-
   return {
     ok: true as const,
     data: {
@@ -71,9 +78,32 @@ export async function getSafeQuestionsForRound(teamId: string, roundId: number) 
       status: access.round.status,
       guardian_unlocked: access.round.guardian_unlocked,
       server_time: new Date().toISOString(),
-      questions: (questions ?? []).map((question: QuestionRow) => serializeSafeQuestion(question, submissionsByQuestion.get(question.id))),
+      questions: questions.map((question: QuestionRow) => serializeSafeQuestion(question, submissionsByQuestion.get(question.id))),
     },
   };
+}
+
+/**
+ * The question ids this team is entitled to answer in a round.
+ *
+ * Serving one variant and accepting all of them would be a hole rather than a
+ * feature: two teams that swap ids over WhatsApp could each answer both
+ * versions of every slot and collect the reward twice for one question. Both
+ * write paths run through this.
+ */
+async function allowedIdsForRound(teamId: string, roundId: number): Promise<Set<string>> {
+  const [{ data: rows, error }, { data: team }] = await Promise.all([
+    db
+      .from('questions')
+      .select('id, order_index, variant_group')
+      .eq('round_id', roundId)
+      .is('guardian_name', null)
+      .neq('type', 'pvp'),
+    db.from('teams').select('team_code').eq('id', teamId).maybeSingle(),
+  ]);
+
+  if (error) throw error;
+  return allowedQuestionIds(rows ?? [], team?.team_code, roundId);
 }
 
 export async function upsertTeamSubmission(teamId: string, payload: z.infer<typeof submissionPayloadSchema>) {
@@ -97,6 +127,14 @@ export async function upsertTeamSubmission(teamId: string, payload: z.infer<type
 
   const access = await verifyDev4RoundAccess(teamId, question.round_id);
   if (!access.ok) return access;
+
+  // The question exists and belongs to an open round, but it may be a variant
+  // written for a different team. Answering to `QUESTION_NOT_FOUND` rather than
+  // a distinct code keeps the two cases indistinguishable from outside.
+  const allowed = await allowedIdsForRound(teamId, question.round_id);
+  if (!allowed.has(question.id)) {
+    return { ok: false as const, status: 404, code: 'QUESTION_NOT_FOUND', message: 'Question not found.' };
+  }
 
   const validation = validateSubmissionForQuestion(question, payload);
   if (!validation.ok) return { ok: false as const, status: 400, code: validation.code, message: validation.message };
@@ -175,9 +213,15 @@ export async function lockTeamSection(teamId: string, payload: z.infer<typeof se
   // Every id must be a real question of the round being submitted, and not part of
   // a sealed pack, so a crafted payload cannot reach across rounds or into the
   // guardian / PvP questions.
+  const allowed = await allowedIdsForRound(teamId, payload.round_id);
   const valid = (questions ?? []).filter(
     (question: QuestionRow & { guardian_name: string | null }) =>
-      question.round_id === payload.round_id && !question.guardian_name && question.type !== 'pvp',
+      question.round_id === payload.round_id &&
+      !question.guardian_name &&
+      question.type !== 'pvp' &&
+      // Same rule as the single-answer path: another team's variant is not part
+      // of this team's section, so it cannot be locked into it.
+      allowed.has(question.id),
   );
 
   if (valid.length !== payload.question_ids.length) {

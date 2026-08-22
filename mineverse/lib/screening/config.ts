@@ -82,6 +82,62 @@ export const GAUNTLET_PUZZLES: GauntletPuzzleConfig[] = [
 ];
 
 
+/* ------------------------------------------------------------ gauntlet scoring */
+
+/**
+ * What one solved puzzle is worth, and what finishing all three adds on top.
+ *
+ * The Gauntlet used to be scored in one place and one place only — the branch in
+ * `saveGauntletAnswer` that fires when puzzle 3 lands, which wrote a flat 100.
+ * Everything else scored the attempt against `screening_questions`, the table
+ * the old 25-question MCQ paper used, which the Gauntlet never writes to. So a
+ * team that solved two puzzles and ran out of time was graded against an empty
+ * answer set and stored as zero, indistinguishable from a team that opened the
+ * page and walked away.
+ *
+ * Partial credit is the point of splitting it: with 84 teams and one shortlist
+ * cut, "how far did they get" has to survive into the ranking or the cut is
+ * decided entirely by who happened to finish.
+ *
+ * The completion bonus keeps a full clear worth exactly 100, which is what the
+ * old branch paid, so the two scales cannot be confused when reading a mixed
+ * table.
+ */
+export const GAUNTLET_PUZZLE_POINTS = 25;
+export const GAUNTLET_COMPLETION_BONUS = 25;
+export const MAX_GAUNTLET_SCORE =
+  GAUNTLET_PUZZLES.length * GAUNTLET_PUZZLE_POINTS + GAUNTLET_COMPLETION_BONUS;
+
+export interface GauntletScore {
+  /** Puzzles solved, however far apart they were solved. */
+  correct_count: number;
+  raw_score: number;
+  completed: boolean;
+}
+
+/**
+ * Scores an attempt from the puzzles it actually solved.
+ *
+ * Takes ids rather than the stored blob so it stays pure and the storage shape
+ * can change without touching the scale. Unknown and duplicate ids are dropped:
+ * the blob is written by an older version of this code on some rows, and a
+ * scoring function is the wrong place to trust its contents.
+ */
+export function scoreGauntlet(solvedPuzzleIds: Iterable<number>): GauntletScore {
+  const valid = new Set<number>();
+  for (const id of solvedPuzzleIds) {
+    if (GAUNTLET_PUZZLES.some((puzzle) => puzzle.id === id)) valid.add(id);
+  }
+
+  const completed = valid.size === GAUNTLET_PUZZLES.length;
+  return {
+    correct_count: valid.size,
+    raw_score: valid.size * GAUNTLET_PUZZLE_POINTS + (completed ? GAUNTLET_COMPLETION_BONUS : 0),
+    completed,
+  };
+}
+
+
 export type Difficulty = 'easy' | 'medium' | 'hard';
 
 /** Organiser-only. */

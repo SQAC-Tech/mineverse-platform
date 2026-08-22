@@ -2,7 +2,9 @@ import { supabaseServer } from '@/lib/supabase/server';
 import { mutateTeamResource } from '@/lib/gameplay/marketplace/resource-client';
 import { checkDeterministicAnswer } from '@/lib/gameplay/grading/deterministic';
 import { questionTitle } from '@/lib/gameplay/questions/contracts';
+import { pickVariants } from '@/lib/gameplay/questions/variants';
 import { Dev3GuardianBattle, Dev3ItemUse } from '@/lib/gameplay/types';
+import { DEV_UNLOCK_ALL_ROUNDS } from '@/lib/gameplay/dev-mode';
 
 // The rules themselves are plain data in `./config`, so a client component can read
 // the reward numbers without importing this file and its database client.
@@ -38,10 +40,24 @@ function serializeGuardianQuestion(question: any): GuardianQuestion {
   };
 }
 
-async function loadGuardianQuestions(guardianName: GuardianName, roundId: number, includeAnswers: boolean) {
+/**
+ * The pack this team faces.
+ *
+ * Guardian packs are varied per team for the same reason round questions are —
+ * an all-or-nothing fight whose three questions are the same for the whole room
+ * is decided by whoever finishes first and talks. The pick is derived from the
+ * team code, so `start` and `resolve` compute the same pack without the battle
+ * row having to store it.
+ */
+async function loadGuardianQuestions(
+  guardianName: GuardianName,
+  roundId: number,
+  includeAnswers: boolean,
+  teamCode: string | null,
+) {
   const columns = includeAnswers
-    ? 'id, order_index, type, prompt, content, language_options, time_limit_seconds, expected_answer'
-    : 'id, order_index, type, prompt, content, language_options, time_limit_seconds';
+    ? 'id, order_index, variant_group, type, prompt, content, language_options, time_limit_seconds, expected_answer'
+    : 'id, order_index, variant_group, type, prompt, content, language_options, time_limit_seconds';
 
   const { data, error } = await supabaseServer
     .from('questions')
@@ -51,7 +67,18 @@ async function loadGuardianQuestions(guardianName: GuardianName, roundId: number
     .order('order_index', { ascending: true });
 
   if (error) throw error;
-  return (data ?? []) as any[];
+  return pickVariants((data ?? []) as any[], teamCode, roundId);
+}
+
+/** Cached per process; a team's code never changes. */
+const guardianTeamCodes = new Map<string, string | null>();
+
+async function teamCodeOf(teamId: string): Promise<string | null> {
+  if (!guardianTeamCodes.has(teamId)) {
+    const { data } = await supabaseServer.from('teams').select('team_code').eq('id', teamId).maybeSingle();
+    guardianTeamCodes.set(teamId, data?.team_code ?? null);
+  }
+  return guardianTeamCodes.get(teamId) ?? null;
 }
 
 /**
@@ -61,14 +88,17 @@ async function loadGuardianQuestions(guardianName: GuardianName, roundId: number
  * been made.
  */
 export async function countGuardianQuestions(guardianName: GuardianName, roundId: number) {
-  const { count, error } = await supabaseServer
+  // Counts slots, not rows. Once a pack carries three alternates per question a
+  // plain `count` reports nine, and the team is warned about a fight three times
+  // longer than the one it is walking into.
+  const { data, error } = await supabaseServer
     .from('questions')
-    .select('id', { count: 'exact', head: true })
+    .select('id, order_index, variant_group')
     .eq('guardian_name', guardianName)
     .eq('round_id', roundId);
 
   if (error) throw error;
-  return count ?? 0;
+  return pickVariants(data ?? [], null, roundId).length;
 }
 
 async function findActiveItemUse(teamId: string, itemType: string): Promise<Dev3ItemUse | null> {
@@ -125,7 +155,7 @@ export async function getGuardianStatus(
   // away. The pack is already revealed to this team, and expected answers are
   // still never selected, so returning it here reveals nothing new.
   if (options.includeQuestions && battle?.status === 'started') {
-    const questions = await loadGuardianQuestions(guardianName, battle.round_id, false);
+    const questions = await loadGuardianQuestions(guardianName, battle.round_id, false, await teamCodeOf(teamId));
     return { ...battle, questions: questions.map(serializeGuardianQuestion) };
   }
 
@@ -136,6 +166,34 @@ export async function startGuardianBattle(teamId: string, guardianName: Guardian
   const guardian = GUARDIANS[guardianName];
   if (!guardian) throw new Error('Invalid guardian');
   if (guardian.round_id !== roundId) throw new Error('Guardian not in this round');
+
+  /**
+   * The organiser's boss toggle, enforced here rather than only in the UI.
+   *
+   * `rounds.guardian_unlocked` defaults to false and the Rounds screen offers
+   * "Unlock Boss" against it, but the only thing reading it was
+   * `CustomRoundShell`, which hides the button. A hidden button is not a closed
+   * door: `POST /api/team/guardian/start` takes a guardian name and a round id
+   * and nothing else, so a team that had seen the request once could fight a
+   * locked boss — and win the resources — while the console said it was locked.
+   *
+   * Checked on start only. A fight already under way when an organiser locks the
+   * boss still resolves, because stranding a team mid-battle with its answers
+   * typed would be a worse failure than the one this prevents.
+   */
+  const { data: round } = await supabaseServer
+    .from('rounds')
+    .select('guardian_unlocked')
+    .eq('id', roundId)
+    .maybeSingle();
+
+  if (round && round.guardian_unlocked === false && !DEV_UNLOCK_ALL_ROUNDS) {
+    return {
+      success: false,
+      error: 'BOSS_LOCKED',
+      message: 'The guardian is not open yet. Wait for the organizers to unlock it.',
+    };
+  }
 
   const latestAttempt = await getGuardianStatus(teamId, guardianName);
 
@@ -158,7 +216,7 @@ export async function startGuardianBattle(teamId: string, guardianName: Guardian
     }
   }
 
-  const questions = await loadGuardianQuestions(guardianName, guardian.round_id, false);
+  const questions = await loadGuardianQuestions(guardianName, guardian.round_id, false, await teamCodeOf(teamId));
   if (questions.length === 0) {
     return {
       success: false,
@@ -230,13 +288,31 @@ export async function resolveGuardianBattle(
   // Grade against the sealed pack. A win requires every question correct and the
   // submission to land inside the server-recorded deadline; a late or short
   // answer set is a loss, never a win.
-  const questions = await loadGuardianQuestions(guardianName, guardian.round_id, true);
+  const questions = await loadGuardianQuestions(guardianName, guardian.round_id, true, await teamCodeOf(teamId));
   const answerByQuestion = new Map(answers.map((entry) => [entry.question_id, entry.answer_text]));
 
   let correctCount = 0;
+  // Kept, not just counted. A guardian is all-or-nothing and a loss costs
+  // resources, so "we typed that and it marked us wrong" is a dispute somebody
+  // has to settle at a desk — and until this was recorded there was nothing on
+  // the server to settle it with, only the final tally.
+  const answerLog: Array<{
+    question_id: string;
+    order_index: number;
+    answer_text: string | null;
+    correct: boolean;
+  }> = [];
+
   for (const question of questions) {
-    const result = checkDeterministicAnswer(answerByQuestion.get(question.id), question.expected_answer);
+    const given = answerByQuestion.get(question.id);
+    const result = checkDeterministicAnswer(given, question.expected_answer);
     if (result === true) correctCount += 1;
+    answerLog.push({
+      question_id: question.id,
+      order_index: question.order_index,
+      answer_text: given ?? null,
+      correct: result === true,
+    });
   }
 
   const withinDeadline =
@@ -308,6 +384,7 @@ export async function resolveGuardianBattle(
       score: correctCount,
       correct_count: correctCount,
       total_questions: questions.length,
+      answers: answerLog,
       reward_ledger_id: won ? ledgerId : null,
       penalty_ledger_id: won ? null : ledgerId,
       consumed_items: [

@@ -8,6 +8,25 @@
  *
  * Round 5 (coding / Piston) is intentionally excluded and continues to use the
  * batch grading flow, since Piston execution is async and may take several seconds.
+ *
+ * NOTHING CALLS THIS YET, and there is one thing to settle before anything does.
+ *
+ * The round shells no longer wait for a team to press Save: `useAnswerAutosave`
+ * posts whatever is in the box every 25 seconds, when the team moves to another
+ * question, and when the tab is hidden. That exists so a dead laptop cannot cost
+ * a team its work — once `ends_at` passes the submission endpoints refuse the
+ * round, so an answer that never reached the server is gone for good.
+ *
+ * Which means most writes to `submissions` are now half-finished answers. This
+ * module marks whatever it grades `status: 'graded'` with `locked_at` set, and
+ * `upsertTeamSubmission` refuses to write past `graded` — so wiring it into the
+ * submission path as-is would freeze a team's answer at whatever they had typed
+ * 25 seconds in, and mark it wrong. They would have no way to correct it.
+ *
+ * If instant grading is wanted, it needs to run on a deliberate hand-in — the
+ * section lock in `lockTeamSection`, or an explicit Save — and not on every
+ * write. Distinguishing the two means marking the autosave path, which nothing
+ * does today.
  */
 
 import { supabaseServer } from '@/lib/supabase/server';
