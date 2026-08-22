@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePanelScope, PANEL_ADMIN_ACTOR } from '@/lib/panel/require-admin';
 import {
+  clearLoginOverride,
   clearRegistrationOverride,
+  getLoginState,
   getRegistrationState,
   registrationOpenDefault,
+  setLoginOpen,
   setRegistrationOpen,
 } from '@/lib/platform/settings';
 
@@ -19,7 +22,7 @@ export async function GET() {
   const guard = await requirePanelScope('admin');
   if (!guard.ok) return guard.response;
 
-  const registration = await getRegistrationState();
+  const [registration, login] = await Promise.all([getRegistrationState(), getLoginState()]);
 
   return NextResponse.json({
     success: true,
@@ -32,6 +35,7 @@ export async function GET() {
         source: registration.source,
         env_default: registrationOpenDefault(),
       },
+      login,
     },
   });
 }
@@ -70,6 +74,30 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ success: false, error: { code: 'WRITE_FAILED' } }, { status: 500 });
         }
         return NextResponse.json({ success: true, data: await getRegistrationState() });
+      }
+
+      case 'set_login_open': {
+        if (typeof body.open !== 'boolean') {
+          return NextResponse.json(
+            { success: false, error: { code: 'BAD_VALUE', message: 'open must be true or false.' } },
+            { status: 400 },
+          );
+        }
+        const ok = await setLoginOpen(body.open, PANEL_ADMIN_ACTOR);
+        if (!ok) {
+          return NextResponse.json({ success: false, error: { code: 'WRITE_FAILED' } }, { status: 500 });
+        }
+        // Shutting 90 teams out of their own qualifier is worth a log line.
+        console.warn(`[settings] team login ${body.open ? 'opened' : 'closed'} by ${PANEL_ADMIN_ACTOR}`);
+        return NextResponse.json({ success: true, data: { login: await getLoginState() } });
+      }
+
+      case 'clear_login_override': {
+        const ok = await clearLoginOverride();
+        if (!ok) {
+          return NextResponse.json({ success: false, error: { code: 'WRITE_FAILED' } }, { status: 500 });
+        }
+        return NextResponse.json({ success: true, data: { login: await getLoginState() } });
       }
 
       default:
