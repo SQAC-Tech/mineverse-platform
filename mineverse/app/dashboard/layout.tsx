@@ -7,7 +7,7 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   // Always redirect to landing page (devs and users included)
-  redirect('/landing');
+  redirect('/');
 
   return (
     <div className="w-full h-full">
