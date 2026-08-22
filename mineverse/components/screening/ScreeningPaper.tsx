@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { CheckCircle2, ChevronRight, Home, RefreshCw } from 'lucide-react';
+import { CheckCircle2, ChevronRight, Home, RefreshCw, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useProctorSession } from '@/components/game/proctor/ProctorProvider';
 import { DEV_OPEN_SCREENING, GAUNTLET_PUZZLES } from '@/lib/screening/config';
