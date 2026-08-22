@@ -87,7 +87,7 @@ export function ScreeningEntry() {
   useEffect(() => { void load(); }, [load]);
 
   useEffect(() => {
-    if (status?.team?.attempt_status) {
+    if (status?.team?.attempt_status === 'submitted' || status?.team?.attempt_status === 'expired') {
       router.push('/');
     }
   }, [status, router]);
