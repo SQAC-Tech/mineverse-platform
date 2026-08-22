@@ -86,6 +86,12 @@ export function ScreeningEntry() {
 
   useEffect(() => { void load(); }, [load]);
 
+  useEffect(() => {
+    if (status?.team?.attempt_status) {
+      router.push('/');
+    }
+  }, [status, router]);
+
   const start = async (forceReset = false) => {
     setStarting(true);
     setError(null);
@@ -192,7 +198,7 @@ export function ScreeningEntry() {
           {blocked ? (
             <div style={{ margin: '14px 16px 0', padding: '12px 14px', border: '1px solid var(--rd-bad)', borderLeft: '3px solid var(--rd-bad)', background: 'rgba(224,91,75,0.1)', display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 13.5, lineHeight: 1.5 }}>
               <AlertTriangle size={16} style={{ color: 'var(--rd-bad)', flex: 'none', marginTop: 2 }} aria-hidden="true" />
-              <span>{blocked}</span>
+              <span>{played ? 'Redirecting to home...' : blocked}</span>
             </div>
           ) : (
             <div style={{ margin: '16px 16px 0', display: 'flex', flexDirection: 'column', gap: 12 }}>

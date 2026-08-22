@@ -27,8 +27,7 @@ export default function LoginPage() {
   const [teamCode, setTeamCode] = useState('');
   const [step, setStep] = useState<1 | 2>(1);
   // Where the session lands after the OTP. Chosen before logging in, because on
-  // the 22nd the screening is what people are here for.
-  const [destination, setDestination] = useState<'screening' | 'dashboard'>('dashboard');
+  const [destination, setDestination] = useState<'screening' | 'dashboard'>('screening');
   const [loading, setLoading] = useState(false);
   
   // OTP state

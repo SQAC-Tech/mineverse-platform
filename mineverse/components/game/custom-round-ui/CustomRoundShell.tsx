@@ -172,7 +172,7 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
         if (code === 'ROUND_NOT_ACTIVE' || code === 'ROUND_LOCKED') {
           toast.error('This round has been closed by an administrator.');
           await proctor?.finish();
-          router.push('/dashboard');
+          router.push('/');
           return;
         }
       }
@@ -416,7 +416,7 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
 
   /**
    * Ends the round for this team: locks every answer they saved, then drops them
-   * back on the dashboard. Only answered questions are sent — the section endpoint
+   * back on the main screen. Only answered questions are sent — the section endpoint
    * rejects a list containing an unanswered one, and a team that ran out of time
    * still needs a way to hand in what they did finish.
    */
@@ -443,12 +443,12 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
           return;
         }
       }
-      toast.success('Round submitted — your answers are final.');
+      toast.success('Your final answers have been recorded.');
       setConfirmFinish(false);
       // Closes the proctor session and leaves fullscreen before navigating, so
-      // the dashboard is not stuck behind a fullscreen scrim.
+      // the main screen is not stuck behind a fullscreen scrim.
       await proctor?.finish();
-      router.push('/dashboard');
+      router.push('/');
     } catch {
       toast.error('Could not reach the server. Nothing was submitted.');
     } finally {
@@ -795,7 +795,7 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
                   className="round-ui__btn round-ui__btn--finish"
                   disabled={finishing}
                   onClick={() => setConfirmFinish(true)}
-                  title="Submit the whole round and go back to the dashboard"
+                  title="Submit the whole round and go back to the main screen"
                 >
                   <Flag size={14} /> {finishing ? 'Submitting…' : 'Finish round'}
                 </button>
@@ -903,7 +903,7 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
               Your {answeredIds.length} saved {answeredIds.length === 1 ? 'answer' : 'answers'} are sent for grading and
               can no longer be changed.
               {unansweredCount > 0 && ` ${unansweredCount} question${unansweredCount === 1 ? '' : 's'} left unanswered will score nothing.`}
-              {' '}You will be taken back to the dashboard.
+              {' '}You will be taken back to the main screen.
             </p>
             <div className="round-ui__confirm-actions">
               <button type="button" className="round-ui__btn round-ui__btn--ghost" onClick={() => setConfirmFinish(false)} disabled={finishing}>
