@@ -20,8 +20,6 @@ import {
   Save,
   ScrollText,
   Shield,
-  ShoppingBag,
-  Sparkles,
   Swords,
   X,
 } from 'lucide-react';
@@ -29,11 +27,8 @@ import { toast } from 'sonner';
 import { useProctorSession } from '@/components/game/proctor/ProctorProvider';
 import { supabaseClient } from '@/lib/supabase/client';
 import { CraftingPanel } from '@/components/game/crafting/CraftingPanel';
-import { MarketplaceStore } from '@/components/game/marketplace/MarketplaceStore';
 import { Hotbar } from '@/components/game/inventory/Hotbar';
 import type { CraftedItem } from '@/features/dashboard/types';
-import { ConsumableInventory } from '@/components/game/marketplace/ConsumableInventory';
-import { ChoicePanel } from '@/components/game/choices/ChoicePanel';
 import { GuardianArena } from './GuardianArena';
 import { NotificationTray, type LedgerEntry } from './NotificationTray';
 import { WorldEvent } from './WorldEvent';
@@ -42,7 +37,7 @@ import './round-ui.css';
 
 type CaveTab = 'aptitudes' | 'debugging' | 'completion' | 'output';
 type ResourceKey = 'wood' | 'stone' | 'iron' | 'gold' | 'diamond' | 'emerald' | 'obsidian';
-type ModalName = 'guardian' | 'crafting' | 'marketplace' | 'shrine' | null;
+type ModalName = 'guardian' | 'crafting' | null;
 
 interface Question {
   id: string;
@@ -809,12 +804,11 @@ export function CaveRoundShell() {
               >
                 <img src="/crafting.svg" alt="Crafting Table" />
               </button>
-              <button type="button" className="round-ui__craft round-ui__craft--alt" onClick={() => setModal('marketplace')}>
-                <ShoppingBag size={15} /> Marketplace
-              </button>
-              <button type="button" className="round-ui__craft round-ui__craft--alt" onClick={() => setModal('shrine')}>
-                <Sparkles size={15} /> Ancient shrine
-              </button>
+              {/* The marketplace and the Ancient Shrine moved to the dashboard.
+                  Both are decisions made with a round's takings in hand — the
+                  brief has the Shrine appearing after the Cave Biome closes —
+                  and neither should be eating into a timed round. Crafting
+                  stays: it is the round's own objective. */}
             </div>
           </section>
 
@@ -887,13 +881,6 @@ export function CaveRoundShell() {
               />
             )}
             {modal === 'crafting' && <CraftingPanel refreshToken={0} onCrafted={() => { void refresh(); }} />}
-            {modal === 'marketplace' && (
-              <>
-                <MarketplaceStore refreshToken={0} onPurchased={() => { void refresh(); }} />
-                <ConsumableInventory refreshToken={0} onUsed={() => { void refresh(); }} />
-              </>
-            )}
-            {modal === 'shrine' && <ChoicePanel choiceKey="ancient_shrine" refreshToken={0} onDecided={() => { void refresh(); }} />}
           </div>
         </div>
       )}

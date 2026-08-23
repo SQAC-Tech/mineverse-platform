@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 
 import { ROUND_CONFIGS } from '@/lib/gameplay/round-config';
 import { CRAFT_RECIPES, type CraftItem } from '@/lib/gameplay/crafting/rules';
@@ -64,6 +64,12 @@ export function Rulebook({ onClose }: RulebookProps) {
   const [chapter, setChapter] = useState<ChapterId>('basics');
   const pageRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
+
+  const chapterIndex = CHAPTERS.findIndex((entry) => entry.id === chapter);
+  const turn = (step: number) => {
+    const next = CHAPTERS[chapterIndex + step];
+    if (next) setChapter(next.id);
+  };
 
   // A new chapter starts at its top, not wherever the last one was scrolled to.
   useEffect(() => {
@@ -130,6 +136,33 @@ export function Rulebook({ onClose }: RulebookProps) {
           {chapter === 'guardians' && <Guardians />}
           {chapter === 'market' && <Market />}
           {chapter === 'conduct' && <Conduct />}
+
+          {/* Turning a page beats hunting the spine for the next ribbon. */}
+          <nav className="rb__turn" aria-label="Turn the page">
+            <button
+              type="button"
+              className="rb__turn-btn"
+              onClick={() => turn(-1)}
+              disabled={chapterIndex === 0}
+            >
+              <ChevronLeft size={13} aria-hidden="true" />
+              {CHAPTERS[chapterIndex - 1]?.label ?? 'Back'}
+            </button>
+
+            <span className="rb__turn-where">
+              {chapterIndex + 1} / {CHAPTERS.length}
+            </span>
+
+            <button
+              type="button"
+              className="rb__turn-btn"
+              onClick={() => turn(1)}
+              disabled={chapterIndex === CHAPTERS.length - 1}
+            >
+              {CHAPTERS[chapterIndex + 1]?.label ?? 'Next'}
+              <ChevronRight size={13} aria-hidden="true" />
+            </button>
+          </nav>
         </div>
 
         <button ref={closeRef} type="button" className="rb__close" onClick={onClose} aria-label="Close the rulebook">

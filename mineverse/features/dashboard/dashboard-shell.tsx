@@ -5,7 +5,7 @@ import './dashboard.css';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { Flame, LogOut, Shield } from 'lucide-react';
+import { Flame, LogOut, Shield, ShoppingBag, Sparkles } from 'lucide-react';
 
 import { Hotbar } from '@/components/game/inventory/Hotbar';
 import { roundChrome } from '@/components/game/custom-round-ui/round-presentation';
@@ -13,8 +13,12 @@ import { Rulebook } from '@/features/dashboard/rulebook';
 import { WorldMap } from '@/features/dashboard/world-map';
 import { SteveAvatar } from '@/features/dashboard/steve-avatar';
 import { CraftingTable } from '@/features/dashboard/crafting-table';
+import { DashOverlay } from '@/features/dashboard/dash-overlay';
+import { MarketplaceStore } from '@/components/game/marketplace/MarketplaceStore';
+import { ConsumableInventory } from '@/components/game/marketplace/ConsumableInventory';
+import { ChoicePanel } from '@/components/game/choices/ChoicePanel';
 import { loadoutFrom } from '@/features/dashboard/gear';
-import type { CraftedItem, DashboardProgress, DashboardRound, DashboardTeam } from '@/features/dashboard/types';
+import type { CraftedItem, DashboardProgress, DashboardRound, DashboardTeam, DashboardTrader } from '@/features/dashboard/types';
 import { supabaseClient } from '@/lib/supabase/client';
 
 /**
@@ -28,6 +32,12 @@ import { supabaseClient } from '@/lib/supabase/client';
  * each round page calls `requireRoundAccess` and every mutation re-checks on the
  * server, so a chip that is stale is a cosmetic bug rather than a way in.
  */
+/** The traders' proper names, for when only one of them is waiting. */
+const TRADER_LABELS: Record<DashboardTrader['key'], string> = {
+  ancient_shrine: 'Ancient Shrine',
+  piglin_merchant: 'Piglin Merchant',
+};
+
 export function DashboardShell() {
   const router = useRouter();
 
@@ -38,8 +48,13 @@ export function DashboardShell() {
   const [progress, setProgress] = useState<DashboardProgress | null>(null);
   const [devUnlock, setDevUnlock] = useState(false);
 
+  const [marketOpen, setMarketOpen] = useState(false);
+  const [traders, setTraders] = useState<DashboardTrader[]>([]);
+
   const [showMap, setShowMap] = useState(false);
   const [showRules, setShowRules] = useState(false);
+  const [showMarket, setShowMarket] = useState(false);
+  const [showTrader, setShowTrader] = useState(false);
   const [slot, setSlot] = useState(1);
 
   const load = useCallback(async () => {
@@ -78,6 +93,8 @@ export function DashboardShell() {
       setCrafted(payload.crafted ?? []);
       setProgress(payload.progress ?? null);
       setDevUnlock(Boolean(payload.dev_unlock));
+      setMarketOpen(Boolean(payload.market?.open));
+      setTraders(payload.traders ?? []);
     } catch {
       // Keep the last good snapshot. Rounds stay locked until a fetch succeeds.
     }
@@ -116,6 +133,9 @@ export function DashboardShell() {
     if (open) return open;
     return [...playable].reverse().find((round) => round.completed_at) ?? null;
   }, [rounds]);
+
+  /* Only traders whose round has opened. A locked one is not worth a button. */
+  const openTraders = useMemo(() => traders.filter((trader) => trader.open), [traders]);
 
   /* The crafting log as bare item ids, which is what the gate check wants. */
   const craftedItems = useMemo(
@@ -242,6 +262,33 @@ export function DashboardShell() {
           </div>
         </section>
 
+        {/* Trading lives here now, not inside a round: the marketplace and the
+            traders are between-rounds decisions made with the round's takings
+            in hand, and a team should not be spending its timed round on them. */}
+        <div className="dash__shops">
+          <button
+            type="button"
+            className="dash__shop"
+            disabled={!marketOpen}
+            title={marketOpen ? 'Trade emeralds with the Villager Merchant' : 'The marketplace opens in the Cave Biome'}
+            onClick={() => setShowMarket(true)}
+          >
+            <ShoppingBag size={13} aria-hidden="true" />
+            MARKETPLACE
+          </button>
+
+          <button
+            type="button"
+            className="dash__shop"
+            disabled={openTraders.length === 0}
+            title={openTraders.length > 0 ? 'A trader is waiting' : 'No trader has arrived yet'}
+            onClick={() => setShowTrader(true)}
+          >
+            <Sparkles size={13} aria-hidden="true" />
+            {openTraders.length > 0 ? `TRADER (${openTraders.length})` : 'TRADER'}
+          </button>
+        </div>
+
         <button type="button" className="d-enter d-enter--rules" onClick={() => setShowRules(true)}>
           RULEBOOK
         </button>
@@ -268,6 +315,29 @@ export function DashboardShell() {
       {/* ── Overlays ── */}
       {showMap && <WorldMap rounds={rounds} onClose={() => setShowMap(false)} onEnter={(path) => router.push(path)} />}
       {showRules && <Rulebook onClose={() => setShowRules(false)} />}
+
+      {showMarket && (
+        <DashOverlay
+          title="Marketplace"
+          subtitle="The Villager Merchant trades knowledge and supplies for Emeralds. Open all event."
+          onClose={() => setShowMarket(false)}
+        >
+          <MarketplaceStore onPurchased={load} />
+          <ConsumableInventory onUsed={load} />
+        </DashOverlay>
+      )}
+
+      {showTrader && (
+        <DashOverlay
+          title={openTraders.length === 1 ? TRADER_LABELS[openTraders[0].key] : 'Traders'}
+          subtitle="One decision each, and it cannot be taken back."
+          onClose={() => setShowTrader(false)}
+        >
+          {openTraders.map((trader) => (
+            <ChoicePanel key={trader.key} choiceKey={trader.key} onDecided={load} />
+          ))}
+        </DashOverlay>
+      )}
 
     </div>
   );

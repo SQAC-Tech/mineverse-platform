@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth/session';
 import { verifyTeamRoundAccess } from '@/lib/gameplay/utils/access';
+import { isDemoTeamId } from '@/lib/gameplay/demo-teams';
 
 /**
  * Page-level gate for a round route.
@@ -26,5 +27,14 @@ export async function requireRoundAccess(roundId: number) {
   const { hasAccess } = await verifyTeamRoundAccess(session.team_id, roundId);
   if (!hasAccess) redirect('/dashboard');
 
-  return session;
+  /**
+   * Demo teams walk rounds unproctored.
+   *
+   * Read here because this is the one place every round page already awaits,
+   * and because the demo list is server-only config that must not be shipped
+   * to the browser. Returned rather than applied, so the page decides.
+   */
+  const proctorExempt = await isDemoTeamId(session.team_id);
+
+  return { ...session, proctorExempt };
 }

@@ -29,6 +29,8 @@ export function useProctorSession(): UseProctorResult | null {
 
 interface ProctorProviderProps {
   roundId: number;
+  /** False turns the whole layer off for this team — see `ProctoredRound`. */
+  enabled?: boolean;
   /** Palette class from `roundChrome`, e.g. `round-ui--forest`. */
   themeClass?: string;
   /** Round name shown on the gate. */
@@ -39,12 +41,13 @@ interface ProctorProviderProps {
 
 export function ProctorProvider({
   roundId,
+  enabled = true,
   themeClass,
   roundName,
   eyebrow,
   children,
 }: ProctorProviderProps) {
-  const proctor = useProctor(roundId);
+  const proctor = useProctor(roundId, { enabled });
 
   // Kill switch: render the round untouched, with no gate and no listeners.
   if (!proctor.enabled) {
