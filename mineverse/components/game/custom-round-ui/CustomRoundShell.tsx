@@ -838,39 +838,49 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
                       />
                     ) : (
                     <>
-                    <QuestionPrompt question={currentQuestion} language={languages[currentQuestion.id] ?? defaultLanguageFor(currentQuestion.language_options)} />
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                      <label className="round-ui__field-label" style={{ margin: 0 }} htmlFor={`answer-${currentQuestion.id}`}>Your answer</label>
-                    </div>
-                    {usesEditor(currentQuestion) ? (
+                    {/* A coding question shows its title, its code and its result
+                        here and nothing else. The statement, the samples and the
+                        rules are all one click away in the editor, and repeating
+                        them in this column only reflowed them into something
+                        less readable than the editor's own copy. */}
+                    {!usesEditor(currentQuestion) && (
                       <>
-                        {/* A program does not fit in this column, so the board
-                            shows the first lines and the editor takes the window. */}
+                        <QuestionPrompt question={currentQuestion} language={languages[currentQuestion.id] ?? defaultLanguageFor(currentQuestion.language_options)} />
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                          <label className="round-ui__field-label" style={{ margin: 0 }} htmlFor={`answer-${currentQuestion.id}`}>Your answer</label>
+                        </div>
+                      </>
+                    )}
+                    {usesEditor(currentQuestion) ? (
+                      <div className="rcard">
+                        {currentQuestion.coding_evaluation && (
+                          <div className="rcard__result">
+                            <b className="rcard__badge">&#10003; SUBMITTED</b>
+                            {currentQuestion.submitted_language && (
+                              <span className="rcard__lang">{currentQuestion.submitted_language.toUpperCase()}</span>
+                            )}
+                            <span className="rcard__score">
+                              {currentQuestion.coding_evaluation.status === 'completed'
+                                ? `${currentQuestion.coding_evaluation.total_passed} / ${currentQuestion.coding_evaluation.total_cases} tests passed`
+                                : 'Waiting for the code runner'}
+                            </span>
+                          </div>
+                        )}
+
+                        {/* The first lines only. A whole program does not fit in
+                            this column, and the editor is one click away. */}
                         <pre className="round-ui__code-preview" aria-label="Your code so far">
                           {(drafts[currentQuestion.id] ?? '').split('\n').slice(0, 6).join('\n') || 'No code yet.'}
                         </pre>
+
                         <button
                           type="button"
                           className="round-ui__btn round-ui__btn--go round-ui__open-editor"
                           onClick={() => setCodingId(currentQuestion.id)}
                         >
-                          <Code2 size={14} /> Open code editor
+                          <Code2 size={14} /> {currentQuestion.coding_evaluation ? 'View submitted code' : 'Open code editor'}
                         </button>
-                        {currentQuestion.coding_evaluation && (
-                          <div className="round-ui__locked-note" style={{ display: 'grid', gap: '6px', marginTop: '12px' }}>
-                            <b>✓ SUBMITTED</b>
-                            {currentQuestion.submitted_language && <span>{currentQuestion.submitted_language.toUpperCase()}</span>}
-                            {currentQuestion.coding_evaluation.status === 'completed'
-                              ? <span>{currentQuestion.coding_evaluation.total_passed} / {currentQuestion.coding_evaluation.total_cases} TESTS PASSED</span>
-                              : <span>Evaluation is waiting for the code runner.</span>}
-                            <button type="button" className="round-ui__btn round-ui__btn--ghost" onClick={() => setCodingId(currentQuestion.id)}>
-                              View submitted code
-                            </button>
-                          </div>
-                        )}
-                      </>
-                    ) : usesEditor(currentQuestion) ? (
-                      <p className="round-ui__autosave">Use the code editor to run or submit this solution.</p>
+                      </div>
                     ) : (
                       <textarea
                         id={`answer-${currentQuestion.id}`}
