@@ -89,6 +89,8 @@ export interface ShellQuestion {
   sample_test_cases?: Array<{ stdin: string; stdout: string; explanation?: string }>;
   pays?: Record<string, number>;
   language_prompts?: Record<string, string>;
+  /** Function contract for a coding question; null for stdin/stdout ones. */
+  fn_contract?: import('@/lib/gameplay/code/contract').FnContract | null;
 }
 
 const QUESTION_TYPE_META: Record<string, { label: string; Icon: LucideIcon }> = {

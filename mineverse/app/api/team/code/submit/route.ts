@@ -4,6 +4,7 @@ import { getSession } from '@/lib/auth/session';
 import { supabaseServer } from '@/lib/supabase/server';
 import { normalizeOutput } from '@/lib/gameplay/code/compare';
 import { executeCode, CodeRunnerError } from '@/lib/gameplay/code/runner';
+import { contractOf, wrapForExecution, type LanguageId } from '@/lib/gameplay/code/contract';
 import { resolveRuntime, runtimesFor } from '@/lib/gameplay/code/runtimes';
 import { upsertTeamSubmission } from '@/lib/gameplay/questions/service';
 
@@ -78,11 +79,20 @@ export async function POST(req: Request) {
 
   const samples = Array.isArray(question.sample_test_cases) ? question.sample_test_cases as TestCase[] : [];
   const hidden = Array.isArray(question.hidden_test_cases) ? question.hidden_test_cases as TestCase[] : [];
+  /**
+   * The team's function inside the platform's wrapper.
+   *
+   * `body.code` is what gets stored as their answer — only this wrapped form is
+   * ever executed. A question without a contract is a whole program already.
+   */
+  const contract = contractOf(question.runtime_meta);
+  const executable = contract && runtime ? wrapForExecution(contract, runtime.id as LanguageId, body.code) : body.code;
+
   const version = (question.runtime_meta as { piston_version?: string } | null)?.piston_version ?? '*';
   const countPassed = async (cases: TestCase[]) => {
     let passed = 0;
     for (const testCase of cases) {
-      const result = await executeCode({ code: body.code, stdin: String(testCase.stdin ?? ''), runtime, pistonVersion: version });
+      const result = await executeCode({ code: executable, stdin: String(testCase.stdin ?? ''), runtime, pistonVersion: version });
       if (!result.compile.code && result.run.code === 0 && normalizeOutput(result.run.stdout) === normalizeOutput(String(testCase.stdout ?? ''))) passed += 1;
     }
     return passed;

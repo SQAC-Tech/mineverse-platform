@@ -29,6 +29,7 @@ import { EndRail } from '@/components/day2/end-round/EndRail';
 import { CodeWorkspace } from '@/components/game/code/CodeWorkspace';
 import { InspectorCard, usesInspector } from '@/components/game/code/InspectorCard';
 import { defaultLanguageFor, offeredRuntimes, offersLanguage, resolveRuntime } from '@/lib/gameplay/code/runtimes';
+import { starterFor, type FnContract, type LanguageId } from '@/lib/gameplay/code/contract';
 import type { CodingEvaluation } from '@/components/game/code/CodeWorkspace';
 import { useAnswerAutosave } from '@/hooks/useAnswerAutosave';
 import type { CraftedItem, DashboardProgress } from '@/features/dashboard/types';
@@ -36,6 +37,22 @@ import { RESOURCE_META, buildQuestionTabs, languagePrompts, offersLanguageChoice
 import './round-ui.css';
 import { Hotbar } from '@/components/game/inventory/Hotbar';
 import { RoundCraftPrompt } from './RoundCraftPrompt';
+
+/**
+ * What a coding question opens with.
+ *
+ * A question that declares a function contract gets the generated stub for the
+ * chosen language — the signature and a comment, nothing else. The platform
+ * writes `main`, the stdin parsing and the printing, so a team spends the round
+ * on the problem rather than on boilerplate it is not being marked for.
+ *
+ * A question with no contract is still a whole program, and falls back to the
+ * runtime's own template.
+ */
+function starterCodeFor(question: { fn_contract?: FnContract | null }, language: string): string {
+  if (question.fn_contract) return starterFor(question.fn_contract, language as LanguageId);
+  return resolveRuntime(language)?.starter ?? '';
+}
 
 interface CustomRoundShellProps {
   roundId: number;
@@ -274,7 +291,7 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
       const saved = question.submitted_language ?? readLanguage(teamCode, roundId, question.id);
       const persistedCode = question.submitted_code ?? '';
       loaded[question.id] = persistedCode || readDraft(teamCode, roundId, question.id)
-        || (question.type === 'coding' ? resolveRuntime(defaultLanguageFor(question.language_options))?.starter ?? '' : '');
+        || (question.type === 'coding' ? starterCodeFor(question, defaultLanguageFor(question.language_options)) : '');
       if (offersLanguage(question.language_options, saved)) loadedLanguages[question.id] = saved!;
     }
 

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { contractOf } from '@/lib/gameplay/code/contract';
 
 export const questionTypes = ['crossword', 'aptitude', 'output', 'debugging', 'code_completion', 'coding', 'pvp', 'logic_puzzle', 'debug_output'] as const;
 export type QuestionType = (typeof questionTypes)[number];
@@ -18,6 +19,7 @@ export interface QuestionRow {
   language_options: string[] | null;
   /** Worked examples, safe to show. Never `hidden_test_cases`. */
   sample_test_cases?: unknown;
+  runtime_meta?: unknown;
   time_limit_seconds: number | null;
   /**
    * What a correct answer pays. Public information — the event brief prints the
@@ -138,6 +140,9 @@ export function serializeSafeQuestion(
     pays: (question.reward ?? {}) as Record<string, number>,
     submission_status: submission?.status ?? null,
     submission_revision: submission?.revision ?? null,
+    // The function the team implements. The wrapper that calls it stays on the
+    // server; this is only enough for the editor to draw the right starter.
+    fn_contract: question.type === 'coding' ? contractOf(question.runtime_meta) : null,
     submitted_code: question.type === 'coding' ? submission?.code ?? null : null,
     submitted_language: question.type === 'coding' ? submission?.language ?? null : null,
     coding_evaluation: question.type === 'coding' ? codingEvaluation(submission?.response) : null,

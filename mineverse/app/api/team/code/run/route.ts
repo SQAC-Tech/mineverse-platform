@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { contractOf, wrapForExecution, type LanguageId } from '@/lib/gameplay/code/contract';
 import { getSession } from '@/lib/auth/session';
 import { supabaseServer } from '@/lib/supabase/server';
 import { consumeRateLimit, retryHint, tooManyRequests } from '@/lib/rate-limit';
@@ -94,6 +95,16 @@ export async function POST(req: Request) {
   const apiKey = process.env.PISTON_API_KEY;
   const version = (question.runtime_meta as { piston_version?: string } | null)?.piston_version ?? '*';
 
+  /**
+   * What actually runs is the team's function inside the platform's wrapper.
+   *
+   * The team writes only the solution; the wrapper reads stdin, calls it and
+   * prints the result. A question with no contract is still a whole program, so
+   * it runs exactly as written.
+   */
+  const contract = contractOf(question.runtime_meta);
+  const executable = contract ? wrapForExecution(contract, runtime.id as LanguageId, code) : code;
+
   const execute = async (input: string) => {
     const response = await fetch(endpoint, {
       method: 'POST',
@@ -105,7 +116,7 @@ export async function POST(req: Request) {
       body: JSON.stringify({
         language: runtime.piston,
         version,
-        files: [{ name: runtime.file, content: code }],
+        files: [{ name: runtime.file, content: executable }],
         stdin: input,
         compile_timeout: 10_000,
         run_timeout: 5_000,
