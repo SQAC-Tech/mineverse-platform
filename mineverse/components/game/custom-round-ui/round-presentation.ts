@@ -119,6 +119,28 @@ export function languagePrompts(question: { content: unknown }): Record<string, 
   return Object.keys(usable).length ? usable : null;
 }
 
+/** Types whose answer is code, where the picker chooses what actually compiles. */
+const CODE_ANSWER_TYPES = ['coding', 'code_completion'];
+
+/**
+ * Whether to offer the language picker for a question.
+ *
+ * Both shells hardcoded the same list of five types. That list was a stand-in
+ * for "has something to switch between", and it was wrong in both directions:
+ * it excluded the six `aptitude` questions that carry all five variants, so
+ * their language could never be changed, and it would have offered a picker on
+ * a question with a single body.
+ *
+ * Asking the question itself is the fix. A coding question always offers one —
+ * the choice is the compile target, whether or not the prompt varies — and
+ * anything else offers one only when there is more than one body to show.
+ */
+export function offersLanguageChoice(question: { type: string; content: unknown }): boolean {
+  if (CODE_ANSWER_TYPES.includes(question.type)) return true;
+  const prompts = languagePrompts(question);
+  return Boolean(prompts && Object.keys(prompts).length > 1);
+}
+
 export function questionTypeLabel(type: string) {
   return QUESTION_TYPE_META[type]?.label ?? type.replace(/_/g, ' ');
 }

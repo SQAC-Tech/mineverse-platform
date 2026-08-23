@@ -29,7 +29,7 @@ import { CodeWorkspace } from '@/components/game/code/CodeWorkspace';
 import { defaultLanguageFor, offeredRuntimes, offersLanguage } from '@/lib/gameplay/code/runtimes';
 import { useAnswerAutosave } from '@/hooks/useAnswerAutosave';
 import type { CraftedItem, DashboardProgress } from '@/features/dashboard/types';
-import { RESOURCE_META, buildQuestionTabs, languagePrompts, payoutList, promptBlocks, questionTypeLabel, roundChoice, roundChrome, roundCraft, roundGuardian, roundObjective, roundPvp, type ResourceKey, type ShellQuestion } from './round-presentation';
+import { RESOURCE_META, buildQuestionTabs, languagePrompts, offersLanguageChoice, payoutList, promptBlocks, questionTypeLabel, roundChoice, roundChrome, roundCraft, roundGuardian, roundObjective, roundPvp, type ResourceKey, type ShellQuestion } from './round-presentation';
 import './round-ui.css';
 import { Hotbar } from '@/components/game/inventory/Hotbar';
 import { MinecraftCraftingTable } from './MinecraftCraftingTable';
@@ -695,7 +695,7 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
                       <span className="round-ui__type-badge">{questionTypeLabel(currentQuestion.type)}</span>
                     </p>
                     {currentQuestion.title && <p className="round-ui__question-title">{currentQuestion.title}</p>}
-                    {['coding', 'code_completion', 'debugging', 'debug_output', 'output'].includes(currentQuestion.type) && (
+                    {offersLanguageChoice(currentQuestion) && (
                       <div style={{ marginBottom: '16px' }}>
                         <select
                           style={{ width: 'auto', padding: '6px 12px', fontSize: '13px', display: 'inline-block', backgroundColor: 'rgba(0, 0, 0, 0.6)', color: '#fff', border: '1px solid rgba(255, 255, 255, 0.2)', borderRadius: '4px', cursor: 'pointer', appearance: 'auto', minHeight: 'auto', fontFamily: 'var(--rd-font-mono)' }}

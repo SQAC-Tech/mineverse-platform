@@ -35,7 +35,7 @@ import { ChoicePanel } from '@/components/game/choices/ChoicePanel';
 import { GuardianArena } from './GuardianArena';
 import { NotificationTray, type LedgerEntry } from './NotificationTray';
 import { WorldEvent } from './WorldEvent';
-import { languagePrompts, payoutList, promptBlocks, questionTypeLabel, roundGuardian } from './round-presentation';
+import { languagePrompts, offersLanguageChoice, payoutList, promptBlocks, questionTypeLabel, roundGuardian } from './round-presentation';
 import './round-ui.css';
 
 type CaveTab = 'aptitudes' | 'debugging' | 'completion' | 'output';
@@ -565,7 +565,7 @@ export function CaveRoundShell() {
                     </p>
                     {question.title && <p className="round-ui__question-title">{question.title}</p>}
                     
-                    {['coding', 'code_completion', 'debugging', 'debug_output', 'output'].includes(question.type) && (
+                    {offersLanguageChoice(question) && (
                       <div style={{ marginBottom: '16px' }}>
                         <select
                           style={{ width: 'auto', padding: '6px 12px', fontSize: '13px', display: 'inline-block', backgroundColor: 'rgba(0, 0, 0, 0.6)', color: '#fff', border: '1px solid rgba(255, 255, 255, 0.2)', borderRadius: '4px', cursor: 'pointer', appearance: 'auto', minHeight: 'auto', fontFamily: 'var(--rd-font-mono)' }}

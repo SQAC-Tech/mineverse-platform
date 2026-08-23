@@ -127,9 +127,21 @@ export async function GET() {
   const { data: access } = accessResult;
   const { data: resources } = resourcesResult;
 
+  /**
+   * A demo team can open a round the moment it exists.
+   *
+   * `verifyTeamRoundAccess` has always let a demo team past the round status
+   * and the per-team lock — that is the entire point of one — but this list did
+   * not know it, so the dashboard drew every round greyed out and there was
+   * nothing to click. The API would have allowed the entry the UI refused to
+   * offer, which made a demo team useless for exactly the walkthrough it exists
+   * for.
+   */
+  const isDemo = isDemoTeamCode(session.team_code);
+
   const rounds = (access ?? []).map((row: any) => {
     const round = row.rounds ?? {};
-    const unlockedForTeam = !row.is_locked && round.status === 'active';
+    const unlockedForTeam = isDemo || (!row.is_locked && round.status === 'active');
 
     return {
       round_id: row.round_id,
