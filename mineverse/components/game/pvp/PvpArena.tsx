@@ -79,11 +79,9 @@ export function PvpArena({ match, onClose, onRefresh }: PvpArenaProps) {
           <div className="round-ui__pvp-countdown">{remaining(match.deadline_at)}</div>
         </div>
         <div className="round-ui__tools">
-          {match.status !== 'live' && (
-            <button className="round-ui__icon-btn" onClick={onClose} aria-label="Close PvP">
-              <X size={24} />
-            </button>
-          )}
+          <button className="round-ui__icon-btn" onClick={onClose} aria-label="Close PvP" title="Exit Match">
+            <X size={24} />
+          </button>
         </div>
       </header>
 
@@ -175,14 +173,27 @@ export function PvpArena({ match, onClose, onRefresh }: PvpArenaProps) {
                         disabled={submissions.get(activeQ.id)?.status === 'correct'}
                       />
                       
-                      <div className="round-ui__section-actions" style={{ marginTop: '12px' }}>
+                      <div className="round-ui__section-actions" style={{ marginTop: '12px', display: 'flex', gap: '8px' }}>
                         <button
                           className="n-btn n-btn-primary"
-                          style={{ width: '100%', display: 'block', padding: '12px', fontSize: '14px' }}
+                          style={{ flex: 1, display: 'block', padding: '12px', fontSize: '14px' }}
                           onClick={() => submit(activeQ.id)}
                           disabled={submitting === activeQ.id || !(drafts[activeQ.id] ?? '').trim() || submissions.get(activeQ.id)?.status === 'correct'}
                         >
                           {submitting === activeQ.id ? 'SUBMITTING...' : submissions.get(activeQ.id)?.status === 'correct' ? 'CORRECT' : 'SUBMIT ANSWER'}
+                        </button>
+                        <button
+                          className="n-btn n-btn-secondary"
+                          style={{ padding: '12px', fontSize: '14px', flexShrink: 0 }}
+                          onClick={() => {
+                            const currentIndex = match.questions.findIndex((q) => q.id === activeQ.id);
+                            if (currentIndex < match.questions.length - 1) {
+                              setActiveQuestionId(match.questions[currentIndex + 1].id);
+                            }
+                          }}
+                          disabled={match.questions.findIndex((q) => q.id === activeQ.id) === match.questions.length - 1}
+                        >
+                          NEXT ❯
                         </button>
                       </div>
                     </div>

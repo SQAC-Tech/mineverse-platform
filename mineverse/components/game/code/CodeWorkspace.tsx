@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import {
   Check,
+  CheckCircle2,
   ChevronsUpDown,
   Clock3,
   Minus,
@@ -15,9 +16,11 @@ import {
   Terminal,
   WrapText,
   X,
+  XCircle,
 } from 'lucide-react';
 import { promptBlocks, payoutText } from '@/components/game/custom-round-ui/round-presentation';
 import { runtimesFor, resolveRuntime, type Runtime } from '@/lib/gameplay/code/runtimes';
+import { contractOf, starterFor, type LanguageId } from '@/lib/gameplay/code/contract';
 import './code-workspace.css';
 
 // Monaco reaches for `window` and `document` as it loads, so it must not be part
@@ -27,6 +30,23 @@ const CodeEditor = dynamic(() => import('./CodeEditor').then((m) => m.CodeEditor
   ssr: false,
   loading: () => <p className="cw-loading">Loading editor…</p>,
 });
+
+/** `95` -> `1:35`, so a wait reads as a clock rather than a raw count. */
+function clockdown(seconds: number): string {
+  const s = Math.max(0, seconds);
+  return s >= 60 ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` : `${s}s`;
+}
+
+/** Share of cases passed, for the progress bar. An empty set reads as full. */
+function pct(passed: number, total: number): number {
+  return total > 0 ? Math.round((passed / total) * 100) : 100;
+}
+
+/** Green for all, amber for some, red for none. */
+function countTone(passed: number, total: number): string {
+  if (total === 0 || passed === total) return 'cw-tests__count cw-tests__count--pass';
+  return passed === 0 ? 'cw-tests__count cw-tests__count--fail' : 'cw-tests__count cw-tests__count--part';
+}
 
 export interface SampleCase {
   stdin: string;
@@ -43,6 +63,18 @@ export interface CodeQuestion {
   sample_test_cases?: SampleCase[];
   pays?: Record<string, number>;
   submission_status: string | null;
+  coding_evaluation?: CodingEvaluation | null;
+}
+
+export interface CodingEvaluation {
+  kind: 'coding_evaluation';
+  status: 'completed' | 'runner_error';
+  sample_passed: number;
+  sample_total: number;
+  hidden_passed: number;
+  hidden_total: number;
+  total_passed: number;
+  total_cases: number;
 }
 
 interface CodeWorkspaceProps {
@@ -52,13 +84,14 @@ interface CodeWorkspaceProps {
   themeClass: string;
   clock: string;
   clockWarning: boolean;
+  roundClosed?: boolean;
   draft: string;
   language: string | null;
   locked: boolean;
   submitting: boolean;
   onDraftChange: (value: string) => void;
   onLanguageChange: (language: string) => void;
-  onSubmit: () => void;
+  onSubmit: () => Promise<CodingEvaluation | null>;
   onClose: () => void;
 }
 
@@ -97,6 +130,7 @@ export function CodeWorkspace({
   themeClass,
   clock,
   clockWarning,
+  roundClosed = false,
   draft,
   language,
   locked,
@@ -108,6 +142,17 @@ export function CodeWorkspace({
 }: CodeWorkspaceProps) {
   const runtimes = runtimesFor(question.language_options);
   const active = resolveRuntime(language) ?? runtimes[0] ?? null;
+
+  /* Reset restores this question's generated stub. It used to hand back the
+     runtime's whole-program template — the `int main()` scaffold the function
+     model exists to remove — so pressing it undid the stub rather than the
+     team's edits. */
+  const contract = contractOf((question as { runtime_meta?: unknown }).runtime_meta ?? null)
+    ?? (question as { fn_contract?: Parameters<typeof starterFor>[0] | null }).fn_contract
+    ?? null;
+  const starter = contract && active
+    ? starterFor(contract, active.id as LanguageId)
+    : active?.starter ?? '';
   const samples = question.sample_test_cases ?? [];
 
   const [split, setSplit] = useState(38);
@@ -122,6 +167,26 @@ export function CodeWorkspace({
   const [customResult, setCustomResult] = useState<CustomResult | null>(null);
   const [runError, setRunError] = useState('');
   const [saved, setSaved] = useState(false);
+  const [submissionResult, setSubmissionResult] = useState<CodingEvaluation | null>(question.coding_evaluation ?? null);
+
+  /**
+   * Seconds left before Run or Submit is allowed again.
+   *
+   * The limits live on the server — this only mirrors what it said, so a team
+   * sees a number counting down instead of a button that fails when pressed.
+   * Never trusted: the server refuses regardless of what this shows.
+   */
+  const [runCooldown, setRunCooldown] = useState(0);
+  const [submitCooldown, setSubmitCooldown] = useState(0);
+
+  useEffect(() => {
+    if (runCooldown <= 0 && submitCooldown <= 0) return;
+    const tick = window.setInterval(() => {
+      setRunCooldown((n) => (n > 0 ? n - 1 : 0));
+      setSubmitCooldown((n) => (n > 0 ? n - 1 : 0));
+    }, 1000);
+    return () => window.clearInterval(tick);
+  }, [runCooldown, submitCooldown]);
   const bodyRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -164,19 +229,26 @@ export function CodeWorkspace({
           language: active.id,
           code: draft,
           mode: custom ? 'custom' : 'samples',
+          /* Run ALL sample cases — no sample_index means the server will
+             execute every sample, like HackerRank's Run does. */
           stdin: custom ? stdin : '',
         }),
       });
       const json = await res.json();
       if (!json.success) {
+        if (res.status === 429 && typeof json.retry_after === 'number') setRunCooldown(json.retry_after);
         setRunError(json.error ?? 'The run failed.');
       } else if (json.mode === 'custom') {
         setCustomResult({ compile: json.compile, run: json.run });
       } else {
-        setResults(json.results);
-        // Land on the first failure — that is the one worth reading.
-        const firstFailed = (json.results as CaseResult[]).findIndex((entry) => !entry.passed);
-        setCaseIndex(firstFailed === -1 ? 0 : firstFailed);
+        const latest = json.results as CaseResult[];
+        setResults(latest);
+        // Auto-select the first failing case for quick debugging.
+        const firstFail = latest.findIndex((r) => !r.passed);
+        if (firstFail >= 0) {
+          setCaseIndex(firstFail);
+          setCustom(false);
+        }
       }
     } catch {
       setRunError('Could not reach the runner.');
@@ -192,10 +264,21 @@ export function CodeWorkspace({
     window.setTimeout(() => setSaved(false), 1400);
   };
 
+  const submit = async () => {
+    if (locked || submitting || submitCooldown > 0) return;
+    const result = await onSubmit();
+    if (result) {
+      setSubmissionResult(result);
+      // The server allows one submission every two minutes; start the same
+      // clock here so the button shows the wait rather than failing on press.
+      setSubmitCooldown(120);
+    }
+  };
+
   const blocks = promptBlocks(question.prompt);
   const reward = payoutText(question.pays);
   const shown = results?.[caseIndex] ?? null;
-  const allPassed = results !== null && results.length === samples.length && results.every((entry) => entry.passed);
+  const allPassed = samples.length > 0 && samples.every((_, index) => results?.[index]?.passed);
 
   return (
     <div
@@ -221,12 +304,26 @@ export function CodeWorkspace({
           {saved ? <Check size={14} /> : <Save size={14} />} {saved ? 'Saved' : 'Save'}
         </button>
 
-        <button type="button" className="cw-btn cw-btn--run" onClick={() => void run()} disabled={running || !active}>
-          <Play size={14} /> {running ? 'Running…' : custom ? 'Run custom' : 'Run samples'}
+        {/* Both buttons show the wait rather than failing when pressed. The
+            server owns the limit; this only reflects what it reported. */}
+        <button
+          type="button"
+          className="cw-btn cw-btn--run"
+          onClick={() => void run()}
+          disabled={roundClosed || running || !active || runCooldown > 0}
+          title={runCooldown > 0 ? 'Three runs a minute' : 'Run against all sample cases'}
+        >
+          <Play size={14} /> {running ? 'Running…' : runCooldown > 0 ? `Run in ${clockdown(runCooldown)}` : 'Run code'}
         </button>
 
-        <button type="button" className="cw-btn cw-btn--submit" onClick={onSubmit} disabled={locked || submitting}>
-          <Send size={14} /> {submitting ? 'Submitting…' : 'Submit'}
+        <button
+          type="button"
+          className="cw-btn cw-btn--submit"
+          onClick={() => void submit()}
+          disabled={locked || submitting || submitCooldown > 0}
+          title={submitCooldown > 0 ? 'One submission every two minutes' : 'Submit against every test'}
+        >
+          <Send size={14} /> {submitting ? 'Submitting…' : submitCooldown > 0 ? `Submit in ${clockdown(submitCooldown)}` : 'Submit'}
         </button>
 
         <button type="button" className="cw-btn cw-btn--icon" onClick={onClose} aria-label="Close editor">
@@ -234,7 +331,79 @@ export function CodeWorkspace({
         </button>
       </div>
 
-      <div className="cw-body" ref={bodyRef} style={{ ['--cw-split' as string]: `${split}%` }}>
+      {submissionResult && (
+        <section className="cw-result" aria-live="polite">
+          <p className="cw-result__eyebrow">Submission result</p>
+          {submissionResult.status === 'completed' ? (
+            <>
+              <div className="cw-result__verdict" data-ok={String(submissionResult.total_passed === submissionResult.total_cases)}>
+                {submissionResult.total_passed === submissionResult.total_cases
+                  ? <CheckCircle2 size={28} />
+                  : <XCircle size={28} />}
+                <h1>
+                  {submissionResult.total_passed === submissionResult.total_cases
+                    ? 'All tests passed!'
+                    : `${submissionResult.total_passed} / ${submissionResult.total_cases} tests passed`}
+                </h1>
+              </div>
+
+              {submissionResult.total_passed < submissionResult.total_cases && (
+                <p className="cw-result__failed-note">
+                  {submissionResult.total_cases - submissionResult.total_passed} test{submissionResult.total_cases - submissionResult.total_passed > 1 ? 's' : ''} failed
+                </p>
+              )}
+
+              {/* The hidden cases are the ones a team cannot inspect, so the
+                  count is the only feedback they get. Inputs, expected outputs
+                  and which case failed all stay on the server. */}
+              <div className="cw-tests">
+                <div className="cw-tests__row">
+                  <span>
+                    <b>Sample cases</b>
+                    <small>The examples shown in the question</small>
+                  </span>
+                  <span className={countTone(submissionResult.sample_passed, submissionResult.sample_total)}>
+                    {submissionResult.sample_passed} / {submissionResult.sample_total}
+                  </span>
+                  <span className="cw-tests__bar">
+                    <i style={{ width: `${pct(submissionResult.sample_passed, submissionResult.sample_total)}%` }} />
+                  </span>
+                </div>
+
+                <div className="cw-tests__row">
+                  <span>
+                    <b>Hidden cases</b>
+                    <small>
+                      {submissionResult.hidden_total > submissionResult.hidden_passed
+                        ? `${submissionResult.hidden_total - submissionResult.hidden_passed} failed — inputs stay hidden`
+                        : 'Extra tests you cannot see'}
+                    </small>
+                  </span>
+                  <span className={countTone(submissionResult.hidden_passed, submissionResult.hidden_total)}>
+                    {submissionResult.hidden_passed} / {submissionResult.hidden_total}
+                  </span>
+                  <span className="cw-tests__bar">
+                    <i style={{ width: `${pct(submissionResult.hidden_passed, submissionResult.hidden_total)}%` }} />
+                  </span>
+                </div>
+              </div>
+            </>
+          ) : <><h1>Code saved</h1><p>The runner could not finish evaluation. You can submit again once it is available.</p></>}
+          <button type="button" className="cw-btn" onClick={() => setSubmissionResult(null)}>View submitted code</button>
+          <button type="button" className="cw-btn cw-btn--submit" onClick={onClose}>Return to round</button>
+        </section>
+      )}
+
+      {roundClosed && !submissionResult && (
+        <section className="cw-result" aria-live="polite">
+          <p className="cw-result__eyebrow">Round closed</p>
+          <h1>This round is no longer accepting code.</h1>
+          <p>Your editor is read-only. Return to the round panel to review its final state.</p>
+          <button type="button" className="cw-btn cw-btn--submit" onClick={onClose}>Return to round</button>
+        </section>
+      )}
+
+      <div className="cw-body" hidden={Boolean(submissionResult) || roundClosed} ref={bodyRef} style={{ ['--cw-split' as string]: `${split}%` }}>
         <section className="cw-pane cw-problem">
           <div className="cw-problem__head">
             <span className="cw-problem__tag">{question.type.replace(/_/g, ' ')}</span>
@@ -271,8 +440,8 @@ export function CodeWorkspace({
           )}
 
           <p className="cw-problem__note">
-            Run checks the examples above. Your answer is marked after the round against further tests you have not
-            seen, so passing every example is a good sign — not a score.
+            Run checks all the examples above. Your answer is marked after the round against further hidden tests you
+            have not seen, so passing every example is a good sign — not a final score.
           </p>
         </section>
 
@@ -309,7 +478,7 @@ export function CodeWorkspace({
 
             <span className="cw-toolbar__spacer" />
 
-            <button type="button" className="cw-btn" onClick={() => active && onDraftChange(active.starter)} disabled={locked || !active}>
+            <button type="button" className="cw-btn" onClick={() => onDraftChange(starter)} disabled={locked || !active}>
               <RotateCcw size={14} /> Reset
             </button>
           </div>
@@ -319,7 +488,7 @@ export function CodeWorkspace({
               value={draft}
               language={active?.monaco ?? 'plaintext'}
               onChange={onDraftChange}
-              readOnly={locked}
+              readOnly={locked || submitting}
               fontSize={fontSize}
               minimap={minimap}
               wordWrap={wrap}
@@ -332,8 +501,8 @@ export function CodeWorkspace({
             <div className="cw-console__tabs">
               {/* Each sample is its own chip, so a failure is one click away
                   rather than buried in a wall of output. */}
-              {!custom &&
-                samples.map((_, index) => {
+              <span className="cw-console__label">Test cases</span>
+              {samples.map((_, index) => {
                   const outcome = results?.[index];
                   return (
                     <button
@@ -342,26 +511,30 @@ export function CodeWorkspace({
                       className="cw-case"
                       data-active={String(caseIndex === index)}
                       data-state={outcome ? (outcome.passed ? 'pass' : 'fail') : 'idle'}
-                      onClick={() => setCaseIndex(index)}
+                      onClick={() => { setCustom(false); setCaseIndex(index); }}
                     >
+                      {outcome ? (outcome.passed ? <Check size={11} /> : <X size={11} />) : null}
                       Case {index + 1}
                     </button>
                   );
-                })}
+              })}
 
+              <span className="cw-console__label">Custom</span>
               <button
                 type="button"
                 className="cw-case cw-case--custom"
                 data-active={String(custom)}
-                onClick={() => setCustom((value) => !value)}
+                onClick={() => setCustom(true)}
                 title="Run your own input"
               >
-                <Terminal size={12} /> Custom
+                <Terminal size={12} /> Custom input
               </button>
 
               {!custom && results && (
                 <span className="cw-summary" data-ok={String(allPassed)}>
-                  {allPassed ? 'All examples passed' : `${results.filter((r) => r.passed).length}/${samples.length} passed`}
+                  {allPassed
+                    ? `✓ All ${samples.length} passed`
+                    : `${samples.filter((_, index) => results[index]?.passed).length} passed, ${samples.filter((_, index) => results[index] && !results[index]?.passed).length} failed`}
                 </span>
               )}
             </div>
@@ -393,7 +566,7 @@ export function CodeWorkspace({
                         </>
                       )}
                       <p className="cw-out__label">STDOUT</p>
-                      <pre className="cw-out">{customResult.run.stdout || '(no output)'}</pre>
+                      <pre className="cw-out">{customResult.run.stdout || 'No output'}</pre>
                       {customResult.run.stderr && (
                         <>
                           <p className="cw-out__label">STDERR</p>
@@ -406,8 +579,8 @@ export function CodeWorkspace({
               ) : !results ? (
                 <p className="cw-out cw-out--muted">
                   {samples.length
-                    ? 'Press Run — or Ctrl+Enter — to check your code against the examples.'
-                    : 'This question has no examples. Use Custom to run your own input.'}
+                    ? 'Press Run code — or Ctrl+Enter — to test your code against all sample cases.'
+                    : 'This question has no sample cases. Use Custom input to run your own input.'}
                 </p>
               ) : shown ? (
                 <div className="cw-case-detail">
@@ -432,7 +605,7 @@ export function CodeWorkspace({
 
                       <p className="cw-out__label">YOUR OUTPUT</p>
                       <pre className={shown.passed ? 'cw-out' : 'cw-out cw-out--err'}>
-                        {shown.actual || '(no output)'}
+                        {shown.actual || 'No output'}
                       </pre>
 
                       {shown.stderr && (

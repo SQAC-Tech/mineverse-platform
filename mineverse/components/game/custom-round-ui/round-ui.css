@@ -3064,3 +3064,53 @@
   font-size: 12.5px;
   line-height: 1.5;
 }
+
+/* ── Coding question, as the round panel shows it ────────────── */
+
+/*
+ * Title, result, code, one button. Nothing else.
+ *
+ * The panel used to reflow the whole problem statement into this narrow column
+ * — rules, constraints, input and output format — and `promptBlocks` read the
+ * indented lines of the spec as code, so half the prose came out in grey boxes.
+ * The editor already renders the statement properly and is one click away, so
+ * this column stops competing with it.
+ */
+.rcard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rcard__result {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 9px 11px;
+  border: 2px solid rgba(122, 214, 96, 0.45);
+  background: rgba(122, 214, 96, 0.1);
+}
+
+.rcard__badge {
+  color: #8fe06a;
+  font-family: var(--rd-font-display);
+  font-size: 10px;
+  letter-spacing: 0.8px;
+}
+
+.rcard__lang {
+  padding: 2px 7px;
+  border: 1px solid var(--rd-board-line);
+  color: var(--rd-board-ink);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+}
+
+.rcard__score {
+  margin-left: auto;
+  color: var(--rd-gold);
+  font-family: var(--rd-font-display);
+  font-size: 10px;
+  letter-spacing: 0.5px;
+}

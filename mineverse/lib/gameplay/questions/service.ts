@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { supabaseServer } from '@/lib/supabase/server';
 import { verifyDev4RoundAccess } from './access';
 import { allowedQuestionIds, pickVariants } from './variants';
+import { gradeSubmissionsNow, sweepRoundGrading } from '@/lib/gameplay/grading/instant';
 
 const db = supabaseServer as any;
 
@@ -36,7 +37,7 @@ export async function getSafeQuestionsForRound(teamId: string, roundId: number) 
   // questions before the duel.
   const { data: allQuestions, error: questionsError } = await db
     .from('questions')
-    .select('id, round_id, type, prompt, content, order_index, variant_group, language_options, sample_test_cases, time_limit_seconds, reward')
+    .select('id, round_id, type, prompt, content, order_index, variant_group, language_options, sample_test_cases, runtime_meta, time_limit_seconds, reward')
     .eq('round_id', roundId)
     .is('guardian_name', null)
     .neq('type', 'pvp')
@@ -60,7 +61,7 @@ export async function getSafeQuestionsForRound(teamId: string, roundId: number) 
   if (questionIds.length > 0) {
     const { data: submissions, error: submissionsError } = await db
       .from('submissions')
-      .select('id, question_id, status, revision, final_score')
+      .select('id, question_id, status, revision, final_score, code, language, response')
       .eq('team_id', teamId)
       .in('question_id', questionIds);
 
@@ -189,6 +190,14 @@ export async function upsertTeamSubmission(teamId: string, payload: z.infer<type
 export const sectionSubmitPayloadSchema = z.object({
   round_id: z.number().int(),
   question_ids: z.array(z.string().uuid()).min(1).max(100),
+  /**
+   * Set by "Finish round", not by a section hand-in.
+   *
+   * A section is graded as itself; finishing the round additionally sweeps every
+   * other answer the team gave, so a tab that was never submitted — or one whose
+   * grading failed halfway — is settled before they leave. See `sweepRoundGrading`.
+   */
+  finish: z.boolean().optional(),
 });
 
 /**
@@ -230,7 +239,7 @@ export async function lockTeamSection(teamId: string, payload: z.infer<typeof se
 
   const { data: submissions, error: submissionsError } = await db
     .from('submissions')
-    .select('id, question_id, status')
+    .select('id, question_id, status, response')
     .eq('team_id', teamId)
     .in('question_id', payload.question_ids);
 
@@ -246,6 +255,51 @@ export async function lockTeamSection(teamId: string, payload: z.infer<typeof se
       code: 'SECTION_INCOMPLETE',
       message: `Answer every question first — ${missing.length} still unanswered.`,
     };
+  }
+
+  // A coding answer is not ready for a final section submission merely because
+  // its draft was autosaved. It must have gone through the private evaluator;
+  // otherwise the section button would bypass Submit and hide the result screen.
+  const codingIds = new Set(
+    valid
+      .filter((question: QuestionRow & { guardian_name: string | null }) => question.type === 'coding')
+      .map((question: QuestionRow & { guardian_name: string | null }) => question.id),
+  );
+  const untestedCoding = (submissions ?? []).filter((row: SubmissionRow) => {
+    if (!codingIds.has(row.question_id)) return false;
+    const response = row.response as Record<string, unknown> | null;
+    /**
+     * Having been through Submit is the test, not having been graded by it.
+     *
+     * This also demanded `status === 'completed'`, which is a judgement about
+     * the judge rather than about the team: when the runner rate limits us the
+     * submit path still saves the code and records `runner_error`, so a team
+     * that pressed Submit and watched it fail could never hand the section in.
+     * Their answer was safe and the round was not — the platform's outage
+     * became the team's dead end.
+     *
+     * A missing summary still blocks, because that means Submit was never
+     * pressed and the section button would be bypassing the evaluator. An
+     * ungraded submission is picked up by the admin grading run afterwards.
+     */
+    return response?.kind !== 'coding_evaluation';
+  });
+  /**
+   * Deliberately not a blocker any more.
+   *
+   * This refused the whole section until every coding answer carried a
+   * completed evaluation. Across the live database not one coding submission
+   * had ever reached that state, so the gate was never passable — a team could
+   * answer everything and still be unable to hand the round in, and the message
+   * told them to do the thing they had already done.
+   *
+   * It was never load-bearing. Coding answers are marked after the round by the
+   * admin grading run against the hidden tests, like every other type; the
+   * in-editor evaluation is feedback for the team, not the mark. Left as a
+   * counted warning so the console can still see who never ran their code.
+   */
+  if (untestedCoding.length > 0) {
+    console.warn(`[submissions] locking a section with ${untestedCoding.length} unevaluated coding answer(s)`);
   }
 
   // Graded and manual-review rows are already final; re-locking them would
@@ -265,12 +319,46 @@ export async function lockTeamSection(teamId: string, payload: z.infer<typeof se
     if (lockError) throw lockError;
   }
 
+  /**
+   * Mark and pay, now, while the team is still watching the button.
+   *
+   * This is the deliberate hand-in the autosave path is not, which is what makes
+   * grading safe here and nowhere else: nothing after this point can revise the
+   * answers, so marking them cannot freeze work in progress.
+   *
+   * Failure is contained on purpose. The lock above has already committed, and
+   * that is the part that must not be lost — a team whose section is sealed but
+   * unmarked is recoverable by the finish-round sweep or an admin run, whereas a
+   * team told their submit failed will press it again against locked rows.
+   */
+  let grading: Awaited<ReturnType<typeof gradeSubmissionsNow>> | null = null;
+  try {
+    grading = payload.finish
+      ? await sweepRoundGrading(teamId, payload.round_id)
+      : await gradeSubmissionsNow({ teamId, roundId: payload.round_id, questionIds: payload.question_ids });
+  } catch (gradingError) {
+    console.error('[submissions] section locked but grading failed:', gradingError);
+  }
+
   return {
     ok: true as const,
     data: {
       round_id: payload.round_id,
       locked_count: lockable.length,
       already_final: payload.question_ids.length - lockable.length,
+      grading: grading
+        ? {
+            graded: grading.graded,
+            correct: grading.correct,
+            partial: grading.partial,
+            manual_review: grading.manual_review,
+            awarded: grading.awarded,
+            // Only the finish sweep reports this: how many answers are still
+            // unmarked after it ran. Anything above zero is the deterministic
+            // signal that this team needs an admin grading pass.
+            ...(payload.finish && 'still_open' in grading ? { still_open: grading.still_open } : {}),
+          }
+        : null,
     },
   };
 }

@@ -23,18 +23,59 @@ import { useProctorSession } from '@/components/game/proctor/ProctorProvider';
 import { supabaseClient } from '@/lib/supabase/client';
 import { GuardianArena } from './GuardianArena';
 import { NotificationTray, type LedgerEntry } from './NotificationTray';
+import { gradingMessage } from './grading-toast';
 import { WorldEvent, EVENT_FX } from './WorldEvent';
 import { PvpPanel } from '../pvp/PvpPanel';
 import { EndRail } from '@/components/day2/end-round/EndRail';
 import { CodeWorkspace } from '@/components/game/code/CodeWorkspace';
 import { InspectorCard, usesInspector } from '@/components/game/code/InspectorCard';
-import { defaultLanguageFor, offeredRuntimes, offersLanguage } from '@/lib/gameplay/code/runtimes';
+import { defaultLanguageFor, offeredRuntimes, offersLanguage, resolveRuntime } from '@/lib/gameplay/code/runtimes';
+import { starterFor, type FnContract, type LanguageId } from '@/lib/gameplay/code/contract';
+import type { CodingEvaluation } from '@/components/game/code/CodeWorkspace';
 import { useAnswerAutosave } from '@/hooks/useAnswerAutosave';
 import type { CraftedItem, DashboardProgress } from '@/features/dashboard/types';
 import { RESOURCE_META, buildQuestionTabs, languagePrompts, offersLanguageChoice, payoutList, promptBlocks, questionTypeLabel, roundChoice, roundChrome, roundCraft, roundGuardian, roundObjective, roundPvp, type ResourceKey, type ShellQuestion } from './round-presentation';
 import './round-ui.css';
 import { Hotbar } from '@/components/game/inventory/Hotbar';
 import { RoundCraftPrompt } from './RoundCraftPrompt';
+
+/**
+ * What a coding question opens with.
+ *
+ * A question that declares a function contract gets the generated stub for the
+ * chosen language — the signature and a comment, nothing else. The platform
+ * writes `main`, the stdin parsing and the printing, so a team spends the round
+ * on the problem rather than on boilerplate it is not being marked for.
+ *
+ * A question with no contract is still a whole program, and falls back to the
+ * runtime's own template.
+ */
+function starterCodeFor(question: { fn_contract?: FnContract | null }, language: string): string {
+  if (question.fn_contract) return starterFor(question.fn_contract, language as LanguageId);
+  return resolveRuntime(language)?.starter ?? '';
+}
+
+/**
+ * Whether the editor still holds boilerplate rather than the team's work.
+ *
+ * True for an empty buffer, for this question's generated stub in any offered
+ * language, and for the old whole-program templates that predate the function
+ * contracts — a team that opened a question last week has one of those saved,
+ * and it would otherwise shadow the stub forever.
+ *
+ * Used to decide when it is safe to swap the buffer. Anything a team has
+ * actually typed fails this test and is never replaced.
+ */
+function isPristine(question: { fn_contract?: FnContract | null; language_options?: string[] }, code: string): boolean {
+  const trimmed = code.trim();
+  if (!trimmed) return true;
+
+  for (const runtime of offeredRuntimes(question.language_options)) {
+    if (trimmed === starterCodeFor(question, runtime.id).trim()) return true;
+    if (runtime.starter && trimmed === runtime.starter.trim()) return true;
+  }
+  return false;
+}
 
 interface CustomRoundShellProps {
   roundId: number;
@@ -270,8 +311,15 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
     const loaded: Record<string, string> = {};
     const loadedLanguages: Record<string, string> = {};
     for (const question of questions) {
-      loaded[question.id] = readDraft(teamCode, roundId, question.id);
-      const saved = readLanguage(teamCode, roundId, question.id);
+      const saved = question.submitted_language ?? readLanguage(teamCode, roundId, question.id);
+      const persistedCode = question.submitted_code ?? '';
+      const language = offersLanguage(question.language_options, saved)
+        ? saved!
+        : defaultLanguageFor(question.language_options);
+      const restored = persistedCode || readDraft(teamCode, roundId, question.id);
+      loaded[question.id] = question.type === 'coding' && isPristine(question, restored)
+        ? starterCodeFor(question, language)
+        : restored;
       if (offersLanguage(question.language_options, saved)) loadedLanguages[question.id] = saved!;
     }
 
@@ -298,7 +346,8 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
    * get a read-only listing with real line numbers and the answer box attached
    * to it, rather than a wall of pre-numbered text and a detached textarea.
    */
-  const inspects = (question: ShellQuestion) => usesInspector(question);
+  const inspects = (question: ShellQuestion, language: string | null) =>
+    usesInspector(question, questionBody(question, language));
 
   const codingQuestion = questions.find((question) => question.id === codingId) ?? null;
 
@@ -341,7 +390,27 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
   const sectionLocked = activeQuestions.length > 0
     && activeQuestions.every((question) => FINAL_STATUSES.includes(question.submission_status ?? ''));
   const answeredInSection = activeQuestions.filter((question) => Boolean(question.submission_status)).length;
-  const sectionReady = activeQuestions.length > 0 && answeredInSection === activeQuestions.length;
+  /**
+   * Every question answered. Nothing more.
+   *
+   * This also demanded that each coding question carry a completed evaluation,
+   * which locked the button for every team on any section holding one: not a
+   * single coding submission on this platform has ever reached that state, so
+   * the gate was never passable rather than rarely.
+   *
+   * It was never needed for correctness either. Coding answers are marked after
+   * the round by the admin grading run against the hidden tests, exactly like
+   * every other question type — the in-editor evaluation is feedback for the
+   * team, not the mark. Making feedback mandatory turned a judge outage, or
+   * simply using Save, into a round a team could not hand in.
+   */
+  const sectionReady = activeQuestions.length > 0
+    && activeQuestions.every((question) => Boolean(question.submission_status));
+
+  /** Answered, but never run against the tests — worth nudging, not blocking. */
+  const unevaluatedCoding = activeQuestions.filter(
+    (question) => question.type === 'coding' && question.coding_evaluation?.status !== 'completed',
+  ).length;
   const currentIsFinal = FINAL_STATUSES.includes(currentQuestion?.submission_status ?? '');
   const readOnly = isRoundLocked || currentIsFinal;
 
@@ -426,6 +495,65 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
     }
   };
 
+  const submitCoding = async (question: Question): Promise<CodingEvaluation | null> => {
+    const code = drafts[question.id]?.trim() ?? '';
+    if (!code) {
+      toast.error('Write some code before submitting.');
+      return null;
+    }
+    setSaving(true);
+    try {
+      // Drain any debounced draft write before saving the evaluated revision.
+      // Otherwise a late autosave could replace the result summary with `{}`.
+      await autosave.flush();
+      const response = await fetch('/api/team/code/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question_id: question.id,
+          code,
+          language: languages[question.id] ?? defaultLanguageFor(question.language_options),
+        }),
+      });
+      const json = await response.json();
+      const evaluation = json.data?.evaluation as CodingEvaluation | undefined;
+      if (!json.success) {
+        toast.error(json.error?.message ?? 'Could not submit your code.');
+        // A runner outage still saved the code and the persisted result screen
+        // explains that state without pretending evaluation happened.
+        if (evaluation) {
+          await refresh();
+          return evaluation;
+        }
+        return null;
+      }
+      /**
+       * Nail the evaluated code down before anything else can move.
+       *
+       * The server already holds it — `upsertTeamSubmission` runs before the
+       * tests do — so a team that never presses Save cannot actually lose the
+       * submission. This is the local half: mark it synced so the autosave
+       * loop stops treating it as outstanding, and write it to this device so a
+       * refresh restores the exact code that was judged rather than an earlier
+       * keystroke.
+       */
+      autosave.markSynced(question.id, code);
+      writeDraft(teamCode, roundId, question.id, code);
+
+      if (evaluation?.status === 'completed' && evaluation.total_passed === evaluation.total_cases) {
+        toast.success(`All ${evaluation.total_cases} tests passed — submission saved.`);
+      }
+
+      await refresh();
+      return evaluation ?? null;
+    } catch {
+      toast.error('Could not reach the server. Your draft is saved on this device.');
+      return null;
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const saveAndNext = async () => {
     if (!currentQuestion || !activeTabEntry) return;
     const saved = await saveAnswer(currentQuestion);
@@ -449,7 +577,8 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
         toast.error(json.error?.message ?? 'Could not submit this section.');
         return;
       }
-      toast.success(`${tab.label} submitted — these answers are final.`);
+      const earned = gradingMessage(json.data?.grading);
+      toast.success(`${tab.label} submitted — these answers are final.`, earned ? { description: earned } : undefined);
       setConfirmSection(null);
       await refresh();
     } catch {
@@ -492,19 +621,23 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
       // answerable, and `refresh` cannot write into a closure already running.
       const ids = await answeredIdsFromServer();
       await refresh();
+      let earned: string | null = null;
       if (ids.length > 0) {
         const response = await fetch('/api/submissions/section', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ round_id: roundId, question_ids: ids }),
+          // `finish` makes the server sweep the whole round rather than just
+          // these ids, so a tab that was never handed in is still marked.
+          body: JSON.stringify({ round_id: roundId, question_ids: ids, finish: true }),
         });
         const json = await response.json();
         if (!json.success) {
           toast.error(json.error?.message ?? 'Could not submit the round.');
           return;
         }
+        earned = gradingMessage(json.data?.grading);
       }
-      toast.success('Your final answers have been recorded.');
+      toast.success('Your final answers have been recorded.', earned ? { description: earned } : undefined);
       setConfirmFinish(false);
 
       /* One last thing before the dashboard: the round's own recipe. Crafting
@@ -722,7 +855,15 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
                         {/* The prompt usually opens with a code block, so the seeded
                             title is what makes a readable list item. */}
                         <strong>{question.title || `Question ${index + 1}`}</strong>
-                        <small>{statusLabel(question.submission_status)}</small>
+                        {/* A coding question that has been through the judge says
+                            so. It read "Saved" — the same word a half-typed
+                            draft shows — so a team that had submitted could not
+                            tell the difference and assumed it had been lost. */}
+                        <small>
+                          {question.coding_evaluation?.status === 'completed'
+                            ? `Submitted — ${question.coding_evaluation.total_passed}/${question.coding_evaluation.total_cases} passed`
+                            : statusLabel(question.submission_status)}
+                        </small>
                       </span>
                       {locked
                         ? <LockKeyhole className="round-ui__qitem-lock" size={14} aria-label="Final answer" />
@@ -759,7 +900,7 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
                         </select>
                       </div>
                     )}
-                    {inspects(currentQuestion) ? (
+                    {inspects(currentQuestion, languages[currentQuestion.id] ?? defaultLanguageFor(currentQuestion.language_options)) ? (
                       /* Listing and answer in one card — see InspectorCard. */
                       <InspectorCard
                         type={currentQuestion.type}
@@ -771,25 +912,49 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
                       />
                     ) : (
                     <>
-                    <QuestionPrompt question={currentQuestion} language={languages[currentQuestion.id] ?? defaultLanguageFor(currentQuestion.language_options)} />
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                      <label className="round-ui__field-label" style={{ margin: 0 }} htmlFor={`answer-${currentQuestion.id}`}>Your answer</label>
-                    </div>
-                    {usesEditor(currentQuestion) ? (
+                    {/* A coding question shows its title, its code and its result
+                        here and nothing else. The statement, the samples and the
+                        rules are all one click away in the editor, and repeating
+                        them in this column only reflowed them into something
+                        less readable than the editor's own copy. */}
+                    {!usesEditor(currentQuestion) && (
                       <>
-                        {/* A program does not fit in this column, so the board
-                            shows the first lines and the editor takes the window. */}
+                        <QuestionPrompt question={currentQuestion} language={languages[currentQuestion.id] ?? defaultLanguageFor(currentQuestion.language_options)} />
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                          <label className="round-ui__field-label" style={{ margin: 0 }} htmlFor={`answer-${currentQuestion.id}`}>Your answer</label>
+                        </div>
+                      </>
+                    )}
+                    {usesEditor(currentQuestion) ? (
+                      <div className="rcard">
+                        {currentQuestion.coding_evaluation && (
+                          <div className="rcard__result">
+                            <b className="rcard__badge">&#10003; SUBMITTED</b>
+                            {currentQuestion.submitted_language && (
+                              <span className="rcard__lang">{currentQuestion.submitted_language.toUpperCase()}</span>
+                            )}
+                            <span className="rcard__score">
+                              {currentQuestion.coding_evaluation.status === 'completed'
+                                ? `${currentQuestion.coding_evaluation.total_passed} / ${currentQuestion.coding_evaluation.total_cases} tests passed`
+                                : 'Waiting for the code runner'}
+                            </span>
+                          </div>
+                        )}
+
+                        {/* The first lines only. A whole program does not fit in
+                            this column, and the editor is one click away. */}
                         <pre className="round-ui__code-preview" aria-label="Your code so far">
                           {(drafts[currentQuestion.id] ?? '').split('\n').slice(0, 6).join('\n') || 'No code yet.'}
                         </pre>
+
                         <button
                           type="button"
                           className="round-ui__btn round-ui__btn--go round-ui__open-editor"
                           onClick={() => setCodingId(currentQuestion.id)}
                         >
-                          <Code2 size={14} /> Open code editor
+                          <Code2 size={14} /> {currentQuestion.coding_evaluation ? 'View submitted code' : 'Open code editor'}
                         </button>
-                      </>
+                      </div>
                     ) : (
                       <textarea
                         id={`answer-${currentQuestion.id}`}
@@ -873,7 +1038,13 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
                     className="round-ui__btn round-ui__btn--lock"
                     disabled={!sectionReady || lockingSection}
                     onClick={() => setConfirmSection(activeTab)}
-                    title={sectionReady ? 'Submit this section' : 'Save every answer in this section first'}
+                    title={
+                      !sectionReady
+                        ? 'Save every answer in this section first'
+                        : unevaluatedCoding > 0
+                          ? `${unevaluatedCoding} coding answer${unevaluatedCoding === 1 ? '' : 's'} never ran against the tests — you can still submit`
+                          : 'Submit this section'
+                    }
                   >
                     <LockKeyhole size={14} /> Submit section
                   </button>
@@ -1012,8 +1183,9 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
           question={codingQuestion}
           roundName={chrome.name}
           themeClass={chrome.themeClass}
-          clock={`${timer.hours}:${timer.minutes}:${timer.seconds}`}
-          clockWarning={remainingSeconds !== null && remainingSeconds <= 300}
+          clock={endsAt ? `${timer.hours}:${timer.minutes}:${timer.seconds}` : 'NO DEADLINE'}
+          clockWarning={Boolean(endsAt) && remainingSeconds <= 300}
+          roundClosed={isRoundLocked}
           draft={drafts[codingQuestion.id] ?? ''}
           language={languages[codingQuestion.id] ?? null}
           locked={readOnly || FINAL_STATUSES.includes(codingQuestion.submission_status ?? '')}
@@ -1022,8 +1194,17 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
           onLanguageChange={(next) => {
             setLanguages((current) => ({ ...current, [codingQuestion.id]: next }));
             writeLanguage(teamCode, roundId, codingQuestion.id, next);
+
+            /* Swap the stub with the language, but never over real work. The
+               editor used to keep whichever language's template it opened with
+               until the page was reloaded, so picking Python left C++ on
+               screen and the submission went up in the wrong language. */
+            const current = drafts[codingQuestion.id] ?? '';
+            if (isPristine(codingQuestion, current)) {
+              changeDraft(codingQuestion.id, starterCodeFor(codingQuestion, next));
+            }
           }}
-          onSubmit={() => void saveAnswer(codingQuestion)}
+          onSubmit={() => submitCoding(codingQuestion)}
           onClose={() => setCodingId(null)}
         />
       )}

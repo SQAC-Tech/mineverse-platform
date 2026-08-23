@@ -20,7 +20,9 @@
   isolation: isolate;
   background: var(--rd-void, #080a0f);
   color: var(--rd-ink, #dfe5db);
-  font-family: var(--rd-font-body, ui-sans-serif, system-ui, 'Segoe UI', Roboto, sans-serif);
+  /* Force system fonts everywhere — Press Start 2P is unreadable for dense UI
+     text and must not leak into the editor chrome. */
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 /*
@@ -68,9 +70,10 @@
   margin-right: auto;
 }
 .cw-bar__eyebrow {
-  font-family: var(--rd-font-display, monospace);
-  font-size: 8px;
-  letter-spacing: 2px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
   color: #7f8a94;
 }
 .cw-bar__name {
@@ -101,21 +104,28 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  padding: 7px 13px;
+  padding: 7px 14px;
   border: 1px solid var(--rd-edge-lit, #2a333d);
-  border-radius: 3px;
+  border-radius: 4px;
   background: rgba(20, 26, 34, 0.9);
   color: var(--rd-ink, #dfe5db);
-  font: inherit;
-  font-size: 12.5px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 .cw-btn:hover:not(:disabled) { background: #1c242e; border-color: #3b4753; }
 .cw-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .cw-btn:focus-visible { outline: 2px solid var(--rd-gold, #f2c14e); outline-offset: 2px; }
 
-.cw-btn--run { background: var(--rd-good-deep, #1f3d2a); border-color: var(--rd-good, #2f6b45); color: #dcffe6; }
+.cw-btn--run {
+  background: var(--rd-good-deep, #1f3d2a);
+  border-color: var(--rd-good, #2f6b45);
+  color: #dcffe6;
+  font-weight: 600;
+}
 .cw-btn--run:hover:not(:disabled) { background: #274d35; }
 .cw-btn--submit {
   background: var(--rd-accent-deep, #7a4a12);
@@ -127,15 +137,22 @@
 .cw-btn--icon { padding: 7px 9px; }
 
 .cw-select {
-  padding: 7px 10px;
+  padding: 7px 28px 7px 10px;
   border: 1px solid #2a333d;
-  border-radius: 3px;
+  border-radius: 4px;
   background: #141a22;
   color: #dfe5db;
-  font: inherit;
-  font-size: 12.5px;
+  font-family: inherit;
+  font-size: 13px;
   cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%237f8a94' d='M3 4.5L6 8l3-3.5H3z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
 }
+.cw-select:hover { border-color: #3b4753; background-color: #1c242e; }
+.cw-select:focus-visible { outline: 2px solid var(--rd-gold, #f2c14e); outline-offset: 1px; }
+.cw-select option { background-color: #141a22; color: #dfe5db; }
 
 /* ── Split ───────────────────────────────────────────────────── */
 
@@ -143,6 +160,55 @@
   display: grid;
   grid-template-columns: var(--cw-split, 38%) 6px minmax(0, 1fr);
   min-height: 0;
+}
+
+.cw-result {
+  width: min(620px, calc(100vw - 32px));
+  margin: auto;
+  align-self: center;
+  padding: 28px;
+  border: 1px solid var(--rd-edge-lit, #2a333d);
+  border-radius: 5px;
+  background: rgba(13, 16, 22, 0.96);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.45);
+}
+.cw-result__eyebrow, .cw-console__label {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: #7f8a94;
+}
+.cw-result h1 { margin: 8px 0 20px; font-size: 22px; color: #f2f0e6; }
+.cw-result p { line-height: 1.6; color: #cdd6cb; }
+.cw-result .cw-btn { margin: 8px 8px 0 0; }
+.cw-result__breakdown { display: grid; gap: 9px; margin: 0; }
+.cw-result__breakdown div { display: flex; justify-content: space-between; gap: 16px; padding: 11px 0; border-top: 1px solid #1d242e; }
+.cw-result__breakdown dt { color: #9fb0a2; }
+.cw-result__breakdown dd { margin: 0; color: #dfe5db; font-variant-numeric: tabular-nums; }
+
+/* Submission verdict — a prominent icon + heading that reads at a glance. */
+.cw-result__verdict {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.cw-result__verdict h1 { margin: 0; }
+.cw-result__verdict[data-ok='true'] { color: #7fd99a; }
+.cw-result__verdict[data-ok='true'] h1 { color: #7fd99a; }
+.cw-result__verdict[data-ok='false'] { color: #e8776b; }
+.cw-result__verdict[data-ok='false'] h1 { color: #f2f0e6; }
+
+.cw-result__failed-note {
+  margin: -8px 0 16px;
+  padding: 6px 12px;
+  background: rgba(232, 119, 107, 0.12);
+  border: 1px solid rgba(232, 119, 107, 0.3);
+  border-radius: 4px;
+  color: #ff9d8a;
+  font-size: 13px;
 }
 
 .cw-divider {
@@ -202,7 +268,10 @@
   border-left: 3px solid var(--rd-accent, #2f6b45);
   border-radius: 3px;
   background: #0d1016;
-  overflow-x: auto;
+  /* The problem pane is the only scroll area. Wrap long listings instead of
+     adding a small, competing scrollbar inside an example. */
+  overflow: hidden;
+  overflow-wrap: anywhere;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 13px;
   line-height: 1.55;
@@ -253,7 +322,7 @@
    * `auto` in the grid above, so a percentage height had nothing to resolve
    * against and silently collapsed to the 140px floor.
    */
-  height: clamp(190px, 28vh, 46vh);
+  height: clamp(150px, 21vh, 280px);
 }
 
 .cw-console__tabs {
@@ -263,6 +332,7 @@
   padding: 6px 10px;
   border-bottom: 1px solid #1d242e;
 }
+.cw-console__label { padding: 0 5px 0 1px; }
 
 /* One chip per sample case, coloured by its last result — the failure is one
    click away instead of buried in a wall of output. */
@@ -289,16 +359,21 @@
 
 .cw-summary {
   margin-left: auto;
-  font-size: 11.5px;
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
   color: #ff9d8a;
+  background: rgba(255, 157, 138, 0.1);
 }
-.cw-summary[data-ok='true'] { color: #7fd99a; }
+.cw-summary[data-ok='true'] { color: #7fd99a; background: rgba(127, 217, 154, 0.1); }
 
 .cw-problem__sub {
   margin: 20px 0 10px;
-  font-family: var(--rd-font-display, monospace);
-  font-size: 10px;
-  letter-spacing: 2px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
   text-transform: uppercase;
   color: var(--rd-accent, #7f8a94);
 }
@@ -312,9 +387,10 @@
 }
 .cw-example__label {
   margin: 0 0 8px;
-  font-family: var(--rd-font-display, monospace);
-  font-size: 8px;
-  letter-spacing: 2px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
   color: #7f8a94;
 }
 .cw-example dl { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0; }
@@ -365,9 +441,10 @@
 
 .cw-out__label {
   margin: 0 0 5px;
-  font-family: var(--rd-font-display, monospace);
-  font-size: 8px;
-  letter-spacing: 2px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1.2px;
   color: #7f8a94;
 }
 .cw-out__label + .cw-out { margin-bottom: 14px; }
@@ -376,14 +453,15 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  margin-bottom: 10px;
-  padding: 4px 10px;
+  margin-bottom: 12px;
+  padding: 5px 12px;
   border: 1px solid currentColor;
-  border-radius: 3px;
-  font-size: 11.5px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
 }
-.cw-verdict[data-ok='true'] { color: #7fd99a; }
-.cw-verdict[data-ok='false'] { color: #ff9d8a; }
+.cw-verdict[data-ok='true'] { color: #7fd99a; background: rgba(127, 217, 154, 0.08); }
+.cw-verdict[data-ok='false'] { color: #ff9d8a; background: rgba(255, 157, 138, 0.08); }
 
 /* ── Narrow screens ──────────────────────────────────────────── */
 
@@ -392,4 +470,149 @@
   .cw-divider { display: none; }
   .cw-problem { max-height: 34vh; }
 }
-.cw-select { appearance: auto; background-color: rgba(255, 255, 255, 0.1); color: #fff; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 4px; padding: 4px 8px; font-size: 12px; outline: none; cursor: pointer; } .cw-select option { background-color: #222; color: #fff; }
+
+/* ── Reading text is text ────────────────────────────────────── */
+
+/*
+ * The problem panel is the one place on the platform someone reads a paragraph
+ * under time pressure, and it was set in the Minecraft pixel face — which is
+ * built for six-character labels, not for constraints and edge cases. The
+ * colours and the chrome stay exactly as they were; only the letterforms change.
+ *
+ * Pixel type is kept for what it is good at: the biome eyebrow and the short
+ * uppercase section labels above.
+ */
+.cw-problem h1,
+.cw-problem h2,
+.cw-problem p,
+.cw-problem li,
+.cw-example__why,
+.cw-problem__note {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  letter-spacing: normal;
+}
+
+.cw-problem h1 { font-size: 20px; line-height: 1.3; }
+.cw-problem h2 { font-size: 15px; line-height: 1.35; }
+
+.cw-problem p,
+.cw-problem li,
+.cw-example__why,
+.cw-problem__note {
+  font-size: 14.5px;
+  line-height: 1.6;
+}
+
+/* Code stays monospace — real monospace, not the pixel face. */
+.cw-problem pre,
+.cw-problem code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  letter-spacing: normal;
+}
+
+.cw-example__label,
+.cw-problem__sub {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+/* ── Hidden case results ─────────────────────────────────────── */
+
+/*
+ * A team has to be able to see that the cases they cannot read were run, and
+ * how many of them passed — otherwise submitting feels like shouting into a
+ * void. The counts are all that crosses: never an input, never an expected
+ * output, never which particular case failed.
+ */
+.cw-tests {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.cw-tests__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 13px;
+  border: 1px solid #2a333d;
+  border-radius: 4px;
+  background: #10151c;
+}
+
+.cw-tests__row b {
+  color: #d6dde5;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.cw-tests__row small {
+  display: block;
+  margin-top: 2px;
+  color: #7f8a94;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 12px;
+}
+
+.cw-tests__count {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 15px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.cw-tests__count--pass { color: #7fd99a; }
+.cw-tests__count--part { color: #f2c14e; }
+.cw-tests__count--fail { color: #e8776b; }
+
+/* A bar reads faster than a fraction when the round is nearly over. */
+.cw-tests__bar {
+  grid-column: 1 / -1;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: #202832;
+}
+
+.cw-tests__bar i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #4f9d63, #7fd99a);
+}
+
+/* ── Statement layout ────────────────────────────────────────── */
+
+/*
+ * The statement is written with its own line breaks — rules on their own lines,
+ * an indented example under each. A `<p>` collapses all of that into one
+ * paragraph, which is how "Rules: - Duplicate weights count only once. - Print
+ * the second highest..." ended up as a single run-on line.
+ */
+.cw-problem p {
+  white-space: pre-wrap;
+}
+
+/*
+ * `overflow: hidden` clipped a listing that was taller than its box rather than
+ * letting the pane scroll, so an example showed one line sliced through the
+ * middle. The problem pane is the scroll area; a listing just takes the height
+ * it needs and wraps.
+ */
+.cw-problem pre {
+  /* `min-height: fit-content` is the load-bearing line. `overflow: hidden` used
+     to slice a listing through the middle; making it visible instead let the
+     same squeezed box spill its text over the paragraph below it. Guaranteeing
+     the box is at least as tall as its content fixes both -- nothing is cut and
+     nothing escapes. A long line scrolls sideways rather than widening the pane. */
+  min-height: fit-content;
+  max-height: none;
+  overflow-x: auto;
+  overflow-y: visible;
+}

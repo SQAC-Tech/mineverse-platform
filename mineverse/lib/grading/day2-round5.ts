@@ -149,7 +149,7 @@ async function gradeWithGroq(submission: any, question: any) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
-        model: process.env.GROQ_MODEL ?? 'llama-3.3-70b-versatile',
+        model: process.env.GROQ_MODEL ?? 'openai/gpt-oss-120b',
         response_format: { type: 'json_object' },
         // Two graders running the same answer must not disagree.
         temperature: 0,

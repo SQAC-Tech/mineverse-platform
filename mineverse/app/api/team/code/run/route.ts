@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { contractOf, wrapForExecution, type LanguageId } from '@/lib/gameplay/code/contract';
 import { getSession } from '@/lib/auth/session';
 import { supabaseServer } from '@/lib/supabase/server';
 import { consumeRateLimit, retryHint, tooManyRequests } from '@/lib/rate-limit';
@@ -41,13 +42,25 @@ export async function POST(req: Request) {
   const session = await getSession();
   if (!session) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
 
-  // Keyed on the team, never the IP: the whole hall shares one campus NAT
-  // address, so an IP budget here would be one queue for every team at once.
-  const limit = consumeRateLimit(`code-run:${session.team_id}`, 30, 60_000);
+  /**
+   * Three runs a minute, per team.
+   *
+   * Every run is a real execution on a judge the whole hall shares, and the
+   * judge limits us by address — so one team hammering Run spends everyone's
+   * budget and the rest see "the runner is busy" for code that never ran.
+   *
+   * Keyed on the team, never the IP: the venue is behind one campus NAT, so an
+   * address budget here would be a single queue for every team at once.
+   */
+  const limit = consumeRateLimit(`code-run:${session.team_id}`, 3, 60_000);
   if (!limit.allowed) {
-    return tooManyRequests(
-      `Too many runs. Try again in ${retryHint(limit.retryAfterSeconds)}.`,
-      limit.retryAfterSeconds,
+    return NextResponse.json(
+      {
+        success: false,
+        error: `You can run three times a minute. Try again in ${retryHint(limit.retryAfterSeconds)}.`,
+        retry_after: limit.retryAfterSeconds,
+      },
+      { status: 429, headers: { 'Retry-After': String(limit.retryAfterSeconds) } },
     );
   }
 
@@ -59,7 +72,7 @@ export async function POST(req: Request) {
     );
   }
 
-  let body: { question_id?: string; language?: string; code?: string; stdin?: string; mode?: 'samples' | 'custom' };
+  let body: { question_id?: string; language?: string; code?: string; stdin?: string; sample_index?: number; mode?: 'samples' | 'custom' };
   try {
     body = await req.json();
   } catch {
@@ -94,6 +107,16 @@ export async function POST(req: Request) {
   const apiKey = process.env.PISTON_API_KEY;
   const version = (question.runtime_meta as { piston_version?: string } | null)?.piston_version ?? '*';
 
+  /**
+   * What actually runs is the team's function inside the platform's wrapper.
+   *
+   * The team writes only the solution; the wrapper reads stdin, calls it and
+   * prints the result. A question with no contract is still a whole program, so
+   * it runs exactly as written.
+   */
+  const contract = contractOf(question.runtime_meta);
+  const executable = contract ? wrapForExecution(contract, runtime.id as LanguageId, code) : code;
+
   const execute = async (input: string) => {
     const response = await fetch(endpoint, {
       method: 'POST',
@@ -105,7 +128,7 @@ export async function POST(req: Request) {
       body: JSON.stringify({
         language: runtime.piston,
         version,
-        files: [{ name: runtime.file, content: code }],
+        files: [{ name: runtime.file, content: executable }],
         stdin: input,
         compile_timeout: 10_000,
         run_timeout: 5_000,
@@ -146,8 +169,13 @@ export async function POST(req: Request) {
 
     // One run per case. Feeding every input to a single run would let a program
     // that reads a fixed number of lines pass cases it never actually read.
+    const requestedIndex = Number.isInteger(body.sample_index) ? Number(body.sample_index) : null;
+    if (requestedIndex !== null && (requestedIndex < 0 || requestedIndex >= samples.length)) {
+      return NextResponse.json({ success: false, error: 'That sample case does not exist.' }, { status: 400 });
+    }
+    const selectedSamples = requestedIndex === null ? [...samples.entries()] : [[requestedIndex, samples[requestedIndex]] as const];
     const results = [];
-    for (const [index, sample] of samples.entries()) {
+    for (const [index, sample] of selectedSamples) {
       const entry = sample as { stdin?: string; stdout?: string };
       const shaped = shape(await execute(String(entry.stdin ?? '')));
       const expected = String(entry.stdout ?? '');
