@@ -15,6 +15,18 @@ import { mailCounts, recentMailLog, sendAnnouncement, sendResults } from '@/lib/
 const db = supabaseServer as any;
 
 /**
+ * Bulk sends are paced at five seconds a mail, so this route is the one that
+ * genuinely needs the time.
+ *
+ * The mailer keeps its own budget under this and hands back what it did not
+ * reach, so the button is press-again-to-continue rather than all-or-nothing.
+ * Deployment platforms clamp this to whatever the plan allows — if a run is
+ * cut off early, nothing is lost: teams already mailed are recorded and the
+ * next press skips them.
+ */
+export const maxDuration = 300;
+
+/**
  * The screening console's data.
  *
  * `proxy.ts` already gates `/api/admin/*`, but every admin route verifies the

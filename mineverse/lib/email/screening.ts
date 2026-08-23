@@ -65,7 +65,7 @@ export async function sendScreeningAnnouncementEmail({
     <p style="color: #a3a3a3; font-size: 14px;">Log in with your team code. The OTP goes to the team lead&rsquo;s college email, as always.</p>
   `);
 
-  return deliver({ type: 'screening_announcement', to, subject, html, teamId: team_id });
+  return deliver({ type: 'screening_announcement', to, subject, html, teamId: team_id, via: 'smtp' });
 }
 
 /** Congratulations, roster, attendance QR and what to bring. */
@@ -127,7 +127,7 @@ export async function sendScreeningShortlistedEmail({
   `);
 
   return deliver({
-    type: 'screening_shortlisted', to, subject, html, teamId: team_id,
+    type: 'screening_shortlisted', to, subject, html, teamId: team_id, via: 'smtp',
     attachments: [{ filename: `attendance-${team_code}.png`, content: qrBuffer, cid: 'attendance-qr' }],
   });
 }
@@ -153,5 +153,5 @@ export async function sendScreeningRejectedEmail({
     <p style="color: #a3a3a3; font-size: 14px; margin-top: 30px;">If something went wrong on the day — a crash, a power cut, anything — reply to this email and tell us. We would rather hear it than not.</p>
   `);
 
-  return deliver({ type: 'screening_rejected', to, subject, html, teamId: team_id });
+  return deliver({ type: 'screening_rejected', to, subject, html, teamId: team_id, via: 'smtp' });
 }

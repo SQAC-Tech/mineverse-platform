@@ -60,6 +60,8 @@ interface MailRunSummary {
   skipped: number;
   failed: number;
   errors: string[];
+  /** Teams the run did not reach before its time budget ran out. */
+  remaining: number;
 }
 
 /**
@@ -148,6 +150,11 @@ export default function ScreeningAdminPage() {
     toast.success(`${label}: ${run.sent} sent, ${run.skipped} skipped, ${run.failed} failed.`);
     if (run.failed > 0) {
       toast.error(`${label} — ${run.failed} failed: ${(run.errors ?? []).slice(0, 3).join(' · ')}`);
+    }
+    // Not an error. Sends are paced five seconds apart, so a long list runs out
+    // of request time before it runs out of teams — pressing again resumes.
+    if (run.remaining > 0) {
+      toast.warning(`${label}: ${run.remaining} still to go. Press the button again to continue.`);
     }
   };
 
@@ -474,7 +481,7 @@ export default function ScreeningAdminPage() {
 
       <Panel
         title="Email"
-        subtitle="Every send skips teams that already received that mail, so a second click is safe."
+        subtitle="Goes to the team lead only, over SMTP, one mail every 5 seconds. Every send skips teams that already received that mail, so a second click is safe — and is how you resume a run that ran out of time."
       >
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
           <Btn variant="primary" disabled={busy || data.mail.announcement_pending === 0} onClick={() => setConfirm('announce')}>
@@ -582,8 +589,8 @@ export default function ScreeningAdminPage() {
                 </>
               )}
               {confirm === 'clear' && 'The list unfreezes and result mails are blocked again. Resources already granted are not taken back — re-committing will not double-pay.'}
-              {confirm === 'announce' && 'Goes to the team lead of every payment-verified team that has not had it yet. This cannot be unsent.'}
-              {confirm === 'results' && 'Congratulations to those in, and the sorry note to those out. This cannot be unsent.'}
+              {confirm === 'announce' && 'Goes to the team lead of every payment-verified team that has not had it yet, and to nobody else on the roster. Paced at one mail every 5 seconds, so leave the tab open. This cannot be unsent.'}
+              {confirm === 'results' && 'Congratulations to those in, and the sorry note to those out — team leads only. Paced at one mail every 5 seconds, so this takes minutes, not moments. If it does not finish, press it again to carry on. This cannot be unsent.'}
             </p>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
               <Btn onClick={() => setConfirm(null)} disabled={busy}>Cancel</Btn>

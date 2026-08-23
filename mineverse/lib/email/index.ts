@@ -34,7 +34,7 @@ async function logEmail(type: string, provider: 'resend'|'smtp', to: string, sub
  * already long, and those three are a self-contained set.
  */
 export async function deliver({
-  type, to, subject, html, attachments, teamId, memberId,
+  type, to, subject, html, attachments, teamId, memberId, via = 'auto',
 }: {
   type: string;
   to: string;
@@ -43,7 +43,28 @@ export async function deliver({
   attachments?: EmailAttachment[];
   teamId?: string;
   memberId?: string;
+  /**
+   * Which transport to use.
+   *
+   * `auto` is Resend first, SMTP as the net — right for the one-at-a-time mail
+   * (OTP, payment confirmations) where latency matters and volume does not.
+   *
+   * `smtp` skips Resend entirely, and is what the bulk sends use. Resend's
+   * daily allowance is smaller than one run of ninety: on 22 Aug it took 206
+   * and then refused 41 with `daily_quota_exceeded`, and every one of those
+   * fell through to SMTP anyway, a second late and after a wasted API call.
+   * Going straight to SMTP means a bulk run cannot spend the allowance the
+   * OTPs need — a team that cannot receive a login code cannot play, and a
+   * team that gets its result mail an hour later has lost nothing.
+   */
+  via?: 'auto' | 'smtp';
 }): Promise<EmailResult> {
+  if (via === 'smtp') {
+    const only = await sendSmtpEmail({ to, subject, html, attachments });
+    await logEmail(type, 'smtp', to, subject, only.success, only.error, teamId, memberId);
+    return only.success ? { success: true } : { success: false, error: `SMTP: ${only.error}` };
+  }
+
   const viaResend = await sendResendEmail({ to, subject, html, attachments });
   await logEmail(type, 'resend', to, subject, viaResend.success, viaResend.error, teamId, memberId);
   if (viaResend.success) return { success: true };
