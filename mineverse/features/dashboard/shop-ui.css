@@ -1,0 +1,295 @@
+/*
+ * The shop chrome: marketplace rows and trader cards.
+ *
+ * These two panels were the admin console's `Panel`/`Btn` dropped into a game
+ * screen — system-sans body text under a pixel-font header, no item icons, and
+ * every action an identical grey button. It read as a database table.
+ *
+ * Everything here is flat and blocky on purpose. The bevels are two-tone
+ * borders rather than shadows, so they stay crisp at any zoom and cost nothing
+ * to paint; the item icons are the real inventory SVGs the hotbar already uses,
+ * so a Wood Bundle in the shop is the same block a team sees in its bar.
+ */
+
+.shop {
+  --shop-edge: #8a6428;
+  --shop-edge-lit: #e8bd7d;
+  --shop-edge-dark: #4a3214;
+  --shop-slot: #16110b;
+  --shop-row: linear-gradient(180deg, #241b12 0%, #1a130c 100%);
+  --shop-ink: #f2e3c0;
+  --shop-dim: #b9a882;
+  --shop-gold: #e7c583;
+  --shop-green: #6aab3c;
+  --shop-red: #d95a4a;
+
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+/* ── A row: icon slot, name and blurb, price, action ─────────── */
+
+.shop__row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 12px;
+  border: 2px solid var(--shop-edge);
+  border-top-color: var(--shop-edge-lit);
+  border-left-color: var(--shop-edge-lit);
+  border-bottom-color: var(--shop-edge-dark);
+  border-right-color: var(--shop-edge-dark);
+  background: var(--shop-row);
+}
+
+/* The inventory slot the icon sits in — sunken, so the block reads as an
+   object placed in it rather than a picture printed on the row. */
+.shop__slot {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 46px;
+  height: 46px;
+  border: 2px solid #0d0906;
+  border-top-color: #0a0704;
+  border-bottom-color: #3c2d1c;
+  border-right-color: #3c2d1c;
+  background: var(--shop-slot);
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.5);
+  color: var(--shop-gold);
+}
+
+.shop__slot img {
+  width: 30px;
+  height: 30px;
+  /* Minecraft art is pixel art; smoothing it is what makes it look cheap. */
+  image-rendering: pixelated;
+}
+
+.shop__name {
+  min-width: 0;
+}
+
+.shop__name b {
+  display: block;
+  color: var(--shop-ink);
+  font-family: var(--font-minecraft-body), var(--d-font);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.shop__name span {
+  display: block;
+  margin-top: 3px;
+  color: var(--shop-dim);
+  font-family: var(--font-minecraft-body), var(--d-font);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+/* ── Price ───────────────────────────────────────────────────── */
+
+.shop__price {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: 0 0 auto;
+  color: var(--shop-gold);
+  font-family: var(--font-minecraft), 'Press Start 2P', ui-monospace, monospace;
+  font-size: 15px;
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.8);
+}
+
+.shop__price img {
+  width: 19px;
+  height: 19px;
+  image-rendering: pixelated;
+}
+
+.shop__price--short {
+  color: var(--shop-red);
+}
+
+/* ── Buttons ─────────────────────────────────────────────────── */
+
+.shop__btn {
+  flex: 0 0 auto;
+  min-width: 96px;
+  padding: 10px 16px;
+  border: 3px solid #7fc24a;
+  border-top-color: #a8e072;
+  border-left-color: #a8e072;
+  border-bottom-color: #3f6b22;
+  border-right-color: #3f6b22;
+  background: linear-gradient(180deg, #63a437 0%, #4a7d28 100%);
+  color: #f4ffe6;
+  font-family: var(--font-minecraft), 'Press Start 2P', ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.55);
+  cursor: pointer;
+}
+
+.shop__btn:hover:not(:disabled) {
+  background: linear-gradient(180deg, #74bb42 0%, #58912f 100%);
+}
+
+.shop__btn:active:not(:disabled) {
+  transform: translateY(2px);
+}
+
+.shop__btn:disabled {
+  border-color: #4d4740;
+  border-top-color: #6a6359;
+  border-left-color: #6a6359;
+  border-bottom-color: #2a251f;
+  border-right-color: #2a251f;
+  background: linear-gradient(180deg, #3a352e 0%, #262119 100%);
+  color: #857c6d;
+  cursor: not-allowed;
+  text-shadow: none;
+}
+
+/* Gold variant, for the shrine's two real offerings. */
+.shop__btn--gold {
+  border-color: #d9a340;
+  border-top-color: #f5d489;
+  border-left-color: #f5d489;
+  border-bottom-color: #6d4a12;
+  border-right-color: #6d4a12;
+  background: linear-gradient(180deg, #c8912f 0%, #8d6119 100%);
+  color: #fff6dd;
+}
+
+.shop__btn--gold:hover:not(:disabled) {
+  background: linear-gradient(180deg, #dda43b 0%, #a2711f 100%);
+}
+
+/* ── Trader cards ────────────────────────────────────────────── */
+
+.shop__cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.shop__card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 12px;
+  border: 3px solid var(--shop-edge);
+  border-top-color: var(--shop-edge-lit);
+  border-left-color: var(--shop-edge-lit);
+  border-bottom-color: var(--shop-edge-dark);
+  border-right-color: var(--shop-edge-dark);
+  background: linear-gradient(180deg, #241b12 0%, #150f09 100%);
+  text-align: center;
+}
+
+/* The refusal option is deliberately drab: it is a real choice, but it should
+   not compete with the two that pay. */
+.shop__card--dull {
+  border-color: #4d4740;
+  border-top-color: #6a6359;
+  border-left-color: #6a6359;
+  border-bottom-color: #221e19;
+  border-right-color: #221e19;
+  background: linear-gradient(180deg, #1d1a16 0%, #12100d 100%);
+}
+
+.shop__card-title {
+  margin: 0;
+  color: var(--shop-gold);
+  font-family: var(--font-minecraft), 'Press Start 2P', ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.6px;
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.8);
+}
+
+.shop__card--dull .shop__card-title {
+  color: #9a9184;
+}
+
+/* One line of the trade: what it costs, or what it pays. */
+.shop__leg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 10px;
+  border: 2px solid #0d0906;
+  border-bottom-color: #3c2d1c;
+  border-right-color: #3c2d1c;
+  background: var(--shop-slot);
+}
+
+.shop__leg img {
+  width: 34px;
+  height: 34px;
+  image-rendering: pixelated;
+}
+
+.shop__leg b {
+  font-family: var(--font-minecraft), 'Press Start 2P', ui-monospace, monospace;
+  font-size: 17px;
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.8);
+}
+
+.shop__leg--cost b {
+  color: var(--shop-red);
+}
+
+.shop__leg--gain b {
+  color: #7ed957;
+}
+
+.shop__arrow {
+  display: grid;
+  place-items: center;
+  color: var(--shop-dim);
+}
+
+.shop__decided {
+  margin: 0;
+  padding: 10px;
+  border: 2px solid rgba(122, 214, 96, 0.4);
+  background: rgba(122, 214, 96, 0.1);
+  color: #b6e79a;
+  font-family: var(--font-minecraft-body), var(--d-font);
+  font-size: 13px;
+  text-align: center;
+}
+
+.shop__note {
+  margin: 0;
+  color: var(--shop-dim);
+  font-family: var(--font-minecraft-body), var(--d-font);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.shop__error {
+  margin: 0;
+  padding: 9px 11px;
+  border: 2px solid rgba(217, 90, 74, 0.5);
+  background: rgba(217, 90, 74, 0.12);
+  color: #f0b0a4;
+  font-family: var(--font-minecraft-body), var(--d-font);
+  font-size: 13px;
+}
+
+/* The warning chip under a trader's title. */
+.shop__warn {
+  display: inline-block;
+  padding: 5px 11px;
+  border: 2px solid #8c3b30;
+  background: rgba(140, 59, 48, 0.28);
+  color: #f0a99e;
+  font-family: var(--font-minecraft), 'Press Start 2P', ui-monospace, monospace;
+  font-size: 8.5px;
+  letter-spacing: 0.8px;
+}

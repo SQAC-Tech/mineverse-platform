@@ -319,10 +319,11 @@ export function DashboardShell() {
       {showMarket && (
         <DashOverlay
           title="Marketplace"
-          subtitle="The Villager Merchant trades knowledge and supplies for Emeralds. Open all event."
+          subtitle="The Wandering Villager trades for Emeralds"
+          icon="/emerald.svg"
           onClose={() => setShowMarket(false)}
         >
-          <MarketplaceStore onPurchased={load} />
+          <MarketplaceStore onPurchased={load} emeralds={resources.emerald ?? 0} />
           <ConsumableInventory onUsed={load} />
         </DashOverlay>
       )}
@@ -330,7 +331,8 @@ export function DashboardShell() {
       {showTrader && (
         <DashOverlay
           title={openTraders.length === 1 ? TRADER_LABELS[openTraders[0].key] : 'Traders'}
-          subtitle="One decision each, and it cannot be taken back."
+          subtitle="Every team must choose one offering"
+          icon="/emerald.svg"
           onClose={() => setShowTrader(false)}
         >
           {openTraders.map((trader) => (

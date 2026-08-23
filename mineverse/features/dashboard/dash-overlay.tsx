@@ -18,11 +18,14 @@ import { X } from 'lucide-react';
 export function DashOverlay({
   title,
   subtitle,
+  icon,
   onClose,
   children,
 }: {
   title: string;
   subtitle?: string;
+  /** Block art for the header, the way the shop panels lead with one. */
+  icon?: string;
   onClose: () => void;
   children: React.ReactNode;
 }) {
@@ -50,9 +53,12 @@ export function DashOverlay({
         onClick={(event) => event.stopPropagation()}
       >
         <header className="dov__head">
-          <div>
-            <h2 className="dov__title">{title}</h2>
-            {subtitle && <p className="dov__sub">{subtitle}</p>}
+          <div className="dov__heading">
+            {icon && <img className="dov__icon" src={icon} alt="" />}
+            <div>
+              <h2 className="dov__title">{title}</h2>
+              {subtitle && <p className="dov__sub">{subtitle}</p>}
+            </div>
           </div>
           <button ref={closeRef} type="button" className="dov__close" onClick={onClose} aria-label={`Close ${title}`}>
             <X size={16} />

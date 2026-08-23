@@ -1968,3 +1968,18 @@
   --sb-thumb: rgba(216, 174, 106, 0.45);
   --sb-thumb-hover: rgba(216, 174, 106, 0.7);
 }
+
+/* The overlay header leads with the item's own block, like the shop mockups. */
+.dov__heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.dov__icon {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  image-rendering: pixelated;
+}
