@@ -18,7 +18,38 @@ export interface MailRun {
   skipped: number;
   failed: number;
   errors: string[];
+  /**
+   * Teams this run did not reach before it ran out of budget. Zero means the
+   * list is finished; anything else means press the button again.
+   */
+  remaining: number;
 }
+
+/**
+ * The gap between two sends.
+ *
+ * Gmail does not publish a per-second limit, it just starts refusing, and a
+ * bulk run is the one place a burst is plausible. Five seconds is slow enough
+ * that no provider treats ninety mails as a flood.
+ */
+const SEND_DELAY_MS = 5_000;
+
+/**
+ * How long one run may take before it hands the rest back.
+ *
+ * At five seconds a mail, ninety teams is seven and a half minutes, and every
+ * serverless platform kills a request long before that. Rather than race the
+ * timeout, a run stops on its own and reports what is left.
+ *
+ * Resuming is free and needs no state: `alreadyMailed` skips every team that
+ * already has a successful send of this type, so pressing the button again
+ * carries on exactly where this stopped. That was true before this budget
+ * existed — it is what makes a second click safe — and it is what makes a
+ * killed request survivable too.
+ */
+const RUN_BUDGET_MS = 240_000;
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
  * Teams that already have a successful send of this type.
@@ -55,49 +86,105 @@ async function loadTeams(teamIds?: string[]): Promise<TeamWithLead[]> {
   return (data ?? []) as TeamWithLead[];
 }
 
-/** The lead is who the OTP goes to, so it is the address the team actually reads. */
+/**
+ * The team lead, and nobody else.
+ *
+ * One address per team on purpose: the lead is who the OTP goes to, so it is
+ * the address the team actually reads, and mailing three people the same
+ * result triples a run that is already paced at five seconds a send.
+ *
+ * It used to fall back to `members[0]` when no member carried the lead flag,
+ * which quietly mailed whoever the database happened to return first. All 94
+ * verified teams have a flagged lead, so the fallback never fired in practice;
+ * removing it means a team with a broken roster is reported as skipped instead
+ * of having its result sent to an arbitrary member.
+ */
 function leadEmail(team: TeamWithLead): string | null {
-  const lead = team.members?.find((member) => member.is_team_lead) ?? team.members?.[0];
+  const lead = team.members?.find((member) => member.is_team_lead);
   return lead?.college_email ?? null;
 }
 
 /**
- * Sends one type to a set of teams, one at a time.
+ * Sends one type to a set of teams, one at a time, five seconds apart.
  *
- * Sequential rather than parallel on purpose: Resend rate-limits, and a burst of
- * 43 that half-fails is worse than a slower run that reports honestly.
+ * Sequential rather than parallel on purpose: a burst of ninety that half-fails
+ * is worse than a slow run that reports honestly, and these go out over SMTP,
+ * where the punishment for a burst is the provider throttling the account
+ * rather than a clean per-message error.
  */
 async function run(
   kind: MailKind,
   teams: TeamWithLead[],
   send: (team: TeamWithLead, to: string) => Promise<{ success: boolean; error?: string }>,
+  /**
+   * Shared wall-clock deadline, passed in rather than computed here.
+   *
+   * `sendResults` calls this twice. Two runs each budgeting from their own
+   * start would together take twice the budget and blow the request limit the
+   * budget exists to stay inside — so both halves spend one.
+   */
+  deadline: number,
 ): Promise<MailRun> {
   const done = await alreadyMailed(kind);
-  const result: MailRun = { attempted: 0, sent: 0, skipped: 0, failed: 0, errors: [] };
+  const result: MailRun = { attempted: 0, sent: 0, skipped: 0, failed: 0, errors: [], remaining: 0 };
 
-  for (const team of teams) {
-    if (done.has(team.id)) { result.skipped += 1; continue; }
+  const pending = teams.filter((team) => !done.has(team.id));
+  result.skipped += teams.length - pending.length;
+
+  for (let index = 0; index < pending.length; index += 1) {
+    const team = pending[index];
+
+    // Checked before the send, not after: stopping with the budget already
+    // spent risks the platform killing the request mid-flight, and a mail cut
+    // off between sending and logging is the one outcome this cannot report.
+    if (Date.now() > deadline) {
+      result.remaining = pending.length - index;
+      console.warn(`[mail] ${kind} paused on budget — ${result.remaining} teams still to go`);
+      break;
+    }
 
     const to = leadEmail(team);
     if (!to) {
       result.skipped += 1;
-      result.errors.push(`${team.team_code}: no lead email`);
+      result.errors.push(`${team.team_code}: no team lead on the roster`);
+      console.warn(`[mail] ${kind} skipped — ${team.team_code} has no flagged team lead`);
       continue;
     }
+
+    // Paced before the send rather than after, so the loop never sleeps once
+    // more after the last mail has already gone.
+    if (result.attempted > 0) await wait(SEND_DELAY_MS);
 
     result.attempted += 1;
     try {
       const outcome = await send(team, to);
-      if (outcome.success) result.sent += 1;
-      else {
+      if (outcome.success) {
+        result.sent += 1;
+        console.log(`[mail] ${kind} sent — ${team.team_code} <${to}>`);
+      } else {
         result.failed += 1;
         result.errors.push(`${team.team_code}: ${outcome.error ?? 'send failed'}`);
+        console.error(`[mail] ${kind} FAILED — ${team.team_code} <${to}>: ${outcome.error ?? 'send failed'}`);
       }
     } catch (error) {
       result.failed += 1;
       result.errors.push(`${team.team_code}: ${(error as Error).message}`);
+      console.error(`[mail] ${kind} THREW — ${team.team_code} <${to}>: ${(error as Error).message}`);
     }
   }
+
+  /**
+   * One line per run, whatever happened.
+   *
+   * A send of ninety takes minutes and the only report used to be a toast that
+   * disappears. If nobody is looking at the tab when it lands, the run may as
+   * well not have happened — this is the copy that survives in the platform
+   * logs and can be read afterwards.
+   */
+  console.log(
+    `[mail] ${kind} run complete — ${result.sent} sent, ${result.skipped} skipped, ` +
+    `${result.failed} failed, ${result.remaining} left`,
+  );
 
   return result;
 }
@@ -118,6 +205,7 @@ export async function sendAnnouncement(): Promise<MailRun> {
       duration_minutes: SCREENING_DURATION_MINUTES,
       question_count: SCREENING_QUESTION_COUNT,
     }),
+    Date.now() + RUN_BUDGET_MS,
   );
 }
 
@@ -136,6 +224,9 @@ export async function sendResults(): Promise<{ shortlisted: MailRun; rejected: M
 
   const shortlistedTeams = shortlistedIds.length ? await loadTeams(shortlistedIds) : [];
   const rejectedTeams = rejectedIds.length ? await loadTeams(rejectedIds) : [];
+
+  // One deadline for both halves — see the note on `run`.
+  const deadline = Date.now() + RUN_BUDGET_MS;
 
   const shortlisted = await run('screening_shortlisted', shortlistedTeams, async (team, to) => {
     // The attendance QR encodes the plain team code — the desk scanner resolves
@@ -160,7 +251,7 @@ export async function sendResults(): Promise<{ shortlisted: MailRun; rejected: M
         .eq('team_id', team.id);
     }
     return outcome;
-  });
+  }, deadline);
 
   const rejected = await run('screening_rejected', rejectedTeams, async (team, to) => {
     const outcome = await sendScreeningRejectedEmail({
@@ -173,9 +264,74 @@ export async function sendResults(): Promise<{ shortlisted: MailRun; rejected: M
         .eq('team_id', team.id);
     }
     return outcome;
-  });
+  }, deadline);
 
   return { shortlisted, rejected };
+}
+
+export interface MailLogEntry {
+  id: string;
+  at: string;
+  email_type: string;
+  provider: string;
+  recipient: string;
+  status: string;
+  error: string | null;
+  team_code: string | null;
+  team_name: string | null;
+}
+
+/**
+ * The send history, newest first — what actually left the building.
+ *
+ * Every send already wrote a row here (`logEmail` in lib/email/index.ts); the
+ * gap was that nothing ever read them back. A run reported itself in a toast
+ * that vanishes, and `MailRun.errors` was returned to the console and dropped
+ * on the floor, so three failures inside a run of ninety were indistinguishable
+ * from none.
+ *
+ * Ordered on `created_at` rather than `sent_at`, deliberately: `sent_at` is
+ * null on a failure, and the failures are the rows worth reading.
+ *
+ * Not filtered by type. The OTP mail is not sent from this screen, but it is
+ * the one that has actually been failing — 45 `otp_login` sends fell through
+ * Resend to SMTP — and hiding it here would hide exactly the signal that says
+ * the provider is unwell before a bulk send goes out on top of it.
+ */
+export async function recentMailLog(limit = 60): Promise<MailLogEntry[]> {
+  const { data, error } = await db
+    .from('email_logs')
+    .select('id, created_at, email_type, provider, recipient, status, error, teams(team_code, team_name)')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error('Reading the mail log failed:', error);
+    return [];
+  }
+
+  interface LogRow {
+    id: string;
+    created_at: string;
+    email_type: string;
+    provider: string;
+    recipient: string;
+    status: string;
+    error: string | null;
+    teams: { team_code: string; team_name: string } | null;
+  }
+
+  return ((data ?? []) as LogRow[]).map((row) => ({
+    id: row.id,
+    at: row.created_at,
+    email_type: row.email_type,
+    provider: row.provider,
+    recipient: row.recipient,
+    status: row.status,
+    error: row.error,
+    team_code: row.teams?.team_code ?? null,
+    team_name: row.teams?.team_name ?? null,
+  }));
 }
 
 /** How many teams each button would actually mail, for the confirm dialog. */

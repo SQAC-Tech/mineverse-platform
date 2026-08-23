@@ -10,6 +10,20 @@ import { env } from '@/lib/env';
  * and a mail is the easiest place for them to leak.
  */
 
+/**
+ * Where a qualifying team confirms it can actually turn up.
+ *
+ * A Google Form rather than a page on the platform: the answers are needed by
+ * whoever raises hostel permission with the wardens, not by any code here, and
+ * a form they can read in a spreadsheet tonight beats a table only an admin can
+ * open. Nothing reads it back — confirmations are marked by hand in the
+ * screening console as replies arrive.
+ *
+ * A constant rather than an env var so it cannot go out empty. An announcement
+ * mail with a blank RSVP link is worse than no mail.
+ */
+export const RSVP_FORM_URL = 'https://forms.gle/mrPKAg57nn6YXHtL6';
+
 /** The window as a human would say it, in the timezone everyone reading is in. */
 function istWindow(startsAt: string | null, endsAt: string | null) {
   const fmt = (iso: string | null) =>
@@ -65,7 +79,7 @@ export async function sendScreeningAnnouncementEmail({
     <p style="color: #a3a3a3; font-size: 14px;">Log in with your team code. The OTP goes to the team lead&rsquo;s college email, as always.</p>
   `);
 
-  return deliver({ type: 'screening_announcement', to, subject, html, teamId: team_id });
+  return deliver({ type: 'screening_announcement', to, subject, html, teamId: team_id, via: 'smtp' });
 }
 
 /** Congratulations, roster, attendance QR and what to bring. */
@@ -76,7 +90,9 @@ export async function sendScreeningShortlistedEmail({
   members: Array<{ name: string; registration_no: string | null; is_team_lead: boolean }>;
   qr_image_data_url: string;
 }): Promise<EmailResult> {
-  const subject = `[MINEVERSE] You are in — Team ${team_code} qualified`;
+  // The deadline is in the subject because it is the part that expires. A team
+  // that reads only the subject line still knows there is something to do tonight.
+  const subject = `[MINEVERSE] Team ${team_code} qualified — confirm your seat by 9 PM tonight`;
 
   const roster = members
     .map((member) => `
@@ -109,6 +125,15 @@ export async function sendScreeningShortlistedEmail({
       ${roster}
     </table>
 
+    <h3 class="pixel" style="color: #f87171; font-size: 24px; font-weight: normal; margin-top: 40px; border-bottom: 2px solid #333333; padding-bottom: 10px;">&gt; CONFIRM BY 9:00 PM TONIGHT</h3>
+    <p>Your seat is held until <strong style="color: #f87171;">9:00 PM tonight</strong>. Fill the RSVP form before then to keep it.</p>
+    <p>It takes a minute and asks two things: whether all of you can actually attend, and whether any of you is a hosteller who needs an out-pass. We need the hostel numbers early enough to raise permission with the wardens, which is the whole reason for the deadline.</p>
+    <p><strong style="color: #fca311;">If we do not hear from you by 9:00 PM, your seat goes to the next team on the list.</strong></p>
+
+    ${mcButton('FILL THE RSVP FORM', RSVP_FORM_URL, '#b91c1c')}
+
+    <p style="color: #a3a3a3; font-size: 14px;">If the button does not work, open this link: <a href="${RSVP_FORM_URL}" style="color:#fca311;">${RSVP_FORM_URL}</a></p>
+
     <h3 class="pixel" style="color: #fca311; font-size: 24px; font-weight: normal; margin-top: 40px; border-bottom: 2px solid #333333; padding-bottom: 10px;">&gt; YOUR ATTENDANCE QR</h3>
     <p>Show this at the desk when you arrive. One scan checks in the whole team, so save it on the lead&rsquo;s phone.</p>
     <table width="100%" border="0" cellpadding="0" cellspacing="0" style="margin: 30px 0;">
@@ -127,7 +152,7 @@ export async function sendScreeningShortlistedEmail({
   `);
 
   return deliver({
-    type: 'screening_shortlisted', to, subject, html, teamId: team_id,
+    type: 'screening_shortlisted', to, subject, html, teamId: team_id, via: 'smtp',
     attachments: [{ filename: `attendance-${team_code}.png`, content: qrBuffer, cid: 'attendance-qr' }],
   });
 }
@@ -153,5 +178,5 @@ export async function sendScreeningRejectedEmail({
     <p style="color: #a3a3a3; font-size: 14px; margin-top: 30px;">If something went wrong on the day — a crash, a power cut, anything — reply to this email and tell us. We would rather hear it than not.</p>
   `);
 
-  return deliver({ type: 'screening_rejected', to, subject, html, teamId: team_id });
+  return deliver({ type: 'screening_rejected', to, subject, html, teamId: team_id, via: 'smtp' });
 }
