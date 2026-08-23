@@ -45,25 +45,21 @@ export async function POST(req: Request) {
       let teamIds: string[];
       if (shortlisted && shortlisted.length > 0) {
         /**
-         * Round 1 additionally requires the RSVP.
+         * The whole shortlist, Round 1 included.
          *
-         * Qualifying earns the seat, confirming keeps it — a team that never
-         * replied has not said it is coming, and the seats are finite. Later
-         * rounds go to the whole shortlist: by then the team is in the room and
-         * attendance, not a form sent the night before, is the live signal.
+         * Round 1 used to additionally require `rsvp_confirmed_at`, on the
+         * reasoning that qualifying earns the seat and confirming keeps it.
+         * Nothing has ever written that column — the RSVP is a Google Form with
+         * no import — so this filter reduced the roster to zero. Pressing
+         * "open" flipped `rounds.status` to active and unlocked the round for
+         * nobody, which is exactly what "the biomes still do not open" was.
          *
-         * A team that turns up without having replied is not stuck: marking its
-         * RSVP in the screening console grants Round 1 immediately.
+         * Attendance is the live signal now, as it already was for every other
+         * round: the team is in the room and its QR has been scanned. A form
+         * from the night before adds nothing to that.
          */
-        const entitled = Number(round_id) === 1
-          ? shortlisted.filter((row) => row.rsvp_confirmed_at)
-          : shortlisted;
-
-        teamIds = entitled.map((row) => row.team_id);
-        console.warn(
-          `[rounds] round ${round_id} opened to ${teamIds.length} teams` +
-          (Number(round_id) === 1 ? ` (RSVP-confirmed of ${shortlisted.length} shortlisted)` : ' (shortlisted)'),
-        );
+        teamIds = shortlisted.map((row) => row.team_id);
+        console.warn(`[rounds] round ${round_id} opened to ${teamIds.length} shortlisted teams`);
       } else {
         const { data: teams } = await supabaseServer
           .from('teams').select('id').eq('is_payment_verified', true);

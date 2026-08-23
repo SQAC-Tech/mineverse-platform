@@ -493,7 +493,10 @@ export async function roundOneEntitled(): Promise<{ frozen: boolean; teamIds: st
   return {
     frozen: true,
     teamIds: all
-      .filter((row) => row.result === 'shortlisted' && row.rsvp_confirmed_at)
+      // Shortlisted is the whole test. The RSVP used to be required here too,
+      // and with nothing writing that column `syncRoundOneAccess` re-locked
+      // Round 1 for all 50 qualifiers every time it ran. See `dashboardEntitlement`.
+      .filter((row) => row.result === 'shortlisted')
       .map((row) => row.team_id),
   };
 }

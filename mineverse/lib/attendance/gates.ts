@@ -150,12 +150,21 @@ export async function markingEntitlement(teamId: string, day: number): Promise<E
   if (!row || row.result !== 'shortlisted') {
     return { ok: false, reason: 'NOT_SHORTLISTED', message: 'This team is not on the shortlist.' };
   }
+
+  /**
+   * The RSVP is recorded here too, never enforced. See `dashboardEntitlement`.
+   *
+   * This one was the worst place for it. Attendance is what opens a round, and
+   * nothing has ever written `rsvp_confirmed_at`, so on event morning the desk
+   * would have scanned a team's QR, been told the team never confirmed, and had
+   * no way to mark it present — and therefore no way for it to play. A whole
+   * hall deadlocked on a column with no writer.
+   *
+   * A team standing at the desk with its QR has answered the only question the
+   * RSVP was asking.
+   */
   if (!row.rsvp_confirmed_at) {
-    return {
-      ok: false,
-      reason: 'NO_RSVP',
-      message: 'This team never confirmed its RSVP. An organizer can mark it from the screening console.',
-    };
+    console.warn(`[gates] marking team ${teamId} present without a recorded RSVP`);
   }
 
   return OK;

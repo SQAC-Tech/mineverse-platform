@@ -12,9 +12,7 @@ export const dynamic = 'force-dynamic';
  * dropdown — so "how many are left?" meant asking someone with a laptop.
  *
  * `expected` is the number of teams entitled to be marked at all: on day 1 the
- * RSVP-confirmed qualifiers, on day 2 the teams that made it through. It moves
- * during the evening as RSVPs land, which is correct — the denominator is
- * whoever currently holds a seat.
+ * screening qualifiers, on day 2 the teams that made it through.
  */
 export async function GET() {
   const guard = await requirePanelScope('attendance');
@@ -32,11 +30,13 @@ export async function GET() {
 
   const [{ data: records }, { data: shortlist }, { count: day2Count }] = await Promise.all([
     supabaseServer.from('attendance_records').select('checkpoint_id'),
+    // Everyone who qualified. This counted only RSVP-confirmed teams, and with
+    // nothing writing that column the desk's denominator read "0 expected" all
+    // morning — the one number a marshal working a queue actually needs.
     supabaseServer
       .from('screening_shortlist')
       .select('team_id')
-      .eq('result', 'shortlisted')
-      .not('rsvp_confirmed_at', 'is', null),
+      .eq('result', 'shortlisted'),
     supabaseServer
       .from('team_game_state')
       .select('team_id', { count: 'exact', head: true })
