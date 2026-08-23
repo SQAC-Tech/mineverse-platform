@@ -8,7 +8,7 @@ import {
   windowState,
 } from '@/lib/screening/config';
 import { getScreeningRound, sweepExpiredAttempts } from '@/lib/screening/service';
-import { clearShortlist, commitShortlist, previewShortlist, rankTeams } from '@/lib/screening/shortlist';
+import { clearShortlist, commitShortlist, previewShortlist, rankTeams, rsvpStates, setRsvp } from '@/lib/screening/shortlist';
 import { GAUNTLET_MAX_SCORE, listAttemptDetails } from '@/lib/screening/attempts';
 import { mailCounts, recentMailLog, sendAnnouncement, sendResults } from '@/lib/screening/mailer';
 
@@ -41,12 +41,20 @@ export async function GET(req: NextRequest) {
   const swept = await sweepExpiredAttempts();
 
   const round = await getScreeningRound();
-  const cut = Number(req.nextUrl.searchParams.get('cut') ?? 0);
+  // Two cuts, one per year — see `ShortlistCut`. `cut` is still read so an old
+  // bookmarked URL does not silently shortlist nobody: it seeds both years.
+  const params = req.nextUrl.searchParams;
+  const legacyCut = Number(params.get('cut') ?? 0);
+  const cut = {
+    year1: Number(params.get('cut1') ?? legacyCut) || 0,
+    year2: Number(params.get('cut2') ?? 0) || 0,
+  };
 
-  const [ranked, counts, mailLog, teamTotal, inProgress, attempts] = await Promise.all([
+  const [ranked, counts, mailLog, rsvp, teamTotal, inProgress, attempts] = await Promise.all([
     rankTeams(),
     mailCounts(),
     recentMailLog(),
+    rsvpStates(),
     db.from('teams').select('id', { count: 'exact', head: true }).eq('is_payment_verified', true),
     db.from('screening_attempts').select('id', { count: 'exact', head: true }).eq('status', 'in_progress'),
     // Every attempt, including the ones still running — `ranked` cannot carry
@@ -54,7 +62,7 @@ export async function GET(req: NextRequest) {
     listAttemptDetails(),
   ]);
 
-  const preview = cut > 0 ? await previewShortlist(cut) : null;
+  const preview = cut.year1 + cut.year2 > 0 ? await previewShortlist(cut) : null;
 
   return NextResponse.json({
     success: true,
@@ -82,6 +90,7 @@ export async function GET(req: NextRequest) {
       preview,
       mail: counts,
       mail_log: mailLog,
+      rsvp,
       committed: ranked.some((team) => team.result !== null),
     },
   });
@@ -98,10 +107,12 @@ export async function POST(req: NextRequest) {
 
     switch (action) {
       case 'commit_shortlist': {
-        const cut = Number(body.cut);
-        if (!Number.isInteger(cut) || cut < 1) {
-          return NextResponse.json({ success: false, error: { code: 'BAD_CUT', message: 'Pick how many teams to take.' } }, { status: 400 });
+        const cut = { year1: Number(body.cut1), year2: Number(body.cut2) };
+        if (!Number.isInteger(cut.year1) || !Number.isInteger(cut.year2) || cut.year1 + cut.year2 < 1) {
+          return NextResponse.json({ success: false, error: { code: 'BAD_CUT', message: 'Pick how many teams to take from each year.' } }, { status: 400 });
         }
+        // Parity and depth are checked inside `commitShortlist` — it is the one
+        // that must refuse, because it is what other callers reach for.
         const result = await commitShortlist(cut, PANEL_ADMIN_ACTOR);
         if (!result.ok) {
           return NextResponse.json({ success: false, error: { code: result.code, message: result.message } }, { status: 409 });
@@ -128,6 +139,19 @@ export async function POST(req: NextRequest) {
             { success: false, error: { code: 'NO_SHORTLIST', message: 'Commit a shortlist first.' } },
             { status: 409 },
           );
+        }
+        return NextResponse.json({ success: true, data: result });
+      }
+
+      case 'set_rsvp': {
+        // Entered by hand from the form replies: nothing reads the Google Form.
+        const teamId = String(body.team_id ?? '');
+        if (!teamId) {
+          return NextResponse.json({ success: false, error: { code: 'BAD_TEAM' } }, { status: 400 });
+        }
+        const result = await setRsvp(teamId, Boolean(body.confirmed), PANEL_ADMIN_ACTOR);
+        if (!result.ok) {
+          return NextResponse.json({ success: false, error: { code: result.code, message: result.message } }, { status: 409 });
         }
         return NextResponse.json({ success: true, data: result });
       }

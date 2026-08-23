@@ -2051,6 +2051,8 @@ export type Database = {
           rank: number
           result: string
           result_mailed_at: string | null
+          rsvp_confirmed_at: string | null
+          rsvp_confirmed_by: string | null
           submitted_at: string | null
           team_id: string
           total_score: number
@@ -2062,6 +2064,8 @@ export type Database = {
           rank: number
           result: string
           result_mailed_at?: string | null
+          rsvp_confirmed_at?: string | null
+          rsvp_confirmed_by?: string | null
           submitted_at?: string | null
           team_id: string
           total_score: number
@@ -2073,6 +2077,8 @@ export type Database = {
           rank?: number
           result?: string
           result_mailed_at?: string | null
+          rsvp_confirmed_at?: string | null
+          rsvp_confirmed_by?: string | null
           submitted_at?: string | null
           team_id?: string
           total_score?: number

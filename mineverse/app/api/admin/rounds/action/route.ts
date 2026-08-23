@@ -25,11 +25,35 @@ export async function POST(req: Request) {
       ends_at: endsAt
     }).eq('id', round_id);
 
-    // If making active, unlock for all verified teams
+    /**
+     * If making active, unlock for the teams entitled to play it.
+     *
+     * That used to be every payment-verified team — all 94 of them — which
+     * quietly undid the screening cut: pressing this once on Round 1 would let
+     * in the 46 teams that did not qualify, and nothing would say so.
+     *
+     * Once a shortlist is frozen it is the authority on who plays, for every
+     * round. Before one exists the old behaviour stands, so rounds can still be
+     * opened during a rehearsal or if the screening is skipped entirely.
+     */
     if (newStatus === 'active') {
-      const { data: teams } = await supabaseServer.from('teams').select('id').eq('is_payment_verified', true);
-      if (teams) {
-        const teamIds = teams.map(t => t.id);
+      const { data: shortlisted } = await supabaseServer
+        .from('screening_shortlist')
+        .select('team_id')
+        .eq('result', 'shortlisted');
+
+      let teamIds: string[];
+      if (shortlisted && shortlisted.length > 0) {
+        teamIds = shortlisted.map((row) => row.team_id);
+        console.warn(`[rounds] round ${round_id} opened to ${teamIds.length} shortlisted teams`);
+      } else {
+        const { data: teams } = await supabaseServer
+          .from('teams').select('id').eq('is_payment_verified', true);
+        teamIds = (teams ?? []).map((t) => t.id);
+        console.warn(`[rounds] round ${round_id} opened to all ${teamIds.length} verified teams — no shortlist frozen`);
+      }
+
+      if (teamIds.length > 0) {
         await supabaseServer.from('team_round_access')
           .update({ is_locked: false, started_at: startsAt })
           .in('team_id', teamIds)
