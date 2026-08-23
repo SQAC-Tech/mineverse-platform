@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
-  DIFFICULTY_POINTS, FIRST_YEAR_BONUS, SCREENING_DURATION_MS, SCREENING_GRANT,
+  DIFFICULTY_POINTS, SCREENING_DURATION_MS, SCREENING_GRANT,
   canStart, deadlineFrom, windowState,
 } from '@/lib/screening/config';
+import * as screeningConfig from '@/lib/screening/config';
 
 /** 22 Aug 2026, 00:00 IST → 23 Aug 2026, 00:00 IST. */
 const WINDOW = { startsAt: '2026-08-21T18:30:00Z', endsAt: '2026-08-22T18:30:00Z' };
@@ -57,11 +58,11 @@ describe('scoring constants', () => {
     expect(DIFFICULTY_POINTS.medium).toBeLessThan(DIFFICULTY_POINTS.hard);
   });
 
-  it('keeps the first-year bonus meaningful but not decisive', () => {
-    // 10 of a 50-point paper: enough to matter, not enough to carry a team that
-    // answered nothing past one that did well.
-    expect(FIRST_YEAR_BONUS).toBe(10);
-    expect(FIRST_YEAR_BONUS).toBeLessThan(50);
+  it('has no first-year bonus to award', () => {
+    // Removed before the shortlist was drawn. Asserted on the module rather
+    // than deleted, because the danger is someone reintroducing the constant
+    // and quietly reconnecting it to `submitAttempt`.
+    expect(screeningConfig).not.toHaveProperty('FIRST_YEAR_BONUS');
   });
 
   it('adds nothing on top of the resources every team already starts with', () => {
