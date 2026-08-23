@@ -50,8 +50,12 @@ export function RoundCraftPrompt({
   onContinue,
 }: RoundCraftPromptProps) {
   return (
-    <div className="round-ui__confirm-backdrop" role="presentation">
-      <div className="round-ui__confirm rcp" role="dialog" aria-modal="true" aria-label="Craft before moving on">
+    /* `round-ui__modal` is the overlay every other dialog in the round uses —
+       fixed, z-30, dimmed. An invented class name here rendered the card inline
+       at the bottom of a 100dvh, overflow-hidden container, so finishing the
+       round appeared to do nothing at all. */
+    <div className="round-ui__modal" role="presentation">
+      <div className="round-ui__panel round-ui__confirm rcp" role="dialog" aria-modal="true" aria-label="Craft before moving on">
         <p className="rcp__eyebrow">
           <Flag size={13} aria-hidden="true" /> {roundName} submitted
         </p>
