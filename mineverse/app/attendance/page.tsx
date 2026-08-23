@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import {
   registrationYears, splitRegistrationNo, joinRegistrationNo,
+  academicYearFromRegistrationNo,
   REG_NO_SUFFIX_LENGTH, REGISTRATION_NO,
 } from '@/lib/registration-no';
 
@@ -23,18 +24,54 @@ type Member = {
   registration_no: string | null;
 };
 
+type Checkpoint = {
+  id: number;
+  code: string;
+  label: string;
+  day: number;
+  covers_rounds: number[];
+  marked: number;
+  expected: number;
+};
+
 type ResolvedTeam = {
   id: string;
   team_code: string;
   team_name: string;
   team_size: number;
+  /** Members actually on the roster. The denominator — see the API note. */
+  roster_size: number;
+  size_mismatch: boolean;
   is_payment_verified: boolean;
+  /** False when this team has no seat at this checkpoint — see `markingEntitlement`. */
+  entitled: boolean;
+  entitlement_message: string | null;
   members: Member[];
-  existing: { member_ids: string[]; members_present: number } | null;
+  existing: { member_ids: string[]; members_present: number; marked_at: string; method: string } | null;
+  history: { checkpoint_id: number; members_present: number; label: string }[];
 };
 
+function time(iso: string) {
+  return new Date(iso).toLocaleTimeString('en-IN', {
+    timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true,
+  });
+}
+
+/**
+ * The admission year a registration number encodes, as a label.
+ *
+ * Shown beside each name because the desk is checking college IDs: a number the
+ * volunteer cannot see is a number they cannot check against the card in front
+ * of them. The page only ever displayed these for members who did *not* have
+ * one, which is exactly backwards.
+ */
+function yearOf(registrationNo: string | null) {
+  const year = academicYearFromRegistrationNo(registrationNo);
+  return year === null ? null : `${year === 1 ? '1st' : year === 2 ? '2nd' : `${year}rd+`} yr`;
+}
+
 export default function AttendancePanel() {
-  const [checkpoints, setCheckpoints] = useState<{ id: number; label: string }[]>([]);
+  const [checkpoints, setCheckpoints] = useState<Checkpoint[]>([]);
   const [checkpoint, setCheckpoint] = useState('');
   const [team, setTeam] = useState<ResolvedTeam | null>(null);
   const [method, setMethod] = useState<'qr_scan' | 'manual'>('qr_scan');
@@ -44,18 +81,26 @@ export default function AttendancePanel() {
   /** Registration numbers typed at the desk, keyed by member id. */
   const [regNos, setRegNos] = useState<Record<string, string>>({});
 
-  useEffect(() => {
-    fetch('/api/attendance/checkpoints')
+  /**
+   * Reloaded after every mark, not just on open, so the desk's counter is live.
+   * `restore` only runs on the first load — re-reading the saved checkpoint
+   * later would fight a marshal who has just switched desks.
+   */
+  const loadCheckpoints = useCallback((restore = false) => {
+    fetch('/api/attendance/checkpoints', { cache: 'no-store' })
       .then((r) => r.json())
       .then((d) => {
         if (!d.success) return;
         setCheckpoints(d.data);
+        if (!restore) return;
         // The marshal picks their checkpoint once per shift, not once per team.
         const saved = localStorage.getItem(CHECKPOINT_KEY);
-        if (saved && d.data.some((c: { id: number }) => c.id.toString() === saved)) setCheckpoint(saved);
+        if (saved && d.data.some((c: Checkpoint) => c.id.toString() === saved)) setCheckpoint(saved);
       })
       .catch(() => toast.error('Could not load checkpoints'));
   }, []);
+
+  useEffect(() => { loadCheckpoints(true); }, [loadCheckpoints]);
 
   const selectCheckpoint = (value: string | null) => {
     const next = value ?? '';
@@ -65,7 +110,19 @@ export default function AttendancePanel() {
 
   const resolve = useCallback(
     async (code: string, via: 'qr_scan' | 'manual') => {
-      if (busy || team) return;
+      if (busy) return;
+      /**
+       * A card is already open.
+       *
+       * This used to return silently, so a marshal who scanned the next team's
+       * QR while the previous card was still up saw nothing happen at all and
+       * assumed the scanner had failed. It has to say something — and it must
+       * not just swap the card, because the ticks on screen may be unsaved.
+       */
+      if (team) {
+        toast.info(`Finish ${team.team_code} first — Mark or Cancel.`);
+        return;
+      }
       if (!checkpoint) return toast.error('Pick a checkpoint first');
 
       setBusy(true);
@@ -93,6 +150,8 @@ export default function AttendancePanel() {
     },
     [busy, team, checkpoint],
   );
+
+  const active = checkpoints.find((cp) => cp.id.toString() === checkpoint) ?? null;
 
   const toggleMember = (id: string) =>
     setPresent((prev) => (prev.includes(id) ? prev.filter((m) => m !== id) : [...prev, id]));
@@ -135,11 +194,13 @@ export default function AttendancePanel() {
       if (!json.success) return toast.error(json.error);
 
       toast.success(
-        `${team.team_code} — ${present.length}/${team.team_size} present${json.updated ? ' (updated)' : ''}`,
+        `${team.team_code} — ${present.length}/${team.roster_size} present${json.updated ? ' (updated)' : ''}`,
       );
       setTeam(null);
       setPresent([]);
       setRegNos({});
+      // Keeps the desk counter honest without a reload.
+      loadCheckpoints();
     } catch {
       toast.error('Failed to mark attendance');
     } finally {
@@ -174,6 +235,39 @@ export default function AttendancePanel() {
           </SelectContent>
         </Select>
 
+        {/*
+          What this desk is for, and how far it has got.
+          A marshal working a queue could not tell whether they were twenty
+          teams in or nearly done without asking someone with a laptop.
+        */}
+        {active && (
+          <div className="rounded-lg border border-slate-800 bg-slate-900 p-3">
+            <div className="flex items-baseline justify-between gap-3">
+              <p className="text-xs uppercase tracking-wide text-slate-500">
+                Admits {active.covers_rounds.length > 1 ? 'rounds' : 'round'}{' '}
+                {active.covers_rounds.join(' & ')}
+              </p>
+              <p className="font-mono text-sm text-slate-300">
+                <span className="font-bold text-cyan-400">{active.marked}</span>
+                <span className="text-slate-500"> / {active.expected} teams</span>
+              </p>
+            </div>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-800">
+              <div
+                className="h-full rounded-full bg-cyan-500 transition-all"
+                style={{
+                  width: `${active.expected > 0 ? Math.min(100, (active.marked / active.expected) * 100) : 0}%`,
+                }}
+              />
+            </div>
+            {active.expected === 0 && (
+              <p className="mt-2 text-xs text-amber-400">
+                No teams are eligible for this desk yet — RSVPs may not be marked.
+              </p>
+            )}
+          </div>
+        )}
+
         {!checkpoint ? (
           <p className="rounded-lg border border-slate-800 bg-slate-900 p-6 text-center text-sm text-slate-400">
             Pick a checkpoint to start marking.
@@ -182,16 +276,49 @@ export default function AttendancePanel() {
           <Card className="border-slate-800 bg-slate-900">
             <CardContent className="space-y-4 p-4">
               <div>
-                <p className="font-mono text-lg font-bold text-cyan-400">{team.team_code}</p>
+                <div className="flex items-baseline justify-between gap-3">
+                  <p className="font-mono text-lg font-bold text-cyan-400">{team.team_code}</p>
+                  <p className="font-mono text-sm text-slate-400">
+                    {present.length}<span className="text-slate-600">/{team.roster_size}</span>
+                  </p>
+                </div>
                 <p className="text-sm text-slate-400">{team.team_name}</p>
+
+                {!team.entitled && (
+                  <p className="mt-2 rounded bg-red-500/10 px-2 py-1 text-xs font-semibold text-red-400">
+                    {team.entitlement_message ?? 'This team cannot be marked present.'} Saving will be
+                    refused.
+                  </p>
+                )}
                 {!team.is_payment_verified && (
                   <p className="mt-2 rounded bg-amber-500/10 px-2 py-1 text-xs text-amber-400">
                     Payment not verified — check with the desk before marking.
                   </p>
                 )}
+                {/* The roster and the declared size disagree for a couple of
+                    teams. Say so rather than quietly picking one. */}
+                {team.size_mismatch && (
+                  <p className="mt-2 rounded bg-amber-500/10 px-2 py-1 text-xs text-amber-400">
+                    Roster has {team.roster_size} member{team.roster_size === 1 ? '' : 's'} but the team
+                    registered {team.team_size}. Going by the roster.
+                  </p>
+                )}
                 {team.existing && (
+                  <p className="mt-2 rounded bg-cyan-500/10 px-2 py-1 text-xs text-cyan-300">
+                    Already marked here at {time(team.existing.marked_at)} (
+                    {team.existing.members_present}/{team.roster_size}
+                    {team.existing.method === 'manual' ? ', typed' : ''}). Saving updates it.
+                  </p>
+                )}
+                {/* Seen at other desks — a team arriving at the second desk
+                    having skipped the first is worth a question. */}
+                {team.history.filter((h) => h.checkpoint_id !== Number(checkpoint)).length > 0 && (
                   <p className="mt-2 text-xs text-slate-500">
-                    Already marked here ({team.existing.members_present}/{team.team_size}). Saving will update it.
+                    Also marked:{' '}
+                    {team.history
+                      .filter((h) => h.checkpoint_id !== Number(checkpoint))
+                      .map((h) => `${h.label} (${h.members_present})`)
+                      .join(', ')}
                   </p>
                 )}
               </div>
@@ -210,8 +337,27 @@ export default function AttendancePanel() {
                         onChange={() => toggleMember(member.id)}
                         className="h-5 w-5 shrink-0 accent-cyan-500"
                       />
-                      <span className="min-w-0 flex-1 truncate text-sm">{member.name}</span>
-                      {member.is_team_lead && <span className="shrink-0 text-xs text-slate-500">Lead</span>}
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-center gap-2">
+                          <span className="truncate text-sm">{member.name}</span>
+                          {member.is_team_lead && (
+                            <span className="shrink-0 rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-400">
+                              LEAD
+                            </span>
+                          )}
+                        </span>
+                        {/* The number the volunteer is checking against an ID
+                            card. It was never rendered — only the input for
+                            members who had none, which is backwards. */}
+                        {member.registration_no && (
+                          <span className="mt-0.5 flex items-center gap-2 font-mono text-xs text-slate-500">
+                            <span className="truncate">{member.registration_no}</span>
+                            {yearOf(member.registration_no) && (
+                              <span className="shrink-0 text-slate-600">{yearOf(member.registration_no)}</span>
+                            )}
+                          </span>
+                        )}
+                      </span>
                     </label>
 
                     {needsRegNo(member) && (
@@ -276,12 +422,14 @@ export default function AttendancePanel() {
                 >
                   Cancel
                 </Button>
+                {/* Disabled rather than hidden: the volunteer needs to see that
+                    marking is the thing being refused, not that they mis-scanned. */}
                 <Button
                   className="h-12 flex-1 bg-cyan-600 font-bold text-white hover:bg-cyan-500"
                   onClick={mark}
-                  disabled={busy}
+                  disabled={busy || !team.entitled}
                 >
-                  Mark {present.length}/{team.team_size}
+                  Mark {present.length}/{team.roster_size}
                 </Button>
               </div>
             </CardContent>

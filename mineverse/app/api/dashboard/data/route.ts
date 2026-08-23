@@ -3,6 +3,7 @@ import { supabaseServer } from '@/lib/supabase/server';
 import { getSession } from '@/lib/auth/session';
 import { DEV_UNLOCK_ALL_ROUNDS } from '@/lib/gameplay/dev-mode';
 import { CRAFT_RECIPES, type CraftItem } from '@/lib/gameplay/crafting/rules';
+import { dashboardEntitlement } from '@/lib/attendance/gates';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,6 +24,23 @@ export async function GET() {
   if (!session) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
 
   const teamId = session.team_id;
+
+  /**
+   * The dashboard opens on the RSVP, not on attendance.
+   *
+   * A team needs to see its inventory, its rounds and its team code the night
+   * before as much as on the day, and nothing here can be played — the rounds
+   * themselves are gated separately, on being in the room. What this does stop
+   * is a team that did not qualify, or never replied, seeing a dashboard that
+   * implies it is playing.
+   */
+  const entitled = await dashboardEntitlement(teamId);
+  if (!entitled.ok) {
+    return NextResponse.json(
+      { success: false, error: entitled.reason, message: entitled.message },
+      { status: 403 },
+    );
+  }
 
   const [teamResult, accessResult, resourcesResult, craftedResult, stateResult, fragmentResult, repairResult, merchantResult] =
     await Promise.all([

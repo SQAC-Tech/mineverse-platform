@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase/server';
 import { requirePanelScope } from '@/lib/panel/require-admin';
 import { REGISTRATION_NO } from '@/lib/validation/schemas';
+import { markingEntitlement } from '@/lib/attendance/gates';
 
 export const dynamic = 'force-dynamic';
 
@@ -114,6 +115,33 @@ export async function POST(req: Request) {
         { status: duplicate ? 409 : 500 },
       );
     }
+  }
+
+  /**
+   * The gate, enforced.
+   *
+   * `/resolve` warns the volunteer on the scan; this is what actually refuses,
+   * because attendance is the thing that opens a round and it must not be
+   * possible to mark a team that has no seat. Day 1 asks the screening
+   * shortlist and the RSVP, day 2 asks the day-2 shortlist.
+   *
+   * An organizer who wants to let an unconfirmed team in marks its RSVP in the
+   * screening console first — a deliberate act on a screen that records who did
+   * it, rather than a checkbox at a busy desk.
+   */
+  const { data: checkpoint } = await supabaseServer
+    .from('attendance_checkpoints')
+    .select('day, label')
+    .eq('id', Number(checkpoint_id))
+    .maybeSingle();
+
+  const entitlement = await markingEntitlement(String(team_id), Number(checkpoint?.day ?? 1));
+  if (!entitlement.ok) {
+    console.warn(`[attendance] refused ${team_id} at ${checkpoint?.label ?? checkpoint_id}: ${entitlement.reason}`);
+    return NextResponse.json(
+      { success: false, error: entitlement.message ?? 'This team cannot be marked present.' },
+      { status: 403 },
+    );
   }
 
   const { data: prior } = await supabaseServer

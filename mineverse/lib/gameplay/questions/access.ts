@@ -1,6 +1,7 @@
 import { supabaseServer } from '@/lib/supabase/server';
 import { DEV_UNLOCK_ALL_ROUNDS, noteDevUnlockBypass } from '@/lib/gameplay/dev-mode';
 import { isDemoTeamId, noteDemoBypass } from '@/lib/gameplay/demo-teams';
+import { attendanceGate } from '@/lib/attendance/gates';
 
 export type Dev4RoundAccess =
   | { ok: true; round: { id: number; name: string; status: string; starts_at: string | null; ends_at: string | null; time_allotted: number; guardian_unlocked: boolean } }
@@ -52,6 +53,26 @@ export async function verifyDev4RoundAccess(teamId: string, roundId: number): Pr
 
     if (accessError || !access || access.is_locked) {
       return { ok: false, status: 403, code: 'TEAM_NOT_AUTHORIZED_FOR_ROUND', message: 'This round is not unlocked for your team.' };
+    }
+
+    /**
+     * And that the team is in the room.
+     *
+     * Checked here as well as in `verifyTeamRoundAccess` because this is a
+     * second, independent path to the same rounds — the question routes come
+     * through here and never touch that one. A gate enforced on only one of two
+     * doors is not a gate.
+     */
+    const attendance = await attendanceGate(teamId, roundId);
+    if (!attendance.ok) {
+      return {
+        ok: false,
+        status: 403,
+        code: 'ATTENDANCE_NOT_MARKED',
+        message: attendance.checkpoint
+          ? `Get your team marked present at ${attendance.checkpoint.label} before starting this round.`
+          : 'Your team has not been marked present.',
+      };
     }
   }
 

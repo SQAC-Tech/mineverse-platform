@@ -141,7 +141,7 @@ export function ScreeningPaper({ initial }: { initial: GauntletAttempt }) {
       } catch {
         // Leaving regardless; see above.
       }
-      router.replace('/');
+      router.replace('/dashboard');
     })();
   }, [isFinalCompleted, proctor, router]);
 
@@ -360,15 +360,15 @@ export function ScreeningPaper({ initial }: { initial: GauntletAttempt }) {
                   </p>
                 </div>
 
-                {/* ACTION BUTTONS: RETURN TO MAIN SCREEN & RE-TEST */}
+                {/* ACTION BUTTONS: RETURN TO DASHBOARD & RE-TEST */}
                 <div className="flex flex-col sm:flex-row items-center gap-3 w-full">
                   <button
                     type="button"
-                    onClick={() => router.replace('/')}
+                    onClick={() => router.replace('/dashboard')}
                     className="w-full sm:flex-1 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-600 hover:from-emerald-500 hover:to-teal-500 text-stone-950 font-mono font-black py-3 px-4 rounded-xl transition-all shadow-[0_0_20px_rgba(16,185,129,0.4)] text-xs flex items-center justify-center gap-2 cursor-pointer uppercase tracking-widest"
                   >
                     <Home className="w-4 h-4 text-stone-950" />
-                    <span>RETURN TO MAIN SCREEN</span>
+                    <span>RETURN TO DASHBOARD</span>
                   </button>
 
                   {/* Dev only. The screening is sat once; in production a

@@ -1,6 +1,7 @@
 import { supabaseServer } from '@/lib/supabase/server';
 import { DEV_UNLOCK_ALL_ROUNDS, noteDevUnlockBypass } from '@/lib/gameplay/dev-mode';
 import { isDemoTeamId, noteDemoBypass } from '@/lib/gameplay/demo-teams';
+import { attendanceGate } from '@/lib/attendance/gates';
 
 export async function verifyTeamRoundAccess(teamId: string, roundId: number): Promise<{ hasAccess: boolean; error?: string }> {
   // 1. Check if the round is active
@@ -43,6 +44,21 @@ export async function verifyTeamRoundAccess(teamId: string, roundId: number): Pr
 
   if (accessError || !access || access.is_locked) {
     return { hasAccess: false, error: 'TEAM_NOT_AUTHORIZED_FOR_ROUND' };
+  }
+
+  /**
+   * 3. Check the team is actually in the room.
+   *
+   * The unlock above says the team is entitled to this round; attendance says
+   * it turned up. Both are needed, and this is the one that cannot be granted
+   * in advance — it is written at the desk when the team's QR is scanned.
+   *
+   * Deliberately last. It is the cheapest failure to explain to a team ("go get
+   * marked at the desk"), so it should not mask a harder one.
+   */
+  const attendance = await attendanceGate(teamId, roundId);
+  if (!attendance.ok) {
+    return { hasAccess: false, error: 'ATTENDANCE_NOT_MARKED' };
   }
 
   return { hasAccess: true };

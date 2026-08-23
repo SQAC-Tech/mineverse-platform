@@ -7,7 +7,7 @@ import { Loader2, Users } from 'lucide-react';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile';
-import { ScreeningLoginCard } from '@/components/screening/ScreeningLoginCard';
+import { DashboardLoginCard } from '@/components/dashboard/DashboardLoginCard';
 
 /**
  * Normalise team-code input to the canonical MNV-XXX format.
@@ -26,8 +26,6 @@ export default function LoginPage() {
   const router = useRouter();
   const [teamCode, setTeamCode] = useState('');
   const [step, setStep] = useState<1 | 2>(1);
-  // Where the session lands after the OTP. Chosen before logging in, because on
-  const [destination, setDestination] = useState<'screening' | 'dashboard'>('screening');
   const [loading, setLoading] = useState(false);
   
   // OTP state
@@ -95,11 +93,16 @@ export default function LoginPage() {
       const data = await res.json();
       if (data.success) {
         toast.success('Login successful!');
-        // The server's redirect still wins when it has a reason to send the team
-        // somewhere specific (payment pending, for one) — the card only picks
-        // between the two normal destinations.
-        const normalRedirect = data.redirect === '/dashboard' || !data.redirect;
-        router.push(destination === 'screening' && normalRedirect ? '/screening' : data.redirect);
+        /**
+         * The dashboard, unless the server has a reason to send the team
+         * somewhere else — payment pending, for one.
+         *
+         * There used to be a chooser here, screening or dashboard, decided
+         * before the OTP. The qualifier is over, so the only live destination
+         * is the dashboard and the choice was removed rather than left as a
+         * one-option menu.
+         */
+        router.push(data.redirect || '/dashboard');
         router.refresh();
       } else {
         toast.error(data.error);
@@ -209,9 +212,7 @@ export default function LoginPage() {
             </p>
           </div>
           
-          {step === 1 && (
-            <ScreeningLoginCard destination={destination} onChoose={setDestination} mc={mc} />
-          )}
+          {step === 1 && <DashboardLoginCard mc={mc} />}
 
           {step === 1 ? (
             <form onSubmit={requestOtp} className="space-y-6">

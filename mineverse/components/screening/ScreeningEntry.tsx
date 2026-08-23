@@ -88,7 +88,7 @@ export function ScreeningEntry() {
 
   useEffect(() => {
     if (status?.team?.attempt_status === 'submitted' || status?.team?.attempt_status === 'expired') {
-      router.push('/');
+      router.push('/dashboard');
     }
   }, [status, router]);
 
@@ -246,8 +246,8 @@ export function ScreeningEntry() {
             <span className="scr__saving">
               {status.state === 'open' ? `Closes ${istTime(status.ends_at)} IST` : ''}
             </span>
-            <button type="button" className="scr__btn" onClick={() => router.push('/')}>
-              Return to Main Screen
+            <button type="button" className="scr__btn" onClick={() => router.push('/dashboard')}>
+              Return to Dashboard
             </button>
             <button
               type="button"

@@ -172,7 +172,7 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
         if (code === 'ROUND_NOT_ACTIVE' || code === 'ROUND_LOCKED') {
           toast.error('This round has been closed by an administrator.');
           await proctor?.finish();
-          router.push('/');
+          router.push('/dashboard');
           return;
         }
       }
@@ -446,9 +446,10 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
       toast.success('Your final answers have been recorded.');
       setConfirmFinish(false);
       // Closes the proctor session and leaves fullscreen before navigating, so
-      // the main screen is not stuck behind a fullscreen scrim.
+      // the dashboard is not stuck behind a fullscreen scrim. Every way out of
+      // a round lands there — it is where the next round is opened from.
       await proctor?.finish();
-      router.push('/');
+      router.push('/dashboard');
     } catch {
       toast.error('Could not reach the server. Nothing was submitted.');
     } finally {
