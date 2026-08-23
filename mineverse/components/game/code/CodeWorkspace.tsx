@@ -29,6 +29,12 @@ const CodeEditor = dynamic(() => import('./CodeEditor').then((m) => m.CodeEditor
   loading: () => <p className="cw-loading">Loading editor…</p>,
 });
 
+/** `95` -> `1:35`, so a wait reads as a clock rather than a raw count. */
+function clockdown(seconds: number): string {
+  const s = Math.max(0, seconds);
+  return s >= 60 ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` : `${s}s`;
+}
+
 /** Share of cases passed, for the progress bar. An empty set reads as full. */
 function pct(passed: number, total: number): number {
   return total > 0 ? Math.round((passed / total) * 100) : 100;
@@ -160,6 +166,25 @@ export function CodeWorkspace({
   const [runError, setRunError] = useState('');
   const [saved, setSaved] = useState(false);
   const [submissionResult, setSubmissionResult] = useState<CodingEvaluation | null>(question.coding_evaluation ?? null);
+
+  /**
+   * Seconds left before Run or Submit is allowed again.
+   *
+   * The limits live on the server — this only mirrors what it said, so a team
+   * sees a number counting down instead of a button that fails when pressed.
+   * Never trusted: the server refuses regardless of what this shows.
+   */
+  const [runCooldown, setRunCooldown] = useState(0);
+  const [submitCooldown, setSubmitCooldown] = useState(0);
+
+  useEffect(() => {
+    if (runCooldown <= 0 && submitCooldown <= 0) return;
+    const tick = window.setInterval(() => {
+      setRunCooldown((n) => (n > 0 ? n - 1 : 0));
+      setSubmitCooldown((n) => (n > 0 ? n - 1 : 0));
+    }, 1000);
+    return () => window.clearInterval(tick);
+  }, [runCooldown, submitCooldown]);
   const bodyRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -208,6 +233,7 @@ export function CodeWorkspace({
       });
       const json = await res.json();
       if (!json.success) {
+        if (res.status === 429 && typeof json.retry_after === 'number') setRunCooldown(json.retry_after);
         setRunError(json.error ?? 'The run failed.');
       } else if (json.mode === 'custom') {
         setCustomResult({ compile: json.compile, run: json.run });
@@ -236,9 +262,14 @@ export function CodeWorkspace({
   };
 
   const submit = async () => {
-    if (locked || submitting) return;
+    if (locked || submitting || submitCooldown > 0) return;
     const result = await onSubmit();
-    if (result) setSubmissionResult(result);
+    if (result) {
+      setSubmissionResult(result);
+      // The server allows one submission every two minutes; start the same
+      // clock here so the button shows the wait rather than failing on press.
+      setSubmitCooldown(120);
+    }
   };
 
   const blocks = promptBlocks(question.prompt);
@@ -270,12 +301,26 @@ export function CodeWorkspace({
           {saved ? <Check size={14} /> : <Save size={14} />} {saved ? 'Saved' : 'Save'}
         </button>
 
-        <button type="button" className="cw-btn cw-btn--run" onClick={() => void run()} disabled={roundClosed || running || !active}>
-          <Play size={14} /> {running ? 'Running…' : 'Run code'}
+        {/* Both buttons show the wait rather than failing when pressed. The
+            server owns the limit; this only reflects what it reported. */}
+        <button
+          type="button"
+          className="cw-btn cw-btn--run"
+          onClick={() => void run()}
+          disabled={roundClosed || running || !active || runCooldown > 0}
+          title={runCooldown > 0 ? 'Three runs a minute' : 'Run against the selected case'}
+        >
+          <Play size={14} /> {running ? 'Running…' : runCooldown > 0 ? `Run in ${clockdown(runCooldown)}` : 'Run code'}
         </button>
 
-        <button type="button" className="cw-btn cw-btn--submit" onClick={() => void submit()} disabled={locked || submitting}>
-          <Send size={14} /> {submitting ? 'Submitting…' : 'Submit'}
+        <button
+          type="button"
+          className="cw-btn cw-btn--submit"
+          onClick={() => void submit()}
+          disabled={locked || submitting || submitCooldown > 0}
+          title={submitCooldown > 0 ? 'One submission every two minutes' : 'Submit against every test'}
+        >
+          <Send size={14} /> {submitting ? 'Submitting…' : submitCooldown > 0 ? `Submit in ${clockdown(submitCooldown)}` : 'Submit'}
         </button>
 
         <button type="button" className="cw-btn cw-btn--icon" onClick={onClose} aria-label="Close editor">

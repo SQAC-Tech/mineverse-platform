@@ -559,7 +559,13 @@
  * it needs and wraps.
  */
 .cw-problem pre {
-  overflow: visible;
+  /* `min-height: fit-content` is the load-bearing line. `overflow: hidden` used
+     to slice a listing through the middle; making it visible instead let the
+     same squeezed box spill its text over the paragraph below it. Guaranteeing
+     the box is at least as tall as its content fixes both -- nothing is cut and
+     nothing escapes. A long line scrolls sideways rather than widening the pane. */
+  min-height: fit-content;
   max-height: none;
-  min-height: 0;
+  overflow-x: auto;
+  overflow-y: visible;
 }

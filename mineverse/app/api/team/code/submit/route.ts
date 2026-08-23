@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { consumeRateLimit } from '@/lib/rate-limit';
 import { z } from 'zod';
 import { getSession } from '@/lib/auth/session';
 import { supabaseServer } from '@/lib/supabase/server';
@@ -42,6 +43,28 @@ export async function POST(req: Request) {
     body = parsed.data;
   } catch {
     return NextResponse.json({ success: false, error: { code: 'INVALID_PAYLOAD' } }, { status: 400 });
+  }
+
+  /**
+   * One submission every two minutes, per team.
+   *
+   * A submission is not one execution but one per test case, so it is the
+   * expensive action on a judge the whole hall shares. Two minutes is also long
+   * enough that a team reads its result instead of resubmitting blind.
+   */
+  const submitBudget = consumeRateLimit(`code-submit:${session.team_id}`, 1, 120_000);
+  if (!submitBudget.allowed) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: {
+          code: 'RATE_LIMITED',
+          message: `You can submit once every two minutes. Try again in ${submitBudget.retryAfterSeconds}s.`,
+        },
+        retry_after: submitBudget.retryAfterSeconds,
+      },
+      { status: 429, headers: { 'Retry-After': String(submitBudget.retryAfterSeconds) } },
+    );
   }
 
   // Rejecting this before the generic upsert prevents a crafted request from

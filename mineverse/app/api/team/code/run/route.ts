@@ -42,13 +42,25 @@ export async function POST(req: Request) {
   const session = await getSession();
   if (!session) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
 
-  // Keyed on the team, never the IP: the whole hall shares one campus NAT
-  // address, so an IP budget here would be one queue for every team at once.
-  const limit = consumeRateLimit(`code-run:${session.team_id}`, 30, 60_000);
+  /**
+   * Three runs a minute, per team.
+   *
+   * Every run is a real execution on a judge the whole hall shares, and the
+   * judge limits us by address — so one team hammering Run spends everyone's
+   * budget and the rest see "the runner is busy" for code that never ran.
+   *
+   * Keyed on the team, never the IP: the venue is behind one campus NAT, so an
+   * address budget here would be a single queue for every team at once.
+   */
+  const limit = consumeRateLimit(`code-run:${session.team_id}`, 3, 60_000);
   if (!limit.allowed) {
-    return tooManyRequests(
-      `Too many runs. Try again in ${retryHint(limit.retryAfterSeconds)}.`,
-      limit.retryAfterSeconds,
+    return NextResponse.json(
+      {
+        success: false,
+        error: `You can run three times a minute. Try again in ${retryHint(limit.retryAfterSeconds)}.`,
+        retry_after: limit.retryAfterSeconds,
+      },
+      { status: 429, headers: { 'Retry-After': String(limit.retryAfterSeconds) } },
     );
   }
 
