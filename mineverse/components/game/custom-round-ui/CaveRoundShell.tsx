@@ -1,7 +1,7 @@
 'use client';
 
 import { readDraft, writeDraft, purgeForeignDrafts } from '@/lib/client/answer-drafts';
-import { runtimesFor } from '@/lib/gameplay/code/runtimes';
+import { defaultLanguageFor, offeredRuntimes } from '@/lib/gameplay/code/runtimes';
 import { useAnswerAutosave } from '@/hooks/useAnswerAutosave';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -236,7 +236,7 @@ export function CaveRoundShell() {
   const currentIndex = Math.min(activeIndexes[activeTab], Math.max(0, activeQuestions.length - 1));
   const question = activeQuestions[currentIndex];
   
-  const currentLanguage = question ? (languages[question.id] ?? runtimesFor(question.language_options?.length ? question.language_options : ['python', 'cpp', 'java', 'javascript', 'c'])[0]?.id ?? 'python') : 'python';
+  const currentLanguage = question ? (languages[question.id] ?? defaultLanguageFor(question.language_options)) : defaultLanguageFor(null);
   // The language-specific body when the question has one for the selected
   // runtime, the generic prompt otherwise. See `languagePrompts`.
   const activePrompt = (question && languagePrompts(question)?.[currentLanguage]) ?? question?.prompt ?? '';
@@ -275,7 +275,9 @@ export function CaveRoundShell() {
         ? {
             question_id: questionId,
             code: text,
-            language: runtimesFor(target.language_options)[0]?.id ?? null,
+            // The team's pick, not option zero. This sent the first option
+            // regardless of the dropdown, so C++ was graded as Python.
+            language: languages[questionId] ?? defaultLanguageFor(target.language_options),
           }
         : { question_id: questionId, answer_text: text };
     },
@@ -306,7 +308,7 @@ export function CaveRoundShell() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(codeQuestion
-          ? { question_id: target.id, code: answer, language: runtimesFor(target.language_options)[0]?.id ?? null }
+          ? { question_id: target.id, code: answer, language: languages[target.id] ?? defaultLanguageFor(target.language_options) }
           : { question_id: target.id, answer_text: answer }),
       });
       const data = await response.json();
@@ -571,7 +573,7 @@ export function CaveRoundShell() {
                           onChange={(e) => setLanguages((prev) => ({ ...prev, [question.id]: e.target.value }))}
                           disabled={readOnly}
                         >
-                          {runtimesFor(question.language_options?.length ? question.language_options : ['python', 'cpp', 'java', 'javascript', 'c']).map((rt) => (
+                          {offeredRuntimes(question.language_options).map((rt) => (
                             <option key={rt.id} value={rt.id}>{rt.label}</option>
                           ))}
                         </select>
