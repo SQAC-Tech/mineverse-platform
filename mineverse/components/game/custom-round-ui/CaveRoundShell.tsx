@@ -31,6 +31,7 @@ import { supabaseClient } from '@/lib/supabase/client';
 import { CraftingPanel } from '@/components/game/crafting/CraftingPanel';
 import { MarketplaceStore } from '@/components/game/marketplace/MarketplaceStore';
 import { Hotbar } from '@/components/game/inventory/Hotbar';
+import type { CraftedItem } from '@/features/dashboard/types';
 import { ConsumableInventory } from '@/components/game/marketplace/ConsumableInventory';
 import { ChoicePanel } from '@/components/game/choices/ChoicePanel';
 import { GuardianArena } from './GuardianArena';
@@ -154,6 +155,7 @@ export function CaveRoundShell() {
   const [offline, setOffline] = useState(false);
   const [roundStatus, setRoundStatus] = useState<string | null>(null);
   const [guardianUnlocked, setGuardianUnlocked] = useState(false);
+  const [crafted, setCrafted] = useState<CraftedItem[]>([]);
 
   const refresh = useCallback(async () => {
     const [round, resourceResult, teamResult, historyResult] = await Promise.allSettled([
@@ -185,7 +187,13 @@ export function CaveRoundShell() {
     }
     if (resourceResult.status === 'fulfilled' && resourceResult.value.success) setResourceData(resourceResult.value.data);
     else requestFailed = true;
-    if (teamResult.status === 'fulfilled' && teamResult.value.success) setTeam(teamResult.value.team ?? null);
+    if (teamResult.status === 'fulfilled' && teamResult.value.success) {
+      setTeam(teamResult.value.team ?? null);
+      // The same snapshot already carries the crafting log. Round 2 has a
+      // crafting table in its rail, so an item crafted here was paid for and
+      // then simply never appeared in the inventory beside it.
+      setCrafted(teamResult.value.crafted ?? []);
+    }
     if (historyResult.status === 'fulfilled' && historyResult.value.success) setHistory(historyResult.value.data.entries ?? []);
     setOffline(requestFailed);
     // `proctor` and `router` are deliberately not dependencies. `useProctor`
@@ -790,7 +798,7 @@ export function CaveRoundShell() {
                 <b>YOUR INVENTORY</b>
                 <span>{resourceData?.pending_grading ? 'Rewards pending grading' : 'Live resource balance'}</span>
               </div>
-              <Hotbar balance={resourceData?.balance} activeSlot={slot} onSelect={setSlot} />
+              <Hotbar balance={resourceData?.balance} crafted={crafted} activeSlot={slot} onSelect={setSlot} />
             </div>
             <div className="round-ui__inventory-actions">
               <button

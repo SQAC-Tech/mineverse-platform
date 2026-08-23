@@ -259,7 +259,10 @@ export function DashboardShell() {
 
       {/* ── Inventory ── */}
       <footer className="dash__foot">
-        <Hotbar balance={resources} activeSlot={slot} onSelect={setSlot} maxWidth="min(600px, 100%)" />
+        {/* `crafted` was fetched, used for the avatar's loadout, and then not
+            handed to the inventory — so a pickaxe a team had just crafted was
+            missing from the one place they would look for it. */}
+        <Hotbar balance={resources} crafted={crafted} activeSlot={slot} onSelect={setSlot} maxWidth="min(600px, 100%)" />
       </footer>
 
       {/* ── Overlays ── */}
