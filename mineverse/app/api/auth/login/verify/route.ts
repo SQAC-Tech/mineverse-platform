@@ -1,22 +1,18 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase/server';
 import { hashOtp } from '@/lib/auth/otp';
-import { setSessionCookie, createSessionToken } from '@/lib/auth/session';
+import { setSessionCookie, createSessionToken, ensureDeviceId } from '@/lib/auth/session';
+import { checkLoginLease, claimLoginLease } from '@/lib/auth/login-lease';
+import { clientIp } from '@/lib/request-ip';
+import { isDemoTeamCode } from '@/lib/gameplay/demo-teams';
 import { env } from '@/lib/env';
-
-// We still use this to populate the field so we know *where* they logged in from.
-function clientIp(req: Request): string {
-  const forwarded = req.headers.get('x-forwarded-for');
-  const first = forwarded?.split(',')[0]?.trim();
-  return first || req.headers.get('x-real-ip')?.trim() || 'unknown';
-}
 
 export async function POST(req: Request) {
   const { challenge_id, otp } = await req.json();
 
   const { data: challenge } = await supabaseServer
     .from('otp_challenges')
-    .select('*, teams(team_code, active_login_ip)')
+    .select('*, teams(team_code)')
     .eq('id', challenge_id)
     .single();
 
@@ -34,32 +30,53 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: false, error: 'Invalid OTP' }, { status: 400 });
   }
 
-  // Create session
   if (!challenge.team_id || !challenge.teams) {
     return NextResponse.json({ success: false, error: 'Challenge is not a login challenge' }, { status: 400 });
   }
-  const token = await createSessionToken(challenge.team_id, challenge.teams.team_code);
-  
-  const ip = clientIp(req);
-  const teamIp = challenge.teams.active_login_ip;
 
-  if (teamIp) {
+  /**
+   * The one-device rule.
+   *
+   * Checked after the OTP so the answer depends on who is asking — the device
+   * has to be established before we can tell "the same laptop again" from "a
+   * second laptop", and only a verified request should be able to take a seat.
+   *
+   * The refusal deliberately leaves the challenge in place. A team that is told
+   * to wait for an idle device should not also have to request a fresh code
+   * when it retries a minute later.
+   */
+  const deviceId = await ensureDeviceId();
+
+  /**
+   * Demo teams are exempt, because the rule would be backwards for them.
+   * Several organizers walk the floor signed in as one demo code to check
+   * rounds; a one-seat rule would have them evicting each other all morning.
+   * They already skip the round gates and the event-day gate for the same
+   * reason — see lib/gameplay/demo-teams.
+   */
+  const lease = isDemoTeamCode(challenge.teams.team_code)
+    ? ({ ok: true, takeover: false } as const)
+    : await checkLoginLease(challenge.team_id, deviceId);
+
+  if (!lease.ok) {
     return NextResponse.json(
-      {
-        success: false,
-        error:
-          'Your team has already logged in. Per rules, only one device is allowed. If your device crashed, an organizer must release your login from the admin Teams screen.',
-      },
-      { status: 403 },
+      { success: false, error: lease.message, retry_after: lease.retryAfterSeconds },
+      { status: 403, headers: { 'Retry-After': String(lease.retryAfterSeconds) } },
     );
   }
 
-  // Record the IP to lock out any further logins
-  await supabaseServer.from('teams').update({ active_login_ip: ip !== 'unknown' ? ip : 'recorded' }).eq('id', challenge.team_id);
+  if (lease.takeover) {
+    console.warn(`[login] ${challenge.teams.team_code} taken over by a new device after the previous one went idle`);
+  }
 
+  if (!isDemoTeamCode(challenge.teams.team_code)) {
+    await claimLoginLease(challenge.team_id, deviceId, clientIp(req));
+  }
+
+  const token = await createSessionToken(challenge.team_id, challenge.teams.team_code);
   await setSessionCookie(token);
 
-  // We delete the OTP challenge here to prevent multiple uses of the same OTP.
+  // Deleted here so the same OTP cannot be used twice.
   await supabaseServer.from('otp_challenges').delete().eq('id', challenge_id);
 
   return NextResponse.json({ success: true, redirect: '/dashboard' });

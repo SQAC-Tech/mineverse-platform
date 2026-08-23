@@ -2370,6 +2370,9 @@ export type Database = {
       teams: {
         Row: {
           active_login_ip: string | null
+          active_login_device: string | null
+          active_login_at: string | null
+          active_login_seen_at: string | null
           completion_time: number
           created_at: string
           id: string
@@ -2384,6 +2387,9 @@ export type Database = {
         }
         Insert: {
           active_login_ip?: string | null
+          active_login_device?: string | null
+          active_login_at?: string | null
+          active_login_seen_at?: string | null
           completion_time?: number
           created_at?: string
           id?: string
@@ -2398,6 +2404,9 @@ export type Database = {
         }
         Update: {
           active_login_ip?: string | null
+          active_login_device?: string | null
+          active_login_at?: string | null
+          active_login_seen_at?: string | null
           completion_time?: number
           created_at?: string
           id?: string

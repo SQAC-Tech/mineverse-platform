@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase/server';
-import { getSession } from '@/lib/auth/session';
+import { ensureDeviceId, getSession } from '@/lib/auth/session';
+import { touchLoginLease } from '@/lib/auth/login-lease';
+import { isDemoTeamCode } from '@/lib/gameplay/demo-teams';
 import { DEV_UNLOCK_ALL_ROUNDS } from '@/lib/gameplay/dev-mode';
 import { CRAFT_RECIPES, type CraftItem } from '@/lib/gameplay/crafting/rules';
 import { dashboardEntitlement } from '@/lib/attendance/gates';
@@ -24,6 +26,33 @@ export async function GET() {
   if (!session) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
 
   const teamId = session.team_id;
+
+  /**
+   * The one-device rule's heartbeat, and its only enforcement after login.
+   *
+   * The dashboard polls this every ten seconds, which makes it the natural
+   * place for both halves: it keeps the team's lease alive while they are
+   * actually here, and it is how a device that has been taken over finds out —
+   * within one tick, rather than playing on beside the team that took the seat.
+   *
+   * Checking the lease on every team route instead would mean a database read
+   * per request to enforce a rule that only bites at the ten-second scale. A
+   * 401 sends the shell to the login screen, where the team can take the seat
+   * back if it is genuinely theirs.
+   */
+  const deviceId = await ensureDeviceId();
+  const leased = isDemoTeamCode(session.team_code) ? 'held' : await touchLoginLease(teamId, deviceId);
+
+  if (leased === 'evicted') {
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Unauthorized',
+        message: 'Your team signed in on another device. Only one device can be signed in at a time.',
+      },
+      { status: 401 },
+    );
+  }
 
   /**
    * The dashboard opens on the RSVP, not on attendance.

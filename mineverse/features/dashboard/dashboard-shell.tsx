@@ -4,6 +4,7 @@ import './dashboard.css';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { Flame, LogOut, Shield } from 'lucide-react';
 
 import { Hotbar } from '@/components/game/inventory/Hotbar';
@@ -45,6 +46,17 @@ export function DashboardShell() {
     try {
       const response = await fetch('/api/dashboard/data', { cache: 'no-store' });
       const payload = await response.json();
+
+      // A 401 mid-poll means the session ended under us — it expired, or the
+      // team signed in somewhere else and this device lost the seat. Sitting on
+      // the last good snapshot would leave a dashboard that looks live and can
+      // open nothing, so send them to the login screen with the reason.
+      if (response.status === 401) {
+        if (typeof payload.message === 'string') toast.error(payload.message, { duration: 8000 });
+        router.push('/login');
+        return;
+      }
+
       if (!payload.success) return;
 
       setTeam(payload.team ?? null);
@@ -56,7 +68,7 @@ export function DashboardShell() {
     } catch {
       // Keep the last good snapshot. Rounds stay locked until a fetch succeeds.
     }
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     void load();
