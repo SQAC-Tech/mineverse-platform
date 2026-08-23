@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import {
   Check,
+  CheckCircle2,
   ChevronsUpDown,
   Clock3,
   Minus,
@@ -15,6 +16,7 @@ import {
   Terminal,
   WrapText,
   X,
+  XCircle,
 } from 'lucide-react';
 import { promptBlocks, payoutText } from '@/components/game/custom-round-ui/round-presentation';
 import { runtimesFor, resolveRuntime, type Runtime } from '@/lib/gameplay/code/runtimes';
@@ -227,7 +229,8 @@ export function CodeWorkspace({
           language: active.id,
           code: draft,
           mode: custom ? 'custom' : 'samples',
-          sample_index: custom ? undefined : caseIndex,
+          /* Run ALL sample cases — no sample_index means the server will
+             execute every sample, like HackerRank's Run does. */
           stdin: custom ? stdin : '',
         }),
       });
@@ -239,13 +242,13 @@ export function CodeWorkspace({
         setCustomResult({ compile: json.compile, run: json.run });
       } else {
         const latest = json.results as CaseResult[];
-        // A Run executes the selected sample only. Keep earlier sample results
-        // visible instead of overwriting their chips with one fresh result.
-        setResults((current) => {
-          const next = [...(current ?? [])];
-          for (const result of latest) next[result.index] = result;
-          return next;
-        });
+        setResults(latest);
+        // Auto-select the first failing case for quick debugging.
+        const firstFail = latest.findIndex((r) => !r.passed);
+        if (firstFail >= 0) {
+          setCaseIndex(firstFail);
+          setCustom(false);
+        }
       }
     } catch {
       setRunError('Could not reach the runner.');
@@ -308,7 +311,7 @@ export function CodeWorkspace({
           className="cw-btn cw-btn--run"
           onClick={() => void run()}
           disabled={roundClosed || running || !active || runCooldown > 0}
-          title={runCooldown > 0 ? 'Three runs a minute' : 'Run against the selected case'}
+          title={runCooldown > 0 ? 'Three runs a minute' : 'Run against all sample cases'}
         >
           <Play size={14} /> {running ? 'Running…' : runCooldown > 0 ? `Run in ${clockdown(runCooldown)}` : 'Run code'}
         </button>
@@ -333,7 +336,22 @@ export function CodeWorkspace({
           <p className="cw-result__eyebrow">Submission result</p>
           {submissionResult.status === 'completed' ? (
             <>
-              <h1>{submissionResult.total_passed} / {submissionResult.total_cases} tests passed</h1>
+              <div className="cw-result__verdict" data-ok={String(submissionResult.total_passed === submissionResult.total_cases)}>
+                {submissionResult.total_passed === submissionResult.total_cases
+                  ? <CheckCircle2 size={28} />
+                  : <XCircle size={28} />}
+                <h1>
+                  {submissionResult.total_passed === submissionResult.total_cases
+                    ? 'All tests passed!'
+                    : `${submissionResult.total_passed} / ${submissionResult.total_cases} tests passed`}
+                </h1>
+              </div>
+
+              {submissionResult.total_passed < submissionResult.total_cases && (
+                <p className="cw-result__failed-note">
+                  {submissionResult.total_cases - submissionResult.total_passed} test{submissionResult.total_cases - submissionResult.total_passed > 1 ? 's' : ''} failed
+                </p>
+              )}
 
               {/* The hidden cases are the ones a team cannot inspect, so the
                   count is the only feedback they get. Inputs, expected outputs
@@ -422,8 +440,8 @@ export function CodeWorkspace({
           )}
 
           <p className="cw-problem__note">
-            Run checks the examples above. Your answer is marked after the round against further tests you have not
-            seen, so passing every example is a good sign — not a score.
+            Run checks all the examples above. Your answer is marked after the round against further hidden tests you
+            have not seen, so passing every example is a good sign — not a final score.
           </p>
         </section>
 
@@ -483,7 +501,7 @@ export function CodeWorkspace({
             <div className="cw-console__tabs">
               {/* Each sample is its own chip, so a failure is one click away
                   rather than buried in a wall of output. */}
-              <span className="cw-console__label">Sample tests</span>
+              <span className="cw-console__label">Test cases</span>
               {samples.map((_, index) => {
                   const outcome = results?.[index];
                   return (
@@ -495,12 +513,13 @@ export function CodeWorkspace({
                       data-state={outcome ? (outcome.passed ? 'pass' : 'fail') : 'idle'}
                       onClick={() => { setCustom(false); setCaseIndex(index); }}
                     >
+                      {outcome ? (outcome.passed ? <Check size={11} /> : <X size={11} />) : null}
                       Case {index + 1}
                     </button>
                   );
               })}
 
-              <span className="cw-console__label">Custom input</span>
+              <span className="cw-console__label">Custom</span>
               <button
                 type="button"
                 className="cw-case cw-case--custom"
@@ -513,7 +532,9 @@ export function CodeWorkspace({
 
               {!custom && results && (
                 <span className="cw-summary" data-ok={String(allPassed)}>
-                  {allPassed ? 'All examples passed' : `${samples.filter((_, index) => results[index]?.passed).length}/${samples.length} passed`}
+                  {allPassed
+                    ? `✓ All ${samples.length} passed`
+                    : `${samples.filter((_, index) => results[index]?.passed).length} passed, ${samples.filter((_, index) => results[index] && !results[index]?.passed).length} failed`}
                 </span>
               )}
             </div>
@@ -558,8 +579,8 @@ export function CodeWorkspace({
               ) : !results ? (
                 <p className="cw-out cw-out--muted">
                   {samples.length
-                    ? 'Press Run — or Ctrl+Enter — to check your code against the examples.'
-                    : 'This question has no examples. Use Custom to run your own input.'}
+                    ? 'Press Run code — or Ctrl+Enter — to test your code against all sample cases.'
+                    : 'This question has no sample cases. Use Custom input to run your own input.'}
                 </p>
               ) : shown ? (
                 <div className="cw-case-detail">

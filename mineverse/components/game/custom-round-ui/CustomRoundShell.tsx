@@ -509,7 +509,23 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
         }
         return null;
       }
+      /**
+       * Nail the evaluated code down before anything else can move.
+       *
+       * The server already holds it — `upsertTeamSubmission` runs before the
+       * tests do — so a team that never presses Save cannot actually lose the
+       * submission. This is the local half: mark it synced so the autosave
+       * loop stops treating it as outstanding, and write it to this device so a
+       * refresh restores the exact code that was judged rather than an earlier
+       * keystroke.
+       */
       autosave.markSynced(question.id, code);
+      writeDraft(teamCode, roundId, question.id, code);
+
+      if (evaluation?.status === 'completed' && evaluation.total_passed === evaluation.total_cases) {
+        toast.success(`All ${evaluation.total_cases} tests passed — submission saved.`);
+      }
+
       await refresh();
       return evaluation ?? null;
     } catch {
@@ -816,7 +832,15 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
                         {/* The prompt usually opens with a code block, so the seeded
                             title is what makes a readable list item. */}
                         <strong>{question.title || `Question ${index + 1}`}</strong>
-                        <small>{statusLabel(question.submission_status)}</small>
+                        {/* A coding question that has been through the judge says
+                            so. It read "Saved" — the same word a half-typed
+                            draft shows — so a team that had submitted could not
+                            tell the difference and assumed it had been lost. */}
+                        <small>
+                          {question.coding_evaluation?.status === 'completed'
+                            ? `Submitted — ${question.coding_evaluation.total_passed}/${question.coding_evaluation.total_cases} passed`
+                            : statusLabel(question.submission_status)}
+                        </small>
                       </span>
                       {locked
                         ? <LockKeyhole className="round-ui__qitem-lock" size={14} aria-label="Final answer" />

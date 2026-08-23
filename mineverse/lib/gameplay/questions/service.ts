@@ -259,14 +259,46 @@ export async function lockTeamSection(teamId: string, payload: z.infer<typeof se
   const untestedCoding = (submissions ?? []).filter((row: SubmissionRow) => {
     if (!codingIds.has(row.question_id)) return false;
     const response = row.response as Record<string, unknown> | null;
-    return response?.kind !== 'coding_evaluation' || response.status !== 'completed';
+    /**
+     * Having been through Submit is the test, not having been graded by it.
+     *
+     * This also demanded `status === 'completed'`, which is a judgement about
+     * the judge rather than about the team: when the runner rate limits us the
+     * submit path still saves the code and records `runner_error`, so a team
+     * that pressed Submit and watched it fail could never hand the section in.
+     * Their answer was safe and the round was not — the platform's outage
+     * became the team's dead end.
+     *
+     * A missing summary still blocks, because that means Submit was never
+     * pressed and the section button would be bypassing the evaluator. An
+     * ungraded submission is picked up by the admin grading run afterwards.
+     */
+    return response?.kind !== 'coding_evaluation';
   });
   if (untestedCoding.length > 0) {
+    /**
+     * Name them, and say which button.
+     *
+     * "Submit and evaluate 2 coding questions" is true and useless: a team that
+     * has written and *saved* an answer reads it as the platform losing their
+     * work. Saving and submitting are different actions here — Save keeps a
+     * draft, Submit runs it against the tests — and the message never said so,
+     * so nobody knew which one they were missing or on which question.
+     */
+    const titles = valid
+      .filter((question: QuestionRow) => untestedCoding.some((row: SubmissionRow) => row.question_id === question.id))
+      .map((question: QuestionRow) => {
+        const content = question.content as { title?: unknown } | null;
+        return typeof content?.title === 'string' ? content.title : 'a coding question';
+      });
+
     return {
       ok: false as const,
       status: 400,
       code: 'CODING_EVALUATION_REQUIRED',
-      message: `Submit and evaluate ${untestedCoding.length} coding question${untestedCoding.length === 1 ? '' : 's'} before submitting this section.`,
+      message:
+        `Open ${titles.length === 1 ? 'this question' : 'these questions'} and press Submit in the code editor first: ` +
+        `${titles.join(', ')}. Saving keeps a draft; Submit is what runs it against the tests.`,
     };
   }
 
