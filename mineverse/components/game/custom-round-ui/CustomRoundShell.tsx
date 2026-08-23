@@ -23,7 +23,7 @@ import { useProctorSession } from '@/components/game/proctor/ProctorProvider';
 import { supabaseClient } from '@/lib/supabase/client';
 import { GuardianArena } from './GuardianArena';
 import { NotificationTray, type LedgerEntry } from './NotificationTray';
-import { WorldEvent } from './WorldEvent';
+import { WorldEvent, EVENT_FX } from './WorldEvent';
 import { PvpPanel } from '../pvp/PvpPanel';
 import { EndRail } from '@/components/day2/end-round/EndRail';
 import { CodeWorkspace } from '@/components/game/code/CodeWorkspace';
@@ -313,6 +313,9 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
     ? Math.max(0, Math.floor((new Date(activeEvent.expires_at).getTime() - now) / 1000))
     : null;
   const eventLive = Boolean(activeEvent) && (eventRemaining === null || eventRemaining > 0);
+  /* Only while the event is actually running — a lapsed window leaves the
+     card in place but the sky should clear. */
+  const eventFx = eventLive ? EVENT_FX[activeEvent?.event_key ?? ''] ?? null : null;
   const isRoundLocked = (remainingSeconds === 0 && Boolean(endsAt)) || roundStatus === 'completed' || roundStatus === 'locked';
 
   // What the round's own recipe costs, against what the team is holding.
@@ -546,6 +549,9 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
   return (
     <main className={`round-ui ${chrome.themeClass}`}>
       <div className="round-ui__backdrop" aria-hidden="true" />
+      {/* Between the artwork and the scrim, so the weather falls over the scene
+          and the shade then dims both together. */}
+      {eventFx && <div className={`round-ui__weather round-ui__weather--${eventFx}`} aria-hidden="true" />}
       <div className="round-ui__shade" aria-hidden="true" />
 
       <div className="round-ui__page">

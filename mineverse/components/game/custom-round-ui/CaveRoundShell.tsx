@@ -31,7 +31,7 @@ import { Hotbar } from '@/components/game/inventory/Hotbar';
 import type { CraftedItem } from '@/features/dashboard/types';
 import { GuardianArena } from './GuardianArena';
 import { NotificationTray, type LedgerEntry } from './NotificationTray';
-import { WorldEvent } from './WorldEvent';
+import { WorldEvent, EVENT_FX } from './WorldEvent';
 import { languagePrompts, offersLanguageChoice, payoutList, promptBlocks, questionTypeLabel, roundGuardian } from './round-presentation';
 import './round-ui.css';
 
@@ -302,6 +302,9 @@ export function CaveRoundShell() {
     ? Math.max(0, Math.floor((new Date(activeEvent.expires_at).getTime() - now) / 1000))
     : null;
   const eventLive = Boolean(activeEvent) && (eventRemaining === null || eventRemaining > 0);
+  /* Only while the event is actually running — a lapsed window leaves the
+     card in place but the sky should clear. */
+  const eventFx = eventLive ? EVENT_FX[activeEvent?.event_key ?? ''] ?? null : null;
 
   const sectionLocked = activeQuestions.length > 0
     && activeQuestions.every((item) => FINAL_STATUSES.includes(item.submission_status ?? ''));
@@ -468,6 +471,9 @@ export function CaveRoundShell() {
   return (
     <main className="round-ui round-ui--cave">
       <div className="round-ui__backdrop" aria-hidden="true" />
+      {/* Between the artwork and the scrim, so the weather falls over the scene
+          and the shade then dims both together. */}
+      {eventFx && <div className={`round-ui__weather round-ui__weather--${eventFx}`} aria-hidden="true" />}
       <div className="round-ui__shade" aria-hidden="true" />
 
       <div className="round-ui__page">

@@ -27,12 +27,16 @@ interface WorldEventProps {
 /**
  * Ambient effect per event, in world-event-fx.css.
  *
+ * Exported because the round shells draw the same event twice now: once as this
+ * card's weather, and once as the full-screen layer over the scene. Both have
+ * to agree on the key, so there is one map.
+ *
  * Keyed off `event_key` rather than the round so an event triggered on a round
  * it was not written for still draws its own weather, and so a key this build
  * does not know about — an older client against a newer catalog — draws nothing
  * at all rather than a half-styled panel.
  */
-const EVENT_FX: Record<string, string> = {
+export const EVENT_FX: Record<string, string> = {
   heavy_rain: 'rain',
   fertile_marsh: 'marsh',
   gold_rush: 'gold',

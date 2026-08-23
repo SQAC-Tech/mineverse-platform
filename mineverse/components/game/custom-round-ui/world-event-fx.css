@@ -276,3 +276,84 @@
     animation: none;
   }
 }
+
+/* ── Full-screen weather ─────────────────────────────────────── */
+
+/*
+ * The same event, on the whole scene rather than in its card.
+ *
+ * The `.we-fx` field above is a fixed set of ~60 box-shadow stamps covering
+ * about 338x510px — deliberately, because it lines a 260px panel. Stretched
+ * over a viewport it would thin out to a drizzle, so the full-screen layer is
+ * a different technique: a small SVG tile, repeated, translated by exactly one
+ * tile height. The loop lands on identical pixels so there is no seam, and a
+ * transform on a repeating background is one composited layer rather than a
+ * full-viewport repaint every frame — which matters on lab machines running
+ * this for an hour.
+ *
+ * Sits between the scene's backdrop and its shade, so the rain falls over the
+ * artwork and the scrim then dims both together. Rain is the only event with a
+ * full-screen treatment; the others keep their card weather, and adding one is
+ * a matter of one more `--<fx>` block here.
+ */
+.round-ui__weather {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  animation: we-fx-in 900ms ease-out both;
+}
+
+.round-ui__weather::before,
+.round-ui__weather::after {
+  content: '';
+  position: absolute;
+  /* Overscan: the layer is translated a whole tile, so it must have a tile of
+     slack above and below or the edges would sweep bare. */
+  top: -160px;
+  left: 0;
+  width: 100%;
+  height: calc(100% + 320px);
+  background-repeat: repeat;
+  will-change: transform;
+}
+
+/* Far sheet: short, faint, slow. */
+.round-ui__weather--rain::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cg stroke='%23cfe6fb' stroke-width='1.6' stroke-linecap='round' opacity='0.42'%3E%3Cline x1='18' y1='10' x2='15' y2='28'/%3E%3Cline x1='52' y1='34' x2='49' y2='52'/%3E%3Cline x1='96' y1='6' x2='93' y2='24'/%3E%3Cline x1='124' y1='48' x2='121' y2='66'/%3E%3Cline x1='8' y1='72' x2='5' y2='90'/%3E%3Cline x1='66' y1='88' x2='63' y2='106'/%3E%3Cline x1='110' y1='96' x2='107' y2='114'/%3E%3Cline x1='34' y1='110' x2='31' y2='128'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 140px 140px;
+  animation: rd-rain-far 1.15s linear infinite;
+}
+
+/* Near sheet: longer, brighter, twice the speed. Depth comes from the pair. */
+.round-ui__weather--rain::after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cg stroke='%23e6f4ff' stroke-width='2' stroke-linecap='round' opacity='0.66'%3E%3Cline x1='12' y1='4' x2='7' y2='34'/%3E%3Cline x1='58' y1='20' x2='53' y2='50'/%3E%3Cline x1='88' y1='48' x2='83' y2='78'/%3E%3Cline x1='30' y1='62' x2='25' y2='92'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 100px 100px;
+  animation: rd-rain-near 0.62s linear infinite;
+}
+
+/* A wash over the scene so the weather reads even where the art is dark. */
+.round-ui__weather--rain {
+  background:
+    linear-gradient(180deg, rgba(150, 190, 225, 0.16), rgba(150, 190, 225, 0) 45%),
+    linear-gradient(0deg, rgba(30, 60, 80, 0.22), transparent 55%);
+}
+
+/* Translating exactly one tile height is what keeps the loop seamless. */
+@keyframes rd-rain-far {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(0, 140px, 0); }
+}
+
+@keyframes rd-rain-near {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(0, 100px, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .round-ui__weather::before,
+  .round-ui__weather::after {
+    animation: none;
+  }
+}

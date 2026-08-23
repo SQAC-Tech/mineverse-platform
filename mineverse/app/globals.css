@@ -348,3 +348,65 @@
   background-color: #aa0000;
   border: 2px solid #550000;
 }
+
+/* ── Scrollbars ──────────────────────────────────────────────── */
+
+/*
+ * One themed scrollbar for the whole platform.
+ *
+ * The default chrome scrollbar is a light-grey slab, and on a dark Minecraft
+ * panel it reads as a browser artefact sitting on top of the game rather than
+ * part of it — most obviously in the guardian arena, where a plain bar ran down
+ * the side of a forest-green fight.
+ *
+ * Everything is expressed against `--sb-track` / `--sb-thumb`, defined here as
+ * a neutral dark pair and re-pointed by each themed surface at its own accent.
+ * A biome does not have to know this file exists: it sets `--rd-accent`, and
+ * the block in round-ui.css maps that onto these two.
+ *
+ * Firefox gets `scrollbar-color`, WebKit the pseudo-elements. Both are set, so
+ * neither browser falls back to the grey slab.
+ */
+:root {
+  --sb-track: rgba(255, 255, 255, 0.04);
+  --sb-thumb: rgba(255, 255, 255, 0.22);
+  --sb-thumb-hover: rgba(255, 255, 255, 0.34);
+  --sb-size: 10px;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--sb-thumb) var(--sb-track);
+}
+
+*::-webkit-scrollbar {
+  width: var(--sb-size);
+  height: var(--sb-size);
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--sb-track);
+}
+
+/*
+ * Square, with a border that lets the track show through as a gutter — the
+ * blocky look the rest of the platform is drawn in. `background-clip: content-box`
+ * is what turns that border into a gap rather than a coloured edge.
+ */
+*::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 0;
+  background: var(--sb-thumb);
+  background-clip: content-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--sb-thumb-hover);
+  background-clip: content-box;
+}
+
+/* Stops the little dead square where a vertical and horizontal bar meet from
+   rendering as default grey. */
+*::-webkit-scrollbar-corner {
+  background: var(--sb-track);
+}

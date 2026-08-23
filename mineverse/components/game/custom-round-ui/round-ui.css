@@ -2981,3 +2981,35 @@
   bottom: 12px;
   z-index: 10;
 }
+
+/* ── Scrollbars, per biome ───────────────────────────────────── */
+
+/*
+ * The base scrollbar lives in app/globals.css; this only re-points its two
+ * variables at whichever biome is on screen.
+ *
+ * Written once against `--rd-accent` rather than five times per palette, so a
+ * biome that changes its accent — or a new one — gets a matching scrollbar
+ * without touching this block. The forest's `#7ad64e` is what turns the
+ * guardian arena's bar green; the cave gets blue, the mountain amber, the
+ * Nether ember, the End purple, all for free.
+ *
+ * Set on the scene roots rather than on the panels that scroll, because the
+ * arena, the rail, the question list and the prompt all scroll and all sit
+ * inside one of these.
+ */
+.round-ui,
+.round-ui-scene,
+.biome {
+  --sb-track: rgb(from var(--rd-edge) r g b / 35%);
+  --sb-thumb: rgb(from var(--rd-accent) r g b / 55%);
+  --sb-thumb-hover: rgb(from var(--rd-accent) r g b / 80%);
+}
+
+/* The parchment panels are light, so the dark-on-light pairing inverts. */
+.round-ui__code,
+.round-ui__prompt-blocks {
+  --sb-track: rgba(0, 0, 0, 0.12);
+  --sb-thumb: rgba(0, 0, 0, 0.34);
+  --sb-thumb-hover: rgba(0, 0, 0, 0.5);
+}

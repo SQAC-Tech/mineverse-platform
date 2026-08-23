@@ -1943,3 +1943,28 @@
   color: #7d7264;
   cursor: not-allowed;
 }
+
+/* ── Scrollbars ──────────────────────────────────────────────── */
+
+/* The dashboard is the Nether palette; its scrollbars follow the ember the
+   rest of its chrome uses. Base rules are in app/globals.css. */
+.dash {
+  --sb-track: rgba(82, 32, 38, 0.4);
+  --sb-thumb: rgb(from var(--d-ember) r g b / 55%);
+  --sb-thumb-hover: rgb(from var(--d-ember) r g b / 82%);
+}
+
+/* Parchment: the rulebook's page and the tan overlays read as paper, so a
+   glowing ember bar down the side of them would look pasted on. */
+.rb__page,
+.rb__index {
+  --sb-track: rgba(93, 63, 20, 0.18);
+  --sb-thumb: rgba(93, 63, 20, 0.55);
+  --sb-thumb-hover: rgba(93, 63, 20, 0.78);
+}
+
+.dov__body {
+  --sb-track: rgba(216, 174, 106, 0.14);
+  --sb-thumb: rgba(216, 174, 106, 0.45);
+  --sb-thumb-hover: rgba(216, 174, 106, 0.7);
+}
