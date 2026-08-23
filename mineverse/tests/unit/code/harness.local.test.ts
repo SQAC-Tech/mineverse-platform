@@ -74,11 +74,88 @@ const CASES: Array<{ fn: FnContract; stdin: string; expect: string; sol: Record<
   },
 ];
 
+
+const STRING_IN: FnContract = { name: 'checkEcho', params: [{ name: 'signal', type: 'string' }], returns: 'string' };
+const LIST_OUT: FnContract = { name: 'trimChain', params: [{ name: 'parts', type: 'int[]' }], returns: 'int[]', join: ' ' };
+const LINES_OUT: FnContract = { name: 'splitChain', params: [{ name: 'parts', type: 'int[]' }], returns: 'string[]', join: '\n' };
+
+const MORE: Array<{ fn: FnContract; stdin: string; expect: string; sol: Record<LanguageId, string> }> = [
+  {
+    fn: STRING_IN, stdin: 'level\n', expect: 'ECHO',
+    sol: {
+      cpp: `class Solution {
+public:
+ string checkEcho(string& signal){string r(signal.rbegin(),signal.rend());return r==signal?"ECHO":"SILENT";}
+};`,
+      python: `class Solution:
+    def check_echo(self, signal):
+        return "ECHO" if signal == signal[::-1] else "SILENT"`,
+      java: `class Solution {
+ public String checkEcho(String s){return new StringBuilder(s).reverse().toString().equals(s)?"ECHO":"SILENT";}
+}`,
+      javascript: `class Solution {
+ checkEcho(s){return s === [...s].reverse().join("") ? "ECHO" : "SILENT";}
+}`,
+      c: `char* checkEcho(char* s){int n=strlen(s);for(int i=0;i<n/2;i++) if(s[i]!=s[n-1-i]) return "SILENT"; return "ECHO";}`,
+    },
+  },
+  {
+    fn: LIST_OUT, stdin: '1 1 2 3 3 3\n', expect: '1 2 3',
+    sol: {
+      cpp: `class Solution {
+public:
+ vector<int> trimChain(vector<int>& p){vector<int> r;for(int x:p) if(r.empty()||r.back()!=x) r.push_back(x);return r;}
+};`,
+      python: `class Solution:
+    def trim_chain(self, parts):
+        r=[]
+        for x in parts:
+            if not r or r[-1]!=x: r.append(x)
+        return r`,
+      java: `class Solution {
+ public int[] trimChain(int[] p){int[] t=new int[p.length];int k=0;for(int x:p) if(k==0||t[k-1]!=x) t[k++]=x;return java.util.Arrays.copyOf(t,k);}
+}`,
+      javascript: `class Solution {
+ trimChain(p){const r=[];for(const x of p) if(!r.length||r[r.length-1]!==x) r.push(x);return r;}
+}`,
+      c: `int* trimChain(int* p,int n,int* returnSize){static int r[100000];int k=0;for(int i=0;i<n;i++) if(k==0||r[k-1]!=p[i]) r[k++]=p[i];*returnSize=k;return r;}`,
+    },
+  },
+  {
+    fn: LINES_OUT, stdin: '1 1 2 3 3 3\n', expect: '2 3\n1',
+    sol: {
+      cpp: `class Solution {
+public:
+ vector<string> splitChain(vector<int>& p){map<int,int> c;for(int x:p)c[x]++;string odd,even;for(auto& kv:c){string s=to_string(kv.first);if(kv.second%2){if(!odd.empty())odd+=" ";odd+=s;}else{if(!even.empty())even+=" ";even+=s;}}return {odd.empty()?"NONE":odd, even.empty()?"NONE":even};}
+};`,
+      python: `class Solution:
+    def split_chain(self, parts):
+        from collections import Counter
+        c=Counter(parts)
+        odd=[str(k) for k in sorted(c) if c[k]%2]
+        even=[str(k) for k in sorted(c) if c[k]%2==0]
+        return [" ".join(odd) or "NONE", " ".join(even) or "NONE"]`,
+      java: `class Solution {
+ public String[] splitChain(int[] p){java.util.TreeMap<Integer,Integer> c=new java.util.TreeMap<>();for(int x:p)c.merge(x,1,Integer::sum);StringBuilder o=new StringBuilder(),e=new StringBuilder();for(java.util.Map.Entry<Integer,Integer> kv:c.entrySet()){StringBuilder t=kv.getValue()%2==1?o:e;if(t.length()>0)t.append(" ");t.append(kv.getKey());}return new String[]{o.length()==0?"NONE":o.toString(), e.length()==0?"NONE":e.toString()};}
+}`,
+      javascript: `class Solution {
+ splitChain(p){const c=new Map();for(const x of p)c.set(x,(c.get(x)||0)+1);const ks=[...c.keys()].sort((a,b)=>a-b);const o=ks.filter(k=>c.get(k)%2),e=ks.filter(k=>c.get(k)%2===0);return [o.join(" ")||"NONE", e.join(" ")||"NONE"];}
+}`,
+      c: `
+char** splitChain(int* p,int n,int* returnSize){static char* out[2];static char ob[4096],eb[4096];ob[0]=0;eb[0]=0;int seen[100000]={0};int cnt[100000]={0};for(int i=0;i<n;i++)cnt[p[i]]++;for(int v=0;v<100000;v++){if(!cnt[v])continue;char t[16];sprintf(t,"%d",v);char* d=(cnt[v]%2)?ob:eb;if(*d)strcat(d," ");strcat(d,t);}out[0]=*ob?ob:"NONE";out[1]=*eb?eb:"NONE";*returnSize=2;return out;}`,
+    },
+  },
+];
+
 describe('generated wrappers compile and run', () => {
-  for (const { fn, stdin, expect: want, sol } of CASES) {
+  for (const { fn, stdin, expect: want, sol } of [...CASES, ...MORE]) {
     for (const language of Object.keys(sol) as LanguageId[]) {
       it(`${language} — ${fn.name}`, () => {
-        const out = runLocal(language, wrapForExecution(fn, language, sol[language]), stdin);
+        // Windows turns a printed newline into CRLF on the way out of the
+        // console. The judge is Linux, so normalise here — this test is
+        // measuring the generated wrapper, not the host it runs on.
+        const raw = runLocal(language, wrapForExecution(fn, language, sol[language]), stdin);
+        const out = raw.split(String.fromCharCode(13)).join('');
         expect(out.trim()).toBe(want);
       }, 120_000);
     }

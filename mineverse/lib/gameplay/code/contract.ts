@@ -236,8 +236,11 @@ function cStarter(fn: FnContract): string {
     p.type === 'int[]' ? [`int* ${p.name}`, `int ${p.name}Size`]
       : p.type === 'string[]' ? [`char** ${p.name}`, `int ${p.name}Size`]
         : p.type === 'int' ? [`int ${p.name}`] : [`char* ${p.name}`]).join(', ');
-  const ret = fn.returns === 'int' ? 'int' : fn.returns === 'string' ? 'char*' : 'int*';
-  const extra = fn.returns === 'int[]' ? ', int* returnSize' : '';
+  const ret = fn.returns === 'int' ? 'int'
+    : fn.returns === 'string' ? 'char*'
+      : fn.returns === 'string[]' ? 'char**' : 'int*';
+  // A list return has no length of its own in C, so the caller is handed one.
+  const extra = fn.returns === 'int[]' || fn.returns === 'string[]' ? ', int* returnSize' : '';
   return [`${ret} ${fn.name}(${args}${extra}) {`, '    // Write your logic here', '}', ''].join('\n');
 }
 
@@ -257,9 +260,13 @@ function cHarness(fn: FnContract): { prelude: string; main: string } {
   const sep = fn.join === '\n' ? '\\n' : ' ';
   const call = fn.returns === 'int[]'
     ? `    int __n = 0; int* __r = ${fn.name}(${args}, &__n);\n    for (int i = 0; i < __n; i++) { if (i) printf("${sep}"); printf("%d", __r[i]); }`
-    : fn.returns === 'int'
-      ? `    int __r = ${fn.name}(${args});\n    printf("%d", __r);`
-      : `    char* __r = ${fn.name}(${args});\n    printf("%s", __r);`;
+    : fn.returns === 'string[]'
+      // C has no length on a `char**` either, so a word list is handed back the
+      // same way an int list is: the pointer plus a size out-param.
+      ? `    int __n = 0; char** __r = ${fn.name}(${args}, &__n);\n    for (int i = 0; i < __n; i++) { if (i) printf("${sep}"); printf("%s", __r[i]); }`
+      : fn.returns === 'int'
+        ? `    int __r = ${fn.name}(${args});\n    printf("%d", __r);`
+        : `    char* __r = ${fn.name}(${args});\n    printf("%s", __r);`;
 
   return {
     prelude: [

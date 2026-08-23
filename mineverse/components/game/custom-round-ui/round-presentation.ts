@@ -197,7 +197,19 @@ export function buildQuestionTabs(questions: ShellQuestion[]): QuestionTab[] {
  * which split the reference-semantics questions' listings into three blocks
  * with two sentences of body text stranded in the middle of the program.
  */
+/**
+ * An indented bullet or a labelled line is prose, however far it is indented.
+ *
+ * A problem statement lays its rules out as an indented list, and the leading
+ * whitespace alone used to make every one of them "code" — so a spec rendered
+ * half as sentences and half as grey monospace boxes, splitting clauses across
+ * the two. "Input : the weights on one line, read from" would sit as text with
+ * "standard input." boxed underneath it.
+ */
+const PROSE_LINE = /^\s*(?:[-*•]\s|\d+[.)]\s|(?:Input|Output|Rules?|Examples?|Constraints?|Note)\b\s*:)/i;
+
 export function isCodeLine(line: string) {
+  if (PROSE_LINE.test(line)) return false;
   return /^\s{2,}|[{};]\s*$|^\s*(?:\d+\s{2,}|[#/]{2}|def |class |for |while |if |int |print\(|cout|return |import |public |values? =|\w+\s*\[[^\]]*\]\s*=|\w+(?:\.\w+)+\s*\(|\w+ = )/.test(line);
 }
 

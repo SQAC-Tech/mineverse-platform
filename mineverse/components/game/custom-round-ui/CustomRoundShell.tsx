@@ -54,6 +54,28 @@ function starterCodeFor(question: { fn_contract?: FnContract | null }, language:
   return resolveRuntime(language)?.starter ?? '';
 }
 
+/**
+ * Whether the editor still holds boilerplate rather than the team's work.
+ *
+ * True for an empty buffer, for this question's generated stub in any offered
+ * language, and for the old whole-program templates that predate the function
+ * contracts — a team that opened a question last week has one of those saved,
+ * and it would otherwise shadow the stub forever.
+ *
+ * Used to decide when it is safe to swap the buffer. Anything a team has
+ * actually typed fails this test and is never replaced.
+ */
+function isPristine(question: { fn_contract?: FnContract | null; language_options?: string[] }, code: string): boolean {
+  const trimmed = code.trim();
+  if (!trimmed) return true;
+
+  for (const runtime of offeredRuntimes(question.language_options)) {
+    if (trimmed === starterCodeFor(question, runtime.id).trim()) return true;
+    if (runtime.starter && trimmed === runtime.starter.trim()) return true;
+  }
+  return false;
+}
+
 interface CustomRoundShellProps {
   roundId: number;
 }
@@ -290,8 +312,13 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
     for (const question of questions) {
       const saved = question.submitted_language ?? readLanguage(teamCode, roundId, question.id);
       const persistedCode = question.submitted_code ?? '';
-      loaded[question.id] = persistedCode || readDraft(teamCode, roundId, question.id)
-        || (question.type === 'coding' ? starterCodeFor(question, defaultLanguageFor(question.language_options)) : '');
+      const language = offersLanguage(question.language_options, saved)
+        ? saved!
+        : defaultLanguageFor(question.language_options);
+      const restored = persistedCode || readDraft(teamCode, roundId, question.id);
+      loaded[question.id] = question.type === 'coding' && isPristine(question, restored)
+        ? starterCodeFor(question, language)
+        : restored;
       if (offersLanguage(question.language_options, saved)) loadedLanguages[question.id] = saved!;
     }
 
@@ -1114,6 +1141,15 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
           onLanguageChange={(next) => {
             setLanguages((current) => ({ ...current, [codingQuestion.id]: next }));
             writeLanguage(teamCode, roundId, codingQuestion.id, next);
+
+            /* Swap the stub with the language, but never over real work. The
+               editor used to keep whichever language's template it opened with
+               until the page was reloaded, so picking Python left C++ on
+               screen and the submission went up in the wrong language. */
+            const current = drafts[codingQuestion.id] ?? '';
+            if (isPristine(codingQuestion, current)) {
+              changeDraft(codingQuestion.id, starterCodeFor(codingQuestion, next));
+            }
           }}
           onSubmit={() => submitCoding(codingQuestion)}
           onClose={() => setCodingId(null)}

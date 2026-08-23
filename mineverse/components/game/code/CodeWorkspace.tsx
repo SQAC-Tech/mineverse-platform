@@ -28,6 +28,17 @@ const CodeEditor = dynamic(() => import('./CodeEditor').then((m) => m.CodeEditor
   loading: () => <p className="cw-loading">Loading editor…</p>,
 });
 
+/** Share of cases passed, for the progress bar. An empty set reads as full. */
+function pct(passed: number, total: number): number {
+  return total > 0 ? Math.round((passed / total) * 100) : 100;
+}
+
+/** Green for all, amber for some, red for none. */
+function countTone(passed: number, total: number): string {
+  if (total === 0 || passed === total) return 'cw-tests__count cw-tests__count--pass';
+  return passed === 0 ? 'cw-tests__count cw-tests__count--fail' : 'cw-tests__count cw-tests__count--part';
+}
+
 export interface SampleCase {
   stdin: string;
   stdout: string;
@@ -266,13 +277,41 @@ export function CodeWorkspace({
           {submissionResult.status === 'completed' ? (
             <>
               <h1>{submissionResult.total_passed} / {submissionResult.total_cases} tests passed</h1>
-              <dl className="cw-result__breakdown">
-                <div><dt>Sample cases</dt><dd>{submissionResult.sample_passed} / {submissionResult.sample_total} passed</dd></div>
-                <div><dt>Hidden cases</dt><dd>{submissionResult.hidden_passed} / {submissionResult.hidden_total} passed</dd></div>
-              </dl>
-              {submissionResult.hidden_total > submissionResult.hidden_passed && (
-                <p>{submissionResult.hidden_total - submissionResult.hidden_passed} hidden test case{submissionResult.hidden_total - submissionResult.hidden_passed === 1 ? '' : 's'} failed.</p>
-              )}
+
+              {/* The hidden cases are the ones a team cannot inspect, so the
+                  count is the only feedback they get. Inputs, expected outputs
+                  and which case failed all stay on the server. */}
+              <div className="cw-tests">
+                <div className="cw-tests__row">
+                  <span>
+                    <b>Sample cases</b>
+                    <small>The examples shown in the question</small>
+                  </span>
+                  <span className={countTone(submissionResult.sample_passed, submissionResult.sample_total)}>
+                    {submissionResult.sample_passed} / {submissionResult.sample_total}
+                  </span>
+                  <span className="cw-tests__bar">
+                    <i style={{ width: `${pct(submissionResult.sample_passed, submissionResult.sample_total)}%` }} />
+                  </span>
+                </div>
+
+                <div className="cw-tests__row">
+                  <span>
+                    <b>Hidden cases</b>
+                    <small>
+                      {submissionResult.hidden_total > submissionResult.hidden_passed
+                        ? `${submissionResult.hidden_total - submissionResult.hidden_passed} failed — inputs stay hidden`
+                        : 'Extra tests you cannot see'}
+                    </small>
+                  </span>
+                  <span className={countTone(submissionResult.hidden_passed, submissionResult.hidden_total)}>
+                    {submissionResult.hidden_passed} / {submissionResult.hidden_total}
+                  </span>
+                  <span className="cw-tests__bar">
+                    <i style={{ width: `${pct(submissionResult.hidden_passed, submissionResult.hidden_total)}%` }} />
+                  </span>
+                </div>
+              </div>
             </>
           ) : <><h1>Code saved</h1><p>The runner could not finish evaluation. You can submit again once it is available.</p></>}
           <button type="button" className="cw-btn" onClick={() => setSubmissionResult(null)}>View submitted code</button>

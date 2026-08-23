@@ -423,3 +423,119 @@
   .cw-problem { max-height: 34vh; }
 }
 .cw-select { appearance: auto; background-color: rgba(255, 255, 255, 0.1); color: #fff; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 4px; padding: 4px 8px; font-size: 12px; outline: none; cursor: pointer; } .cw-select option { background-color: #222; color: #fff; }
+
+/* ── Reading text is text ────────────────────────────────────── */
+
+/*
+ * The problem panel is the one place on the platform someone reads a paragraph
+ * under time pressure, and it was set in the Minecraft pixel face — which is
+ * built for six-character labels, not for constraints and edge cases. The
+ * colours and the chrome stay exactly as they were; only the letterforms change.
+ *
+ * Pixel type is kept for what it is good at: the biome eyebrow and the short
+ * uppercase section labels above.
+ */
+.cw-problem h1,
+.cw-problem h2,
+.cw-problem p,
+.cw-problem li,
+.cw-example__why,
+.cw-problem__note {
+  font-family: var(--rd-font-body, ui-sans-serif, system-ui, 'Segoe UI', Roboto, sans-serif);
+  letter-spacing: normal;
+}
+
+.cw-problem h1 { font-size: 20px; line-height: 1.3; }
+.cw-problem h2 { font-size: 15px; line-height: 1.35; }
+
+.cw-problem p,
+.cw-problem li,
+.cw-example__why,
+.cw-problem__note {
+  font-size: 14.5px;
+  line-height: 1.6;
+}
+
+/* Code stays monospace — real monospace, not the pixel face. */
+.cw-problem pre,
+.cw-problem code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  letter-spacing: normal;
+}
+
+.cw-example__label,
+.cw-problem__sub {
+  font-family: var(--rd-font-body, ui-sans-serif, system-ui, sans-serif);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+/* ── Hidden case results ─────────────────────────────────────── */
+
+/*
+ * A team has to be able to see that the cases they cannot read were run, and
+ * how many of them passed — otherwise submitting feels like shouting into a
+ * void. The counts are all that crosses: never an input, never an expected
+ * output, never which particular case failed.
+ */
+.cw-tests {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.cw-tests__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 13px;
+  border: 1px solid #2a333d;
+  border-radius: 4px;
+  background: #10151c;
+}
+
+.cw-tests__row b {
+  color: #d6dde5;
+  font-family: var(--rd-font-body, ui-sans-serif, system-ui, sans-serif);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.cw-tests__row small {
+  display: block;
+  margin-top: 2px;
+  color: #7f8a94;
+  font-family: var(--rd-font-body, ui-sans-serif, system-ui, sans-serif);
+  font-size: 12px;
+}
+
+.cw-tests__count {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 15px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.cw-tests__count--pass { color: #7fd99a; }
+.cw-tests__count--part { color: #f2c14e; }
+.cw-tests__count--fail { color: #e8776b; }
+
+/* A bar reads faster than a fraction when the round is nearly over. */
+.cw-tests__bar {
+  grid-column: 1 / -1;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: #202832;
+}
+
+.cw-tests__bar i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #4f9d63, #7fd99a);
+}
