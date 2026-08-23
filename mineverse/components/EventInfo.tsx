@@ -5,7 +5,7 @@ export const EventInfo = () => {
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   const [isClient, setIsClient] = useState(false);
   
-  const venue = process.env.NEXT_PUBLIC_EVENT_VENUE || 'MAIN AUDITORIUM';
+  const venue = process.env.NEXT_PUBLIC_EVENT_VENUE || 'TP 2 711';
   const dateDisplay = process.env.NEXT_PUBLIC_EVENT_DATE_DISPLAY || 'NOV 15-16, 2026';
   const timeDisplay = process.env.NEXT_PUBLIC_EVENT_TIME || '09:00 AM';
 

@@ -8,7 +8,7 @@ import {
   windowState,
 } from '@/lib/screening/config';
 import { getScreeningRound, sweepExpiredAttempts } from '@/lib/screening/service';
-import { clearShortlist, commitShortlist, previewShortlist, rankTeams, rsvpStates, setRsvp } from '@/lib/screening/shortlist';
+import { clearShortlist, commitShortlist, previewShortlist, promoteToShortlist, rankTeams, rsvpStates, setRsvp } from '@/lib/screening/shortlist';
 import { GAUNTLET_MAX_SCORE, listAttemptDetails } from '@/lib/screening/attempts';
 import { mailCounts, recentMailLog, sendAnnouncement, sendResults } from '@/lib/screening/mailer';
 
@@ -150,6 +150,18 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ success: false, error: { code: 'BAD_TEAM' } }, { status: 400 });
         }
         const result = await setRsvp(teamId, Boolean(body.confirmed), PANEL_ADMIN_ACTOR);
+        if (!result.ok) {
+          return NextResponse.json({ success: false, error: { code: result.code, message: result.message } }, { status: 409 });
+        }
+        return NextResponse.json({ success: true, data: result });
+      }
+
+      case 'promote_teams': {
+        // The after-the-fact correction to a cut: a seat turned down, a room
+        // that holds two more, a decision revisited. One-way on purpose — see
+        // `promoteToShortlist`.
+        const teamIds = Array.isArray(body.team_ids) ? body.team_ids.map(String) : [];
+        const result = await promoteToShortlist(teamIds, PANEL_ADMIN_ACTOR);
         if (!result.ok) {
           return NextResponse.json({ success: false, error: { code: result.code, message: result.message } }, { status: 409 });
         }

@@ -165,6 +165,22 @@ export function mcButton(text: string, url: string, color = '#3e8e2b') {
 `;
 }
 
+/**
+ * Where and when, with a real answer rather than an empty string.
+ *
+ * These read from the environment so a rehearsal can point somewhere else, but
+ * they used to fall back to `''` — which renders as a blank "Venue" row in a
+ * mail that has already left. The landing page has always had a sensible
+ * default; the mails, the one place a missing value cannot be corrected after
+ * the fact, did not. Same reasoning as `RSVP_FORM_URL`: a mail that goes out
+ * incomplete is worse than one that goes out slightly stale.
+ */
+export const EVENT = {
+  date: process.env.NEXT_PUBLIC_EVENT_DATE_DISPLAY || '24 August 2026',
+  time: process.env.NEXT_PUBLIC_EVENT_TIME || '09:00 AM',
+  venue: process.env.NEXT_PUBLIC_EVENT_VENUE || 'TP 2 711',
+} as const;
+
 export function mcRow(label: string, value: string) {
   return `
 <tr>
@@ -246,9 +262,9 @@ export async function sendPaymentVerifiedEmail({
     <p>The payment for team <strong style="color: #fca311;">${team_name} (${team_code})</strong> has been verified. You are now officially registered!</p>
     
     <table width="100%" border="0" cellpadding="0" cellspacing="0" style="margin: 30px 0;">
-      ${mcRow('Date', process.env.NEXT_PUBLIC_EVENT_DATE_DISPLAY || '')}
-      ${mcRow('Time', process.env.NEXT_PUBLIC_EVENT_TIME || '')}
-      ${mcRow('Venue', process.env.NEXT_PUBLIC_EVENT_VENUE || '')}
+      ${mcRow('Date', EVENT.date)}
+      ${mcRow('Time', EVENT.time)}
+      ${mcRow('Venue', EVENT.venue)}
     </table>
     
     <h3 class="pixel" style="color: #fca311; font-size: 24px; font-weight: normal; margin-top: 40px; border-bottom: 2px solid #333333; padding-bottom: 10px;">> YOUR ATTENDANCE QR</h3>

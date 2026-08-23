@@ -1,4 +1,4 @@
-import { deliver, mcButton, mcLayout, mcRow, mcTitle, type EmailResult } from './index';
+import { deliver, EVENT, mcButton, mcLayout, mcRow, mcTitle, type EmailResult } from './index';
 import { env } from '@/lib/env';
 
 /**
@@ -120,9 +120,9 @@ export async function sendScreeningShortlistedEmail({
     <p>Your opening resources are already in your team inventory — you will see them the moment Round 1 unlocks.</p>
 
     <table width="100%" border="0" cellpadding="0" cellspacing="0" style="margin: 30px 0;">
-      ${mcRow('Date', process.env.NEXT_PUBLIC_EVENT_DATE_DISPLAY || '')}
-      ${mcRow('Reporting time', process.env.NEXT_PUBLIC_EVENT_TIME || '')}
-      ${mcRow('Venue', process.env.NEXT_PUBLIC_EVENT_VENUE || '')}
+      ${mcRow('Date', EVENT.date)}
+      ${mcRow('Reporting time', EVENT.time)}
+      ${mcRow('Venue', EVENT.venue)}
       ${mcRow('Team code', `<span class="pixel" style="color:#fde047; font-size:24px;">${team_code}</span>`)}
     </table>
 
