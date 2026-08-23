@@ -88,16 +88,32 @@ async function run(
     result.attempted += 1;
     try {
       const outcome = await send(team, to);
-      if (outcome.success) result.sent += 1;
-      else {
+      if (outcome.success) {
+        result.sent += 1;
+        console.log(`[mail] ${kind} sent — ${team.team_code} <${to}>`);
+      } else {
         result.failed += 1;
         result.errors.push(`${team.team_code}: ${outcome.error ?? 'send failed'}`);
+        console.error(`[mail] ${kind} FAILED — ${team.team_code} <${to}>: ${outcome.error ?? 'send failed'}`);
       }
     } catch (error) {
       result.failed += 1;
       result.errors.push(`${team.team_code}: ${(error as Error).message}`);
+      console.error(`[mail] ${kind} THREW — ${team.team_code} <${to}>: ${(error as Error).message}`);
     }
   }
+
+  /**
+   * One line per run, whatever happened.
+   *
+   * A send of ninety takes minutes and the only report used to be a toast that
+   * disappears. If nobody is looking at the tab when it lands, the run may as
+   * well not have happened — this is the copy that survives in the platform
+   * logs and can be read afterwards.
+   */
+  console.log(
+    `[mail] ${kind} run complete — ${result.sent} sent, ${result.skipped} skipped, ${result.failed} failed`,
+  );
 
   return result;
 }
@@ -176,6 +192,71 @@ export async function sendResults(): Promise<{ shortlisted: MailRun; rejected: M
   });
 
   return { shortlisted, rejected };
+}
+
+export interface MailLogEntry {
+  id: string;
+  at: string;
+  email_type: string;
+  provider: string;
+  recipient: string;
+  status: string;
+  error: string | null;
+  team_code: string | null;
+  team_name: string | null;
+}
+
+/**
+ * The send history, newest first — what actually left the building.
+ *
+ * Every send already wrote a row here (`logEmail` in lib/email/index.ts); the
+ * gap was that nothing ever read them back. A run reported itself in a toast
+ * that vanishes, and `MailRun.errors` was returned to the console and dropped
+ * on the floor, so three failures inside a run of ninety were indistinguishable
+ * from none.
+ *
+ * Ordered on `created_at` rather than `sent_at`, deliberately: `sent_at` is
+ * null on a failure, and the failures are the rows worth reading.
+ *
+ * Not filtered by type. The OTP mail is not sent from this screen, but it is
+ * the one that has actually been failing — 45 `otp_login` sends fell through
+ * Resend to SMTP — and hiding it here would hide exactly the signal that says
+ * the provider is unwell before a bulk send goes out on top of it.
+ */
+export async function recentMailLog(limit = 60): Promise<MailLogEntry[]> {
+  const { data, error } = await db
+    .from('email_logs')
+    .select('id, created_at, email_type, provider, recipient, status, error, teams(team_code, team_name)')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error('Reading the mail log failed:', error);
+    return [];
+  }
+
+  interface LogRow {
+    id: string;
+    created_at: string;
+    email_type: string;
+    provider: string;
+    recipient: string;
+    status: string;
+    error: string | null;
+    teams: { team_code: string; team_name: string } | null;
+  }
+
+  return ((data ?? []) as LogRow[]).map((row) => ({
+    id: row.id,
+    at: row.created_at,
+    email_type: row.email_type,
+    provider: row.provider,
+    recipient: row.recipient,
+    status: row.status,
+    error: row.error,
+    team_code: row.teams?.team_code ?? null,
+    team_name: row.teams?.team_name ?? null,
+  }));
 }
 
 /** How many teams each button would actually mail, for the confirm dialog. */

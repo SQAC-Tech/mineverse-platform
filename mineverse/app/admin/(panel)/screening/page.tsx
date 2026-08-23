@@ -53,6 +53,43 @@ interface AttemptDetail {
   puzzles: PuzzleDetail[];
 }
 
+/** What one `run()` in lib/screening/mailer.ts reports back. */
+interface MailRunSummary {
+  attempted: number;
+  sent: number;
+  skipped: number;
+  failed: number;
+  errors: string[];
+}
+
+/**
+ * Every mutating action's response, loosely.
+ *
+ * `shortlisted` and `rejected` are counts on a commit and whole runs on a
+ * send, so the shape genuinely differs per action and the call sites narrow it.
+ */
+interface ActionData {
+  sent?: number;
+  skipped?: number;
+  failed?: number;
+  errors?: string[];
+  granted?: number;
+  shortlisted?: number | MailRunSummary;
+  rejected?: number | MailRunSummary;
+}
+
+interface MailLogEntry {
+  id: string;
+  at: string;
+  email_type: string;
+  provider: string;
+  recipient: string;
+  status: string;
+  error: string | null;
+  team_code: string | null;
+  team_name: string | null;
+}
+
 interface Data {
   window: { starts_at: string | null; ends_at: string | null; state: string };
   config: { duration_minutes: number; question_count: number; grant: Record<string, number>; max_score: number };
@@ -61,6 +98,7 @@ interface Data {
   attempts: AttemptDetail[];
   preview: { cut: number; contested: RankedTeam[]; committed: boolean } | null;
   mail: Record<string, number>;
+  mail_log: MailLogEntry[];
   committed: boolean;
 }
 
@@ -98,9 +136,24 @@ export default function ScreeningAdminPage() {
     return () => window.clearInterval(poll);
   }, [load]);
 
+  /**
+   * A failure gets its own toast rather than a clause inside the success one.
+   *
+   * Every run has reported `errors` all along and nothing ever displayed them,
+   * so a send where three of ninety bounced looked exactly like a clean one.
+   * The mail log panel keeps the detail after this fades.
+   */
+  const reportRun = (label: string, run: MailRunSummary | undefined) => {
+    if (!run) return;
+    toast.success(`${label}: ${run.sent} sent, ${run.skipped} skipped, ${run.failed} failed.`);
+    if (run.failed > 0) {
+      toast.error(`${label} — ${run.failed} failed: ${(run.errors ?? []).slice(0, 3).join(' · ')}`);
+    }
+  };
+
   const act = async (action: string, extra: Record<string, unknown> = {}) => {
     setBusy(true);
-    const res = await apiCall<Record<string, number>>('/api/admin/screening', {
+    const res = await apiCall<ActionData>('/api/admin/screening', {
       method: 'POST',
       body: JSON.stringify({ action, ...extra }),
     });
@@ -109,7 +162,12 @@ export default function ScreeningAdminPage() {
     if (!res.ok) { toast.error(res.message); return; }
 
     if (action === 'send_announcement') {
-      toast.success(`Announcement: ${res.data.sent} sent, ${res.data.skipped} already had it, ${res.data.failed} failed.`);
+      reportRun('Announcement', res.data as MailRunSummary);
+    } else if (action === 'send_results') {
+      // Two runs, reported separately — a clean congratulations run and a
+      // rejection run that half-failed is not one number.
+      reportRun('Shortlisted', res.data.shortlisted as MailRunSummary);
+      reportRun('Rejected', res.data.rejected as MailRunSummary);
     } else if (action === 'commit_shortlist') {
       toast.success(`Shortlist frozen — ${res.data.shortlisted} in, ${res.data.rejected} out, ${res.data.granted} granted resources.`);
     } else {
@@ -164,6 +222,10 @@ export default function ScreeningAdminPage() {
 
   const contested = data?.preview?.contested ?? [];
   const cutScore = useMemo(() => data?.ranked[cut - 1]?.total_score ?? null, [data, cut]);
+  const mailFailures = useMemo(
+    () => (data?.mail_log ?? []).filter((entry) => entry.status !== 'sent').length,
+    [data],
+  );
 
   if (!data) return <Loading label="Loading screening" />;
 
@@ -435,6 +497,63 @@ export default function ScreeningAdminPage() {
             from a live sort.
           </p>
         )}
+      </Panel>
+
+      {/*
+        The send history, which nothing used to show.
+        Reads `email_logs`, which every send has always written — the gap was
+        that a run reported itself in a toast and then the evidence was gone.
+      */}
+      <Panel
+        title="Mail log"
+        subtitle="The last 60 sends, newest first. Every attempt lands here, including the fallback from Resend to SMTP."
+        actions={
+          <Btn small onClick={() => void load()}>
+            <RefreshCw size={12} /> Refresh
+          </Btn>
+        }
+      >
+        {mailFailures > 0 && (
+          <div style={{ marginBottom: 12, padding: '10px 12px', border: '1px solid var(--danger, #f87171)', borderLeft: '3px solid var(--danger, #f87171)', fontSize: 11.5, lineHeight: 1.55 }}>
+            <strong>{mailFailures} of the last {data.mail_log.length} sends failed.</strong>{' '}
+            A failed <code>resend</code> row followed by an <code>smtp</code> row to the same address
+            is the fallback working. Two failures in a row is a team that got nothing.
+          </div>
+        )}
+
+        <Table head={['When', 'Team', 'Type', 'To', 'Via', 'Result']}>
+          {data.mail_log.length === 0 ? (
+            <Empty colSpan={6}>Nothing sent yet.</Empty>
+          ) : (
+            data.mail_log.map((entry) => (
+              <tr key={entry.id}>
+                <td className="n-panel-sub" style={{ whiteSpace: 'nowrap' }}>{ist(entry.at)}</td>
+                <td>
+                  {entry.team_code ? (
+                    <>
+                      <div style={{ fontWeight: 600 }}>{entry.team_code}</div>
+                      <div className="n-panel-sub">{entry.team_name}</div>
+                    </>
+                  ) : (
+                    <span className="n-panel-sub">—</span>
+                  )}
+                </td>
+                <td className="n-panel-sub">{entry.email_type}</td>
+                <td className="n-panel-sub" style={{ wordBreak: 'break-all' }}>{entry.recipient}</td>
+                <td className="n-panel-sub">{entry.provider}</td>
+                <td>
+                  <Pill tone={entry.status === 'sent' ? 'ok' : 'danger'}>{entry.status}</Pill>
+                  {/* The error is the whole point of looking at this table. */}
+                  {entry.error && (
+                    <div style={{ fontSize: 10, color: 'var(--danger, #f87171)', marginTop: 4, maxWidth: 320 }}>
+                      {entry.error}
+                    </div>
+                  )}
+                </td>
+              </tr>
+            ))
+          )}
+        </Table>
       </Panel>
 
       {confirm && (

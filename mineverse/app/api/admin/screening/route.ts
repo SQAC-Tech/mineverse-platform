@@ -10,7 +10,7 @@ import {
 import { getScreeningRound, sweepExpiredAttempts } from '@/lib/screening/service';
 import { clearShortlist, commitShortlist, previewShortlist, rankTeams } from '@/lib/screening/shortlist';
 import { GAUNTLET_MAX_SCORE, listAttemptDetails } from '@/lib/screening/attempts';
-import { mailCounts, sendAnnouncement, sendResults } from '@/lib/screening/mailer';
+import { mailCounts, recentMailLog, sendAnnouncement, sendResults } from '@/lib/screening/mailer';
 
 const db = supabaseServer as any;
 
@@ -31,9 +31,10 @@ export async function GET(req: NextRequest) {
   const round = await getScreeningRound();
   const cut = Number(req.nextUrl.searchParams.get('cut') ?? 0);
 
-  const [ranked, counts, teamTotal, inProgress, attempts] = await Promise.all([
+  const [ranked, counts, mailLog, teamTotal, inProgress, attempts] = await Promise.all([
     rankTeams(),
     mailCounts(),
+    recentMailLog(),
     db.from('teams').select('id', { count: 'exact', head: true }).eq('is_payment_verified', true),
     db.from('screening_attempts').select('id', { count: 'exact', head: true }).eq('status', 'in_progress'),
     // Every attempt, including the ones still running — `ranked` cannot carry
@@ -68,6 +69,7 @@ export async function GET(req: NextRequest) {
       attempts,
       preview,
       mail: counts,
+      mail_log: mailLog,
       committed: ranked.some((team) => team.result !== null),
     },
   });
