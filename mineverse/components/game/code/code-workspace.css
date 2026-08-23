@@ -145,6 +145,32 @@
   min-height: 0;
 }
 
+.cw-result {
+  width: min(620px, calc(100vw - 32px));
+  margin: auto;
+  align-self: center;
+  padding: 28px;
+  border: 1px solid var(--rd-edge-lit, #2a333d);
+  border-radius: 5px;
+  background: rgba(13, 16, 22, 0.96);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.45);
+}
+.cw-result__eyebrow, .cw-console__label {
+  margin: 0;
+  font-family: var(--rd-font-display, monospace);
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #7f8a94;
+}
+.cw-result h1 { margin: 8px 0 20px; font-size: 24px; color: #f2f0e6; }
+.cw-result p { line-height: 1.6; color: #cdd6cb; }
+.cw-result .cw-btn { margin: 8px 8px 0 0; }
+.cw-result__breakdown { display: grid; gap: 9px; margin: 0; }
+.cw-result__breakdown div { display: flex; justify-content: space-between; gap: 16px; padding: 11px 0; border-top: 1px solid #1d242e; }
+.cw-result__breakdown dt { color: #9fb0a2; }
+.cw-result__breakdown dd { margin: 0; color: #dfe5db; font-variant-numeric: tabular-nums; }
+
 .cw-divider {
   cursor: col-resize;
   background: #1d242e;
@@ -202,7 +228,10 @@
   border-left: 3px solid var(--rd-accent, #2f6b45);
   border-radius: 3px;
   background: #0d1016;
-  overflow-x: auto;
+  /* The problem pane is the only scroll area. Wrap long listings instead of
+     adding a small, competing scrollbar inside an example. */
+  overflow: hidden;
+  overflow-wrap: anywhere;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 13px;
   line-height: 1.55;
@@ -253,7 +282,7 @@
    * `auto` in the grid above, so a percentage height had nothing to resolve
    * against and silently collapsed to the 140px floor.
    */
-  height: clamp(190px, 28vh, 46vh);
+  height: clamp(150px, 21vh, 280px);
 }
 
 .cw-console__tabs {
@@ -263,6 +292,7 @@
   padding: 6px 10px;
   border-bottom: 1px solid #1d242e;
 }
+.cw-console__label { padding: 0 5px 0 1px; }
 
 /* One chip per sample case, coloured by its last result — the failure is one
    click away instead of buried in a wall of output. */

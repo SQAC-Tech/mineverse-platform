@@ -59,7 +59,7 @@ export async function POST(req: Request) {
     );
   }
 
-  let body: { question_id?: string; language?: string; code?: string; stdin?: string; mode?: 'samples' | 'custom' };
+  let body: { question_id?: string; language?: string; code?: string; stdin?: string; sample_index?: number; mode?: 'samples' | 'custom' };
   try {
     body = await req.json();
   } catch {
@@ -146,8 +146,13 @@ export async function POST(req: Request) {
 
     // One run per case. Feeding every input to a single run would let a program
     // that reads a fixed number of lines pass cases it never actually read.
+    const requestedIndex = Number.isInteger(body.sample_index) ? Number(body.sample_index) : null;
+    if (requestedIndex !== null && (requestedIndex < 0 || requestedIndex >= samples.length)) {
+      return NextResponse.json({ success: false, error: 'That sample case does not exist.' }, { status: 400 });
+    }
+    const selectedSamples = requestedIndex === null ? [...samples.entries()] : [[requestedIndex, samples[requestedIndex]] as const];
     const results = [];
-    for (const [index, sample] of samples.entries()) {
+    for (const [index, sample] of selectedSamples) {
       const entry = sample as { stdin?: string; stdout?: string };
       const shaped = shape(await execute(String(entry.stdin ?? '')));
       const expected = String(entry.stdout ?? '');

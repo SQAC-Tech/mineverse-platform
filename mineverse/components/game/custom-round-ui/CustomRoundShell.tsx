@@ -28,7 +28,8 @@ import { PvpPanel } from '../pvp/PvpPanel';
 import { EndRail } from '@/components/day2/end-round/EndRail';
 import { CodeWorkspace } from '@/components/game/code/CodeWorkspace';
 import { InspectorCard, usesInspector } from '@/components/game/code/InspectorCard';
-import { defaultLanguageFor, offeredRuntimes, offersLanguage } from '@/lib/gameplay/code/runtimes';
+import { defaultLanguageFor, offeredRuntimes, offersLanguage, resolveRuntime } from '@/lib/gameplay/code/runtimes';
+import type { CodingEvaluation } from '@/components/game/code/CodeWorkspace';
 import { useAnswerAutosave } from '@/hooks/useAnswerAutosave';
 import type { CraftedItem, DashboardProgress } from '@/features/dashboard/types';
 import { RESOURCE_META, buildQuestionTabs, languagePrompts, offersLanguageChoice, payoutList, promptBlocks, questionTypeLabel, roundChoice, roundChrome, roundCraft, roundGuardian, roundObjective, roundPvp, type ResourceKey, type ShellQuestion } from './round-presentation';
@@ -270,8 +271,10 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
     const loaded: Record<string, string> = {};
     const loadedLanguages: Record<string, string> = {};
     for (const question of questions) {
-      loaded[question.id] = readDraft(teamCode, roundId, question.id);
-      const saved = readLanguage(teamCode, roundId, question.id);
+      const saved = question.submitted_language ?? readLanguage(teamCode, roundId, question.id);
+      const persistedCode = question.submitted_code ?? '';
+      loaded[question.id] = persistedCode || readDraft(teamCode, roundId, question.id)
+        || (question.type === 'coding' ? resolveRuntime(defaultLanguageFor(question.language_options))?.starter ?? '' : '');
       if (offersLanguage(question.language_options, saved)) loadedLanguages[question.id] = saved!;
     }
 
@@ -298,7 +301,8 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
    * get a read-only listing with real line numbers and the answer box attached
    * to it, rather than a wall of pre-numbered text and a detached textarea.
    */
-  const inspects = (question: ShellQuestion) => usesInspector(question);
+  const inspects = (question: ShellQuestion, language: string | null) =>
+    usesInspector(question, questionBody(question, language));
 
   const codingQuestion = questions.find((question) => question.id === codingId) ?? null;
 
@@ -341,7 +345,10 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
   const sectionLocked = activeQuestions.length > 0
     && activeQuestions.every((question) => FINAL_STATUSES.includes(question.submission_status ?? ''));
   const answeredInSection = activeQuestions.filter((question) => Boolean(question.submission_status)).length;
-  const sectionReady = activeQuestions.length > 0 && answeredInSection === activeQuestions.length;
+  const sectionReady = activeQuestions.length > 0 && activeQuestions.every((question) =>
+    Boolean(question.submission_status)
+    && (question.type !== 'coding' || question.coding_evaluation?.status === 'completed'),
+  );
   const currentIsFinal = FINAL_STATUSES.includes(currentQuestion?.submission_status ?? '');
   const readOnly = isRoundLocked || currentIsFinal;
 
@@ -421,6 +428,49 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
     } catch {
       toast.error('Could not reach the server. Your draft is saved on this device.');
       return false;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const submitCoding = async (question: Question): Promise<CodingEvaluation | null> => {
+    const code = drafts[question.id]?.trim() ?? '';
+    if (!code) {
+      toast.error('Write some code before submitting.');
+      return null;
+    }
+    setSaving(true);
+    try {
+      // Drain any debounced draft write before saving the evaluated revision.
+      // Otherwise a late autosave could replace the result summary with `{}`.
+      await autosave.flush();
+      const response = await fetch('/api/team/code/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question_id: question.id,
+          code,
+          language: languages[question.id] ?? defaultLanguageFor(question.language_options),
+        }),
+      });
+      const json = await response.json();
+      const evaluation = json.data?.evaluation as CodingEvaluation | undefined;
+      if (!json.success) {
+        toast.error(json.error?.message ?? 'Could not submit your code.');
+        // A runner outage still saved the code and the persisted result screen
+        // explains that state without pretending evaluation happened.
+        if (evaluation) {
+          await refresh();
+          return evaluation;
+        }
+        return null;
+      }
+      autosave.markSynced(question.id, code);
+      await refresh();
+      return evaluation ?? null;
+    } catch {
+      toast.error('Could not reach the server. Your draft is saved on this device.');
+      return null;
     } finally {
       setSaving(false);
     }
@@ -759,7 +809,7 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
                         </select>
                       </div>
                     )}
-                    {inspects(currentQuestion) ? (
+                    {inspects(currentQuestion, languages[currentQuestion.id] ?? defaultLanguageFor(currentQuestion.language_options)) ? (
                       /* Listing and answer in one card — see InspectorCard. */
                       <InspectorCard
                         type={currentQuestion.type}
@@ -789,7 +839,21 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
                         >
                           <Code2 size={14} /> Open code editor
                         </button>
+                        {currentQuestion.coding_evaluation && (
+                          <div className="round-ui__locked-note" style={{ display: 'grid', gap: '6px', marginTop: '12px' }}>
+                            <b>✓ SUBMITTED</b>
+                            {currentQuestion.submitted_language && <span>{currentQuestion.submitted_language.toUpperCase()}</span>}
+                            {currentQuestion.coding_evaluation.status === 'completed'
+                              ? <span>{currentQuestion.coding_evaluation.total_passed} / {currentQuestion.coding_evaluation.total_cases} TESTS PASSED</span>
+                              : <span>Evaluation is waiting for the code runner.</span>}
+                            <button type="button" className="round-ui__btn round-ui__btn--ghost" onClick={() => setCodingId(currentQuestion.id)}>
+                              View submitted code
+                            </button>
+                          </div>
+                        )}
                       </>
+                    ) : usesEditor(currentQuestion) ? (
+                      <p className="round-ui__autosave">Use the code editor to run or submit this solution.</p>
                     ) : (
                       <textarea
                         id={`answer-${currentQuestion.id}`}
@@ -1012,8 +1076,9 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
           question={codingQuestion}
           roundName={chrome.name}
           themeClass={chrome.themeClass}
-          clock={`${timer.hours}:${timer.minutes}:${timer.seconds}`}
-          clockWarning={remainingSeconds !== null && remainingSeconds <= 300}
+          clock={endsAt ? `${timer.hours}:${timer.minutes}:${timer.seconds}` : 'NO DEADLINE'}
+          clockWarning={Boolean(endsAt) && remainingSeconds <= 300}
+          roundClosed={isRoundLocked}
           draft={drafts[codingQuestion.id] ?? ''}
           language={languages[codingQuestion.id] ?? null}
           locked={readOnly || FINAL_STATUSES.includes(codingQuestion.submission_status ?? '')}
@@ -1023,7 +1088,7 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
             setLanguages((current) => ({ ...current, [codingQuestion.id]: next }));
             writeLanguage(teamCode, roundId, codingQuestion.id, next);
           }}
-          onSubmit={() => void saveAnswer(codingQuestion)}
+          onSubmit={() => submitCoding(codingQuestion)}
           onClose={() => setCodingId(null)}
         />
       )}

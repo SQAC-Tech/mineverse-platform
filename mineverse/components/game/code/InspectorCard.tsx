@@ -23,8 +23,22 @@ const PICKS_A_LINE = ['debugging'];
 /** Types that show code but are answered with something else entirely. */
 const SHOWS_CODE = ['debugging', 'debug_output', 'code_completion'];
 
-export function usesInspector(question: { type: string; prompt: string; content?: unknown }): boolean {
-  return SHOWS_CODE.includes(question.type) && extractCodeBlock(question.prompt) !== null;
+/**
+ * Not every `debugging` question is answered with a line.
+ *
+ * Three of the nine show a listing and ask what it actually prints — their
+ * `expected_answer` is `["[3, 2, 4]", ...]`, not a digit. Keying the line
+ * picker off the type alone labelled those "Buggy line", told the team to type
+ * a number, and let a stray click on the listing overwrite the answer they had
+ * typed. The prompt says which it wants, so ask the prompt.
+ */
+const ASKS_FOR_A_LINE = /line\s*number/i;
+
+export function usesInspector(question: { type: string; prompt: string; content?: unknown }, prompt?: string): boolean {
+  // The shells render a per-language body, so the decision has to be made about
+  // that body and not about the generic prompt. They disagreed before: a
+  // variant whose listing did not survive the split rendered as nothing at all.
+  return SHOWS_CODE.includes(question.type) && extractCodeBlock(prompt ?? question.prompt) !== null;
 }
 
 interface InspectorCardProps {
@@ -57,7 +71,7 @@ export function InspectorCard({ type, prompt, value, onChange, disabled = false,
   const runtime = resolveRuntime(block.language) ?? resolveRuntime(language ?? null);
   const monacoLanguage = runtime?.monaco ?? 'plaintext';
 
-  const picksLine = PICKS_A_LINE.includes(type) && block.wasNumbered;
+  const picksLine = PICKS_A_LINE.includes(type) && block.wasNumbered && ASKS_FOR_A_LINE.test(prompt);
   const selectedLine = picksLine ? Number.parseInt(value.replace(/[^0-9]/g, ''), 10) || null : null;
 
   return (
@@ -96,7 +110,10 @@ export function InspectorCard({ type, prompt, value, onChange, disabled = false,
         ) : (
           <>
             <label className="ic__label" htmlFor={`ic-${type}`}>
-              {type === 'code_completion' ? 'Missing code' : 'What it should print'}
+              {/* A `debugging` question that is not answered with a line asks
+                  what the listing prints as it stands — the opposite of what
+                  `debug_output` asks, which is what it would print once fixed. */}
+              {type === 'code_completion' ? 'Missing code' : type === 'debugging' ? 'What it prints' : 'What it should print'}
             </label>
             <input
               id={`ic-${type}`}
@@ -105,13 +122,17 @@ export function InspectorCard({ type, prompt, value, onChange, disabled = false,
               disabled={disabled}
               spellCheck={false}
               autoComplete="off"
-              placeholder={type === 'code_completion' ? 'just the missing part' : 'the corrected output'}
+              placeholder={
+                type === 'code_completion' ? 'just the missing part' : type === 'debugging' ? 'exactly what it prints' : 'the corrected output'
+              }
               onChange={(event) => onChange(event.target.value)}
             />
             <span className="ic__hint">
               {type === 'code_completion'
                 ? 'Only what belongs in the blank — not the whole program.'
-                : 'The output the fixed program would produce.'}
+                : type === 'debugging'
+                  ? 'The output this listing produces as it stands.'
+                  : 'The output the fixed program would produce.'}
             </span>
           </>
         )}

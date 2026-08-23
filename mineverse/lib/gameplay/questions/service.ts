@@ -60,7 +60,7 @@ export async function getSafeQuestionsForRound(teamId: string, roundId: number) 
   if (questionIds.length > 0) {
     const { data: submissions, error: submissionsError } = await db
       .from('submissions')
-      .select('id, question_id, status, revision, final_score')
+      .select('id, question_id, status, revision, final_score, code, language, response')
       .eq('team_id', teamId)
       .in('question_id', questionIds);
 
@@ -230,7 +230,7 @@ export async function lockTeamSection(teamId: string, payload: z.infer<typeof se
 
   const { data: submissions, error: submissionsError } = await db
     .from('submissions')
-    .select('id, question_id, status')
+    .select('id, question_id, status, response')
     .eq('team_id', teamId)
     .in('question_id', payload.question_ids);
 
@@ -245,6 +245,28 @@ export async function lockTeamSection(teamId: string, payload: z.infer<typeof se
       status: 400,
       code: 'SECTION_INCOMPLETE',
       message: `Answer every question first — ${missing.length} still unanswered.`,
+    };
+  }
+
+  // A coding answer is not ready for a final section submission merely because
+  // its draft was autosaved. It must have gone through the private evaluator;
+  // otherwise the section button would bypass Submit and hide the result screen.
+  const codingIds = new Set(
+    valid
+      .filter((question: QuestionRow & { guardian_name: string | null }) => question.type === 'coding')
+      .map((question: QuestionRow & { guardian_name: string | null }) => question.id),
+  );
+  const untestedCoding = (submissions ?? []).filter((row: SubmissionRow) => {
+    if (!codingIds.has(row.question_id)) return false;
+    const response = row.response as Record<string, unknown> | null;
+    return response?.kind !== 'coding_evaluation' || response.status !== 'completed';
+  });
+  if (untestedCoding.length > 0) {
+    return {
+      ok: false as const,
+      status: 400,
+      code: 'CODING_EVALUATION_REQUIRED',
+      message: `Submit and evaluate ${untestedCoding.length} coding question${untestedCoding.length === 1 ? '' : 's'} before submitting this section.`,
     };
   }
 

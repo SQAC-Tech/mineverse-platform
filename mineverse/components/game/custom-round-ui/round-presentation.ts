@@ -71,6 +71,19 @@ export interface ShellQuestion {
   order_index: number;
   submission_status: string | null;
   submission_revision?: number | null;
+  submitted_code?: string | null;
+  submitted_language?: string | null;
+  coding_evaluation?: {
+    kind: 'coding_evaluation';
+    status: 'completed' | 'runner_error';
+    sample_passed: number;
+    sample_total: number;
+    hidden_passed: number;
+    hidden_total: number;
+    total_passed: number;
+    total_cases: number;
+    evaluated_at: string;
+  } | null;
   language_options?: string[];
   /** Worked examples for a coding question. Never the hidden grading cases. */
   sample_test_cases?: Array<{ stdin: string; stdout: string; explanation?: string }>;
@@ -173,9 +186,17 @@ export function buildQuestionTabs(questions: ShellQuestion[]): QuestionTab[] {
   }));
 }
 
-/** A code block needs a monospace block of its own; prose does not. */
+/**
+ * A code block needs a monospace block of its own; prose does not.
+ *
+ * The two subscript/member forms are not decoration. `backup["gold"] = 5` and
+ * `spare.append(4)` are top-level statements with no leading indent, no
+ * trailing semicolon and no keyword, so the earlier rule read them as prose —
+ * which split the reference-semantics questions' listings into three blocks
+ * with two sentences of body text stranded in the middle of the program.
+ */
 export function isCodeLine(line: string) {
-  return /^\s{2,}|[{};]\s*$|^\s*(?:\d+\s{2,}|[#/]{2}|def |class |for |while |if |int |print\(|cout|return |import |public |values? =|\w+ = )/.test(line);
+  return /^\s{2,}|[{};]\s*$|^\s*(?:\d+\s{2,}|[#/]{2}|def |class |for |while |if |int |print\(|cout|return |import |public |values? =|\w+\s*\[[^\]]*\]\s*=|\w+(?:\.\w+)+\s*\(|\w+ = )/.test(line);
 }
 
 /**
@@ -213,6 +234,37 @@ export interface ExtractedCode {
 
 /** `1   int main() {` — a listing that numbers itself, as the debugging bank does. */
 const NUMBERED_LINE = /^\s*(\d+)(?:\s{2,}|\t|\s*$)/;
+
+/**
+ * Removes the self-numbered gutter without eating the code's own indentation.
+ *
+ * `line.replace(NUMBERED_LINE, '')` looked equivalent and was not: `\s{2,}` is
+ * greedy, so on `3       if value % 4 == 0:` it swallowed the number *and* all
+ * seven following spaces, leaving `if value % 4 == 0:` flush against the
+ * margin. Every numbered listing rendered flat — merely ugly in C++ and Java,
+ * but a Python listing came out as code that cannot run and whose loop bodies
+ * are indistinguishable from its top level.
+ *
+ * The bank pads the gutter to a fixed width (`1   `, `10  `), so the column the
+ * code starts in is the narrowest one any numbered row uses. Cutting exactly
+ * that many characters leaves every relative indent intact.
+ */
+function stripGutter(lines: string[]): string[] {
+  const starts = lines
+    .map((line) => /^\s*\d+\s+\S/.exec(line))
+    .filter((match): match is RegExpExecArray => match !== null)
+    .map((match) => match[0].length - 1);
+
+  // A listing of nothing but bare numbers has no column to measure; the digits
+  // are all there is to remove.
+  if (starts.length === 0) return lines.map((line) => line.replace(/^\s*\d+\s*/, ''));
+
+  const digitsEnd = lines.reduce((widest, line) => Math.max(widest, /^\s*\d+/.exec(line)?.[0].length ?? 0), 0);
+  // Never cut into a line number, however the gutter is padded.
+  const gutter = Math.max(Math.min(...starts), digitsEnd);
+
+  return lines.map((line) => (NUMBERED_LINE.test(line) ? line.slice(gutter) : line));
+}
 
 /**
  * Pulls the code listing out of a question prompt.
@@ -269,7 +321,7 @@ export function extractCodeBlock(prompt: string): ExtractedCode | null {
   const numbered = lines.filter((line) => NUMBERED_LINE.test(line)).length;
   const wasNumbered = numbered >= Math.max(2, Math.ceil(lines.length * 0.6));
 
-  const code = (wasNumbered ? lines.map((line) => line.replace(NUMBERED_LINE, '')) : lines).join('\n');
+  const code = (wasNumbered ? stripGutter(lines) : lines).join('\n');
 
   return {
     code: code.replace(/\s+$/, ''),

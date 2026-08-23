@@ -59,6 +59,18 @@ export interface SubmissionRow {
   graded_revision: number | null;
 }
 
+export interface CodingEvaluationSummary {
+  kind: 'coding_evaluation';
+  status: 'completed' | 'runner_error';
+  sample_passed: number;
+  sample_total: number;
+  hidden_passed: number;
+  hidden_total: number;
+  total_passed: number;
+  total_cases: number;
+  evaluated_at: string;
+}
+
 export const submissionPayloadSchema = z.object({
   question_id: z.string().uuid(),
   answer_text: z.string().trim().max(20000).optional().nullable(),
@@ -90,7 +102,25 @@ function sampleCases(value: unknown): SampleCase[] {
   });
 }
 
-export function serializeSafeQuestion(question: QuestionRow, submission?: Pick<SubmissionRow, 'status' | 'revision' | 'final_score'> | null) {
+function codingEvaluation(value: unknown): CodingEvaluationSummary | null {
+  if (!value || typeof value !== 'object') return null;
+  const row = value as Record<string, unknown>;
+  const countFields = ['sample_passed', 'sample_total', 'hidden_passed', 'hidden_total', 'total_passed', 'total_cases'];
+  if (row.kind !== 'coding_evaluation' || !countFields.every((field) => Number.isInteger(row[field]) && Number(row[field]) >= 0)) return null;
+  if (row.status !== 'completed' && row.status !== 'runner_error' || typeof row.evaluated_at !== 'string') return null;
+  return {
+    kind: 'coding_evaluation', status: row.status,
+    sample_passed: Number(row.sample_passed), sample_total: Number(row.sample_total),
+    hidden_passed: Number(row.hidden_passed), hidden_total: Number(row.hidden_total),
+    total_passed: Number(row.total_passed), total_cases: Number(row.total_cases), evaluated_at: row.evaluated_at,
+  };
+}
+
+export function serializeSafeQuestion(
+  question: QuestionRow,
+  submission?: (Pick<SubmissionRow, 'status' | 'revision' | 'final_score'>
+    & Partial<Pick<SubmissionRow, 'code' | 'language' | 'response'>>) | null,
+) {
   return {
     id: question.id,
     type: question.type,
@@ -108,6 +138,9 @@ export function serializeSafeQuestion(question: QuestionRow, submission?: Pick<S
     pays: (question.reward ?? {}) as Record<string, number>,
     submission_status: submission?.status ?? null,
     submission_revision: submission?.revision ?? null,
+    submitted_code: question.type === 'coding' ? submission?.code ?? null : null,
+    submitted_language: question.type === 'coding' ? submission?.language ?? null : null,
+    coding_evaluation: question.type === 'coding' ? codingEvaluation(submission?.response) : null,
     graded: submission?.final_score !== null && submission?.final_score !== undefined,
   };
 }

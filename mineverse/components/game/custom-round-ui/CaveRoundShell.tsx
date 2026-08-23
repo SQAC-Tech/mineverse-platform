@@ -686,7 +686,7 @@ export function CaveRoundShell() {
                       </div>
                     )}
 
-                    {usesInspector(question) ? (
+                    {usesInspector(question, activePrompt) ? (
                       /* Listing and answer in one card — see InspectorCard. */
                       <InspectorCard
                         type={question.type}
