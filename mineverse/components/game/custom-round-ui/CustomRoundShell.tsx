@@ -23,6 +23,7 @@ import { useProctorSession } from '@/components/game/proctor/ProctorProvider';
 import { supabaseClient } from '@/lib/supabase/client';
 import { GuardianArena } from './GuardianArena';
 import { NotificationTray, type LedgerEntry } from './NotificationTray';
+import { gradingMessage } from './grading-toast';
 import { WorldEvent, EVENT_FX } from './WorldEvent';
 import { PvpPanel } from '../pvp/PvpPanel';
 import { EndRail } from '@/components/day2/end-round/EndRail';
@@ -576,7 +577,8 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
         toast.error(json.error?.message ?? 'Could not submit this section.');
         return;
       }
-      toast.success(`${tab.label} submitted — these answers are final.`);
+      const earned = gradingMessage(json.data?.grading);
+      toast.success(`${tab.label} submitted — these answers are final.`, earned ? { description: earned } : undefined);
       setConfirmSection(null);
       await refresh();
     } catch {
@@ -619,19 +621,23 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
       // answerable, and `refresh` cannot write into a closure already running.
       const ids = await answeredIdsFromServer();
       await refresh();
+      let earned: string | null = null;
       if (ids.length > 0) {
         const response = await fetch('/api/submissions/section', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ round_id: roundId, question_ids: ids }),
+          // `finish` makes the server sweep the whole round rather than just
+          // these ids, so a tab that was never handed in is still marked.
+          body: JSON.stringify({ round_id: roundId, question_ids: ids, finish: true }),
         });
         const json = await response.json();
         if (!json.success) {
           toast.error(json.error?.message ?? 'Could not submit the round.');
           return;
         }
+        earned = gradingMessage(json.data?.grading);
       }
-      toast.success('Your final answers have been recorded.');
+      toast.success('Your final answers have been recorded.', earned ? { description: earned } : undefined);
       setConfirmFinish(false);
 
       /* One last thing before the dashboard: the round's own recipe. Crafting

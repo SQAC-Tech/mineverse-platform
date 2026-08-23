@@ -30,6 +30,7 @@ import { Hotbar } from '@/components/game/inventory/Hotbar';
 import type { CraftedItem } from '@/features/dashboard/types';
 import { GuardianArena } from './GuardianArena';
 import { NotificationTray, type LedgerEntry } from './NotificationTray';
+import { gradingMessage } from './grading-toast';
 import { WorldEvent, EVENT_FX } from './WorldEvent';
 import { languagePrompts, offersLanguageChoice, payoutList, promptBlocks, questionTypeLabel, roundCraft, roundGuardian } from './round-presentation';
 import { RoundCraftPrompt } from './RoundCraftPrompt';
@@ -458,19 +459,23 @@ export function CaveRoundShell() {
       await autosave.flush();
       const ids = await answeredIdsFromServer();
       await refresh();
+      let earned: string | null = null;
       if (ids.length > 0) {
         const response = await fetch('/api/submissions/section', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ round_id: ROUND_ID, question_ids: ids }),
+          // `finish` makes the server sweep the whole round rather than just
+          // these ids, so a tab that was never handed in is still marked.
+          body: JSON.stringify({ round_id: ROUND_ID, question_ids: ids, finish: true }),
         });
         const json = await response.json();
         if (!json.success) {
           toast.error(json.error?.message ?? 'Could not submit the round.');
           return;
         }
+        earned = gradingMessage(json.data?.grading);
       }
-      toast.success('Your final answers have been recorded.');
+      toast.success('Your final answers have been recorded.', earned ? { description: earned } : undefined);
       setConfirmFinish(false);
 
       /* The Stone Pickaxe before the Mountain. Crafting is session-scoped, not
@@ -505,7 +510,11 @@ export function CaveRoundShell() {
         toast.error(data.error?.message ?? 'Could not submit this section.');
         return;
       }
-      toast.success(`${tabs.find((meta) => meta.id === tab)?.label} submitted — these answers are final.`);
+      const earned = gradingMessage(data.data?.grading);
+      toast.success(
+        `${tabs.find((meta) => meta.id === tab)?.label} submitted — these answers are final.`,
+        earned ? { description: earned } : undefined,
+      );
       setConfirmSection(null);
       await refresh();
     } catch {

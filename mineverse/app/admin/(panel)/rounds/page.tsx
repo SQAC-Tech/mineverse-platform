@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import { Play, Square, Plus, RefreshCw, Lock } from 'lucide-react';
 import { Panel, Btn, Pill, statusTone, Loading, PageTitle, apiCall } from '@/components/admin/nether-ui';
+import { RoundTeamProgress } from '@/components/admin/RoundTeamProgress';
 
 type RoundRow = {
   id: number;
@@ -174,6 +175,10 @@ export default function AdminRoundsPage() {
             </Panel>
           );
         })}
+      </div>
+
+      <div style={{ marginTop: 16 }}>
+        <RoundTeamProgress rounds={rounds} />
       </div>
     </>
   );

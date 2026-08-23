@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { supabaseServer } from '@/lib/supabase/server';
 import { verifyDev4RoundAccess } from './access';
 import { allowedQuestionIds, pickVariants } from './variants';
+import { gradeSubmissionsNow, sweepRoundGrading } from '@/lib/gameplay/grading/instant';
 
 const db = supabaseServer as any;
 
@@ -189,6 +190,14 @@ export async function upsertTeamSubmission(teamId: string, payload: z.infer<type
 export const sectionSubmitPayloadSchema = z.object({
   round_id: z.number().int(),
   question_ids: z.array(z.string().uuid()).min(1).max(100),
+  /**
+   * Set by "Finish round", not by a section hand-in.
+   *
+   * A section is graded as itself; finishing the round additionally sweeps every
+   * other answer the team gave, so a tab that was never submitted — or one whose
+   * grading failed halfway — is settled before they leave. See `sweepRoundGrading`.
+   */
+  finish: z.boolean().optional(),
 });
 
 /**
@@ -310,12 +319,46 @@ export async function lockTeamSection(teamId: string, payload: z.infer<typeof se
     if (lockError) throw lockError;
   }
 
+  /**
+   * Mark and pay, now, while the team is still watching the button.
+   *
+   * This is the deliberate hand-in the autosave path is not, which is what makes
+   * grading safe here and nowhere else: nothing after this point can revise the
+   * answers, so marking them cannot freeze work in progress.
+   *
+   * Failure is contained on purpose. The lock above has already committed, and
+   * that is the part that must not be lost — a team whose section is sealed but
+   * unmarked is recoverable by the finish-round sweep or an admin run, whereas a
+   * team told their submit failed will press it again against locked rows.
+   */
+  let grading: Awaited<ReturnType<typeof gradeSubmissionsNow>> | null = null;
+  try {
+    grading = payload.finish
+      ? await sweepRoundGrading(teamId, payload.round_id)
+      : await gradeSubmissionsNow({ teamId, roundId: payload.round_id, questionIds: payload.question_ids });
+  } catch (gradingError) {
+    console.error('[submissions] section locked but grading failed:', gradingError);
+  }
+
   return {
     ok: true as const,
     data: {
       round_id: payload.round_id,
       locked_count: lockable.length,
       already_final: payload.question_ids.length - lockable.length,
+      grading: grading
+        ? {
+            graded: grading.graded,
+            correct: grading.correct,
+            partial: grading.partial,
+            manual_review: grading.manual_review,
+            awarded: grading.awarded,
+            // Only the finish sweep reports this: how many answers are still
+            // unmarked after it ran. Anything above zero is the deterministic
+            // signal that this team needs an admin grading pass.
+            ...(payload.finish && 'still_open' in grading ? { still_open: grading.still_open } : {}),
+          }
+        : null,
     },
   };
 }
