@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Check, ShieldAlert, Swords, Timer, Trophy } from 'lucide-react';
 import type { GuardianName } from '@/lib/gameplay/guardians/config';
-import { deltaList, languagePrompts, promptBlocks } from './round-presentation';
+import { deltaList, languagePrompts, offersLanguageChoice, promptBlocks } from './round-presentation';
+import { defaultLanguageFor, offeredRuntimes } from '@/lib/gameplay/code/runtimes';
 
 interface GuardianArenaProps {
   guardianName: GuardianName;
@@ -25,6 +26,12 @@ interface GuardianQuestion {
   title?: string;
   prompt: string;
   content: unknown;
+  /**
+   * `loadGuardianQuestions` has always selected this; the interface just never
+   * declared it, so the arena fell back to a hardcoded Python-first list rather
+   * than the languages the question actually offers.
+   */
+  language_options: string[] | null;
   time_limit_seconds: number | null;
 }
 
@@ -284,7 +291,7 @@ export function GuardianArena({
               </p>
             ) : questions.map((question, index) => {
               const filled = (answers[question.id] ?? '').trim().length > 0;
-              const currentLanguage = languages[question.id] ?? 'python';
+              const currentLanguage = languages[question.id] ?? defaultLanguageFor(question.language_options);
               const activePrompt = languagePrompts(question)?.[currentLanguage] ?? question.prompt;
 
               return (
@@ -308,19 +315,24 @@ export function GuardianArena({
                   </div>
 
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    {/* Nine of the arena's aptitude questions carry a single
+                        prompt. A picker on those changed nothing at all. */}
+                    {offersLanguageChoice(question) && (
                     <select
                       className="round-ui__field"
                       style={{ width: '130px', padding: '8px', height: '100%', cursor: 'pointer' }}
-                      value={languages[question.id] ?? 'python'}
+                      value={currentLanguage}
                       onChange={(e) => setLanguages(prev => ({ ...prev, [question.id]: e.target.value }))}
                       disabled={outOfTime}
                     >
-                      <option value="python">Python</option>
-                      <option value="c">C</option>
-                      <option value="cpp">C++</option>
-                      <option value="java">Java</option>
-                      <option value="javascript">JavaScript</option>
+                      {/* Was a hardcoded list led by Python, which both ignored
+                          what the question offers and disagreed with the two
+                          round shells about the default. */}
+                      {offeredRuntimes(question.language_options).map((rt) => (
+                        <option key={rt.id} value={rt.id}>{rt.label}</option>
+                      ))}
                     </select>
+                    )}
 
                     <input
                       id={`gd-${question.id}`}

@@ -1,9 +1,9 @@
 'use client';
 
-import { readDraft, writeDraft, purgeForeignDrafts } from '@/lib/client/answer-drafts';
-import { runtimesFor } from '@/lib/gameplay/code/runtimes';
+import { readDraft, writeDraft, readLanguage, writeLanguage, purgeForeignDrafts } from '@/lib/client/answer-drafts';
+import { defaultLanguageFor, offeredRuntimes, offersLanguage } from '@/lib/gameplay/code/runtimes';
 import { useAnswerAutosave } from '@/hooks/useAnswerAutosave';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Brain,
@@ -27,15 +27,17 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useProctorSession } from '@/components/game/proctor/ProctorProvider';
+import { supabaseClient } from '@/lib/supabase/client';
 import { CraftingPanel } from '@/components/game/crafting/CraftingPanel';
 import { MarketplaceStore } from '@/components/game/marketplace/MarketplaceStore';
 import { Hotbar } from '@/components/game/inventory/Hotbar';
+import type { CraftedItem } from '@/features/dashboard/types';
 import { ConsumableInventory } from '@/components/game/marketplace/ConsumableInventory';
 import { ChoicePanel } from '@/components/game/choices/ChoicePanel';
 import { GuardianArena } from './GuardianArena';
 import { NotificationTray, type LedgerEntry } from './NotificationTray';
 import { WorldEvent } from './WorldEvent';
-import { languagePrompts, payoutList, promptBlocks, questionTypeLabel, roundGuardian } from './round-presentation';
+import { languagePrompts, offersLanguageChoice, payoutList, promptBlocks, questionTypeLabel, roundGuardian } from './round-presentation';
 import './round-ui.css';
 
 type CaveTab = 'aptitudes' | 'debugging' | 'completion' | 'output';
@@ -153,6 +155,7 @@ export function CaveRoundShell() {
   const [offline, setOffline] = useState(false);
   const [roundStatus, setRoundStatus] = useState<string | null>(null);
   const [guardianUnlocked, setGuardianUnlocked] = useState(false);
+  const [crafted, setCrafted] = useState<CraftedItem[]>([]);
 
   const refresh = useCallback(async () => {
     const [round, resourceResult, teamResult, historyResult] = await Promise.allSettled([
@@ -184,7 +187,13 @@ export function CaveRoundShell() {
     }
     if (resourceResult.status === 'fulfilled' && resourceResult.value.success) setResourceData(resourceResult.value.data);
     else requestFailed = true;
-    if (teamResult.status === 'fulfilled' && teamResult.value.success) setTeam(teamResult.value.team ?? null);
+    if (teamResult.status === 'fulfilled' && teamResult.value.success) {
+      setTeam(teamResult.value.team ?? null);
+      // The same snapshot already carries the crafting log. Round 2 has a
+      // crafting table in its rail, so an item crafted here was paid for and
+      // then simply never appeared in the inventory beside it.
+      setCrafted(teamResult.value.crafted ?? []);
+    }
     if (historyResult.status === 'fulfilled' && historyResult.value.success) setHistory(historyResult.value.data.entries ?? []);
     setOffline(requestFailed);
     // `proctor` and `router` are deliberately not dependencies. `useProctor`
@@ -199,6 +208,24 @@ export function CaveRoundShell() {
     void refresh();
     const poll = window.setInterval(() => void refresh(), 10_000);
     return () => window.clearInterval(poll);
+  }, [refresh]);
+
+  /**
+   * Refetch the moment an admin unlocks the round or its boss.
+   *
+   * The dashboard has always listened on this channel; the round shells never
+   * did, so once a team was inside a round the only way anything reached them
+   * was the ten-second poll. That is why unlocking the boss appeared to need a
+   * hard refresh.
+   */
+  useEffect(() => {
+    const channel = supabaseClient
+      .channel('round_status')
+      .on('broadcast', { event: 'unlock' }, () => void refresh())
+      .subscribe();
+    return () => {
+      void supabaseClient.removeChannel(channel);
+    };
   }, [refresh]);
 
   useEffect(() => {
@@ -217,12 +244,40 @@ export function CaveRoundShell() {
     return () => window.removeEventListener('keydown', selectSlot);
   }, []);
 
+  /**
+   * Restore this team's drafts and language picks — once, not on every poll.
+   *
+   * Identical to the guard in `CustomRoundShell`, and for the same reason:
+   * `refresh` hands back a new `questions` array every ten seconds, so keying
+   * this effect on it meant `setDrafts` overwrote the editor from localStorage
+   * on every tick — with nothing at all whenever `teamCode` was still null.
+   *
+   * The language was worse off here than in the other shell: it was never read
+   * or written at all, so Round 2's picker forgot the team's choice on every
+   * reload. It is persisted now, like everywhere else.
+   */
+  const hydratedFor = useRef<string | null>(null);
+
   useEffect(() => {
+    if (!teamCode || questions.length === 0) return;
+
+    const key = `${teamCode}:${ROUND_ID}`;
+    if (hydratedFor.current === key) return;
+    hydratedFor.current = key;
+
     // Clears anything left by a previous team on this machine before reading.
     purgeForeignDrafts(teamCode);
+
     const localDrafts: Record<string, string> = {};
-    for (const question of questions) localDrafts[question.id] = readDraft(teamCode, ROUND_ID, question.id);
+    const localLanguages: Record<string, string> = {};
+    for (const question of questions) {
+      localDrafts[question.id] = readDraft(teamCode, ROUND_ID, question.id);
+      const saved = readLanguage(teamCode, ROUND_ID, question.id);
+      if (offersLanguage(question.language_options, saved)) localLanguages[question.id] = saved!;
+    }
+
     setDrafts(localDrafts);
+    setLanguages(localLanguages);
   }, [questions, teamCode]);
 
   const grouped = useMemo(() => {
@@ -236,7 +291,7 @@ export function CaveRoundShell() {
   const currentIndex = Math.min(activeIndexes[activeTab], Math.max(0, activeQuestions.length - 1));
   const question = activeQuestions[currentIndex];
   
-  const currentLanguage = question ? (languages[question.id] ?? runtimesFor(question.language_options?.length ? question.language_options : ['python', 'cpp', 'java', 'javascript', 'c'])[0]?.id ?? 'python') : 'python';
+  const currentLanguage = question ? (languages[question.id] ?? defaultLanguageFor(question.language_options)) : defaultLanguageFor(null);
   // The language-specific body when the question has one for the selected
   // runtime, the generic prompt otherwise. See `languagePrompts`.
   const activePrompt = (question && languagePrompts(question)?.[currentLanguage]) ?? question?.prompt ?? '';
@@ -275,7 +330,9 @@ export function CaveRoundShell() {
         ? {
             question_id: questionId,
             code: text,
-            language: runtimesFor(target.language_options)[0]?.id ?? null,
+            // The team's pick, not option zero. This sent the first option
+            // regardless of the dropdown, so C++ was graded as Python.
+            language: languages[questionId] ?? defaultLanguageFor(target.language_options),
           }
         : { question_id: questionId, answer_text: text };
     },
@@ -306,7 +363,7 @@ export function CaveRoundShell() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(codeQuestion
-          ? { question_id: target.id, code: answer, language: runtimesFor(target.language_options)[0]?.id ?? null }
+          ? { question_id: target.id, code: answer, language: languages[target.id] ?? defaultLanguageFor(target.language_options) }
           : { question_id: target.id, answer_text: answer }),
       });
       const data = await response.json();
@@ -352,7 +409,7 @@ export function CaveRoundShell() {
 
   /**
    * Ends the round for this team: locks every answer they saved, then drops them
-   * back on the main screen. Only answered questions are sent — the section endpoint
+   * back on the dashboard. Only answered questions are sent — the section endpoint
    * rejects a list containing an unanswered one, and a team that ran out of time
    * still needs a way to hand in what they did finish.
    */
@@ -563,15 +620,18 @@ export function CaveRoundShell() {
                     </p>
                     {question.title && <p className="round-ui__question-title">{question.title}</p>}
                     
-                    {['coding', 'code_completion', 'debugging', 'debug_output', 'output'].includes(question.type) && (
+                    {offersLanguageChoice(question) && (
                       <div style={{ marginBottom: '16px' }}>
                         <select
                           style={{ width: 'auto', padding: '6px 12px', fontSize: '13px', display: 'inline-block', backgroundColor: 'rgba(0, 0, 0, 0.6)', color: '#fff', border: '1px solid rgba(255, 255, 255, 0.2)', borderRadius: '4px', cursor: 'pointer', appearance: 'auto', minHeight: 'auto', fontFamily: 'var(--rd-font-mono)' }}
                           value={currentLanguage}
-                          onChange={(e) => setLanguages((prev) => ({ ...prev, [question.id]: e.target.value }))}
+                          onChange={(e) => {
+                            setLanguages((prev) => ({ ...prev, [question.id]: e.target.value }));
+                            writeLanguage(teamCode, ROUND_ID, question.id, e.target.value);
+                          }}
                           disabled={readOnly}
                         >
-                          {runtimesFor(question.language_options?.length ? question.language_options : ['python', 'cpp', 'java', 'javascript', 'c']).map((rt) => (
+                          {offeredRuntimes(question.language_options).map((rt) => (
                             <option key={rt.id} value={rt.id}>{rt.label}</option>
                           ))}
                         </select>
@@ -676,7 +736,7 @@ export function CaveRoundShell() {
                   className="round-ui__btn round-ui__btn--finish"
                   disabled={finishing}
                   onClick={() => setConfirmFinish(true)}
-                  title="Submit the whole round and go back to the main screen"
+                  title="Submit the whole round and go back to the dashboard"
                 >
                   <Flag size={14} /> {finishing ? 'Submitting…' : 'Finish round'}
                 </button>
@@ -738,7 +798,7 @@ export function CaveRoundShell() {
                 <b>YOUR INVENTORY</b>
                 <span>{resourceData?.pending_grading ? 'Rewards pending grading' : 'Live resource balance'}</span>
               </div>
-              <Hotbar balance={resourceData?.balance} activeSlot={slot} onSelect={setSlot} />
+              <Hotbar balance={resourceData?.balance} crafted={crafted} activeSlot={slot} onSelect={setSlot} />
             </div>
             <div className="round-ui__inventory-actions">
               <button
@@ -792,7 +852,7 @@ export function CaveRoundShell() {
               Your {answeredIds.length} saved {answeredIds.length === 1 ? 'answer' : 'answers'} are sent for grading and
               can no longer be changed.
               {unansweredCount > 0 && ` ${unansweredCount} question${unansweredCount === 1 ? '' : 's'} left unanswered will score nothing.`}
-              {' '}You will be taken back to the main screen.
+              {' '}You will be taken back to the dashboard.
             </p>
             <div className="round-ui__confirm-actions">
               <button type="button" className="round-ui__btn round-ui__btn--ghost" onClick={() => setConfirmFinish(false)} disabled={finishing}>

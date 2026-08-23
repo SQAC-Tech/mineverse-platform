@@ -4,6 +4,7 @@ import { consumeRateLimit, retryHint, tooManyRequests } from '@/lib/rate-limit';
 import { clientIp } from '@/lib/request-ip';
 import { sendOtpEmail } from '@/lib/email';
 import { generateOtp, hashOtp } from '@/lib/auth/otp';
+import { ensureDeviceId } from '@/lib/auth/session';
 import { getLoginState, nextLoginOpening } from '@/lib/platform/settings';
 import { env } from '@/lib/env';
 import { verifyTurnstileToken } from '@/lib/turnstile';
@@ -132,6 +133,17 @@ export async function POST(req: Request) {
       console.error("Email send error:", e);
     }
   }
+
+  /**
+   * Stamp the browser before the code is even typed.
+   *
+   * The one-device rule needs to recognise this browser at verify time, and a
+   * cookie set on *this* response is one the verify request is guaranteed to
+   * carry. Minting it there too would work, but only for a browser that reached
+   * verify — doing it here means a team that requests a code, closes the tab and
+   * comes back is still the same device.
+   */
+  await ensureDeviceId();
 
   return NextResponse.json({
     success: true,

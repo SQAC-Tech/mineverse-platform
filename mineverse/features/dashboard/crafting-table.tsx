@@ -81,8 +81,15 @@ function CraftingGrid({
   const [error, setError] = useState<string | null>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
 
+  // Focus once on open. Sharing an effect with the Escape listener keyed this
+  // on `onClose`, which the dashboard passes as an inline arrow — so every
+  // parent render re-focused the button and scrolled the panel. Same bug the
+  // rulebook had.
   useEffect(() => {
-    closeRef.current?.focus();
+    closeRef.current?.focus({ preventScroll: true });
+  }, []);
+
+  useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
     };

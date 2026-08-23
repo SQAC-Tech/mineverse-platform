@@ -62,8 +62,8 @@ export async function POST(req: Request) {
 
     const { data: released, error: releaseAllErr } = await supabaseServer
       .from('teams')
-      .update({ active_login_ip: null })
-      .not('active_login_ip', 'is', null)
+      .update({ active_login_ip: null, active_login_device: null, active_login_at: null, active_login_seen_at: null })
+      .not('active_login_device', 'is', null)
       .select('team_code');
 
     if (releaseAllErr) {
@@ -98,7 +98,7 @@ export async function POST(req: Request) {
 
   const { error } = await supabaseServer
     .from('teams')
-    .update({ active_login_ip: null })
+    .update({ active_login_ip: null, active_login_device: null, active_login_at: null, active_login_seen_at: null })
     .eq('id', teamId);
 
   if (error) {

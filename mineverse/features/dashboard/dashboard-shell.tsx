@@ -4,6 +4,7 @@ import './dashboard.css';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { Flame, LogOut, Shield } from 'lucide-react';
 
 import { Hotbar } from '@/components/game/inventory/Hotbar';
@@ -45,7 +46,31 @@ export function DashboardShell() {
     try {
       const response = await fetch('/api/dashboard/data', { cache: 'no-store' });
       const payload = await response.json();
-      if (!payload.success) return;
+
+      // A 401 mid-poll means the session ended under us — it expired, or the
+      // team signed in somewhere else and this device lost the seat. Sitting on
+      // the last good snapshot would leave a dashboard that looks live and can
+      // open nothing, so send them to the login screen with the reason.
+      if (response.status === 401) {
+        if (typeof payload.message === 'string') toast.error(payload.message, { duration: 8000 });
+        router.push('/login');
+        return;
+      }
+
+      /**
+       * A refused dashboard has to say so.
+       *
+       * This returned silently on any failure, which meant an entitlement 403
+       * rendered as a dashboard stuck on empty — no team name, no rounds, no
+       * reason. Every team hit exactly that when the RSVP gate refused all
+       * fifty of them, and from the outside it looked like data not loading.
+       */
+      if (!payload.success) {
+        if (response.status === 403 && typeof payload.message === 'string') {
+          toast.error(payload.message, { id: 'dashboard-entitlement', duration: 10000 });
+        }
+        return;
+      }
 
       setTeam(payload.team ?? null);
       setRounds(payload.rounds ?? []);
@@ -56,7 +81,7 @@ export function DashboardShell() {
     } catch {
       // Keep the last good snapshot. Rounds stay locked until a fetch succeeds.
     }
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     void load();
@@ -234,7 +259,10 @@ export function DashboardShell() {
 
       {/* ── Inventory ── */}
       <footer className="dash__foot">
-        <Hotbar balance={resources} activeSlot={slot} onSelect={setSlot} maxWidth="min(600px, 100%)" />
+        {/* `crafted` was fetched, used for the avatar's loadout, and then not
+            handed to the inventory — so a pickaxe a team had just crafted was
+            missing from the one place they would look for it. */}
+        <Hotbar balance={resources} crafted={crafted} activeSlot={slot} onSelect={setSlot} maxWidth="min(600px, 100%)" />
       </footer>
 
       {/* ── Overlays ── */}

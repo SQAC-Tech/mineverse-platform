@@ -24,8 +24,15 @@ type TeamRow = {
   is_payment_verified: boolean;
   total_score: number;
   created_at: string;
-  /** Set on first login; a different network is refused until it is released. */
+  /**
+   * The login lease. `active_login_device` is the browser holding the team's
+   * one seat; `active_login_seen_at` is its last sign of life, after which
+   * another device takes over on its own. The IP is shown for context only —
+   * it decides nothing.
+   */
   active_login_ip?: string | null;
+  active_login_device?: string | null;
+  active_login_seen_at?: string | null;
   members?: Member[];
   attendance_records?: { checkpoint_id: number; members_present: number }[];
 };
@@ -138,15 +145,32 @@ function AddMemberForm({ teamId, onAdded }: { teamId: string; onAdded: () => voi
 /**
  * Frees a team that logged in somewhere else first.
  *
- * `POST /api/auth/login/verify` pins a team to the address it first logs in
- * from. Everyone in the venue shares one SRMIST NAT address, so on the day this
- * is invisible — until a team that logged in from home the night before walks in
- * and is refused, with nothing they can do about it. This is the desk fix.
+ * A team holds its one seat until it logs out or goes idle for fifteen minutes,
+ * after which the next device takes over by itself. That covers the ordinary
+ * accidents — a dead laptop, a closed lid, a cleared cookie jar — so this button
+ * is now for the case nobody wants to wait out: a team at the desk, mid-round,
+ * whose other device is still alive somewhere and cannot be reached.
+ *
+ * It used to be the only way back from a much larger set of accidents. The lock
+ * was a one-shot latch that never compared anything, so a second login from the
+ * same laptop was refused and pressing LOGOUT barred the team outright.
  */
 function ReleaseLogin({ team, onReleased }: { team: TeamRow; onReleased: () => void }) {
   const [busy, setBusy] = useState(false);
 
-  if (!team.active_login_ip) return null;
+  if (!team.active_login_device) return null;
+
+  /**
+   * The wall clock, not "idle for N minutes".
+   *
+   * A relative figure would have to be recomputed as the desk watches, and
+   * reading the clock during render is exactly the impurity React now rejects.
+   * An absolute time needs neither: the volunteer compares it against the clock
+   * on the wall, which is what they were going to do anyway.
+   */
+  const lastActive = team.active_login_seen_at
+    ? new Date(team.active_login_seen_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : null;
 
   const release = async () => {
     setBusy(true);
@@ -156,13 +180,17 @@ function ReleaseLogin({ team, onReleased }: { team: TeamRow; onReleased: () => v
     });
     setBusy(false);
     if (!res.ok) return toast.error(res.message);
-    toast.success(`${team.team_code} can log in from this network now`);
+    toast.success(`${team.team_code} can log in from another device now`);
     onReleased();
   };
 
   return (
     <div style={{ marginTop: 10, fontSize: 11.5 }}>
-      <span className="n-panel-sub">Login pinned to {team.active_login_ip}. </span>
+      <span className="n-panel-sub">
+        Signed in from {team.active_login_ip ?? 'an unrecorded address'}
+        {lastActive ? `, last active ${lastActive}` : ''}. Another device can take over
+        by itself once this one has been idle 15 minutes — release only if they cannot wait.{' '}
+      </span>
       <Btn small disabled={busy} onClick={() => void release()}>
         <Unlock size={12} /> {busy ? 'Releasing…' : 'Release login'}
       </Btn>
@@ -171,21 +199,25 @@ function ReleaseLogin({ team, onReleased }: { team: TeamRow; onReleased: () => v
 }
 
 /**
- * Clears every pin in one go.
+ * Signs every team out of every device in one go.
  *
- * The per-team button above is the desk fix for one arrival. This is the one
- * for the morning of the event: teams pin themselves during the screening two
- * days earlier — from hostels, home broadband and mobile data — so by event day
- * essentially every pin points somewhere that is not the venue, and the whole
- * roster is refused at the door. Clearing that ninety times, each behind a row
- * expansion, is not a job anyone finishes while a queue is forming.
+ * This existed because the old latch made a mass release inevitable: teams
+ * locked themselves in during the screening two days earlier, from hostels and
+ * mobile data, and by event morning the whole roster would be refused at the
+ * door. The lease retires itself after fifteen idle minutes, so that particular
+ * emergency is gone.
+ *
+ * It is kept for the deliberate reset — starting a day clean, or clearing the
+ * floor after a rehearsal. Note what it does now: it frees the seats, it does
+ * not sign anyone out, so a team still at its laptop keeps playing and simply
+ * reclaims its seat on the next poll.
  */
 function ReleaseAllLogins({ pinned, onReleased }: { pinned: number; onReleased: () => void }) {
   const [arming, setArming] = useState(false);
   const [busy, setBusy] = useState(false);
 
   if (pinned === 0) {
-    return <span className="n-panel-sub" style={{ fontSize: 11.5 }}>No logins pinned</span>;
+    return <span className="n-panel-sub" style={{ fontSize: 11.5 }}>No teams signed in</span>;
   }
 
   const releaseAll = async () => {
@@ -197,14 +229,14 @@ function ReleaseAllLogins({ pinned, onReleased }: { pinned: number; onReleased: 
     setBusy(false);
     setArming(false);
     if (!res.ok) return toast.error(res.message);
-    toast.success(`${res.data?.released ?? 0} logins released`);
+    toast.success(`${res.data?.released ?? 0} seats released`);
     onReleased();
   };
 
   if (!arming) {
     return (
       <Btn small onClick={() => setArming(true)}>
-        <Unlock size={12} /> Release all logins ({pinned})
+        <Unlock size={12} /> Release all seats ({pinned})
       </Btn>
     );
   }
@@ -212,7 +244,7 @@ function ReleaseAllLogins({ pinned, onReleased }: { pinned: number; onReleased: 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
       <span className="n-panel-sub" style={{ fontSize: 11.5 }}>
-        Let all {pinned} teams log in from any network?
+        Free all {pinned} seats? Teams stay signed in and reclaim them on their next poll.
       </span>
       <Btn small disabled={busy} onClick={() => void releaseAll()}>
         {busy ? 'Releasing…' : `Yes, release ${pinned}`}
@@ -323,7 +355,7 @@ export default function AdminTeamsPage() {
   const verified = teams.filter((t) => t.is_payment_verified).length;
   const participants = teams.reduce((sum, t) => sum + (t.team_size ?? 0), 0);
   const checkedIn = teams.filter((t) => (t.attendance_records?.length ?? 0) > 0).length;
-  const pinned = teams.filter((t) => t.active_login_ip).length;
+  const pinned = teams.filter((t) => t.active_login_device).length;
 
   return (
     <>
@@ -347,7 +379,7 @@ export default function AdminTeamsPage() {
         <StatTile label="Payment verified" value={verified} />
         <StatTile label="Checked in" value={checkedIn} hint="Has at least one attendance record" />
         <StatTile
-          label="Logins pinned"
+          label="Signed in"
           value={pinned}
           hint="Refused from any other network until released"
         />
@@ -390,7 +422,7 @@ export default function AdminTeamsPage() {
                       {/* Visible without expanding the row — the release control
                           itself lives in the detail panel, and a desk cannot
                           hunt for it one team at a time. */}
-                      {team.active_login_ip && <Pill tone="warn">login pinned</Pill>}
+                      {team.active_login_device && <Pill tone="warn">signed in</Pill>}
                     </div>
                   </td>
                   <td>{team.total_score ?? 0}</td>

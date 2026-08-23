@@ -1880,6 +1880,14 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  /* `flex-wrap: wrap` is set on this same selector further up, where the row
+     was horizontal and wrapping meant "drop the buttons onto their own line".
+     Turning the axis vertical without turning that off left a wrapping column:
+     once the children exceed the foot's height they wrap into a *second
+     column* beside the first and overlap whatever is next to them. Round 2
+     shows it first because its foot carries the extra crafting toggle.
+     Stacking already does what the wrap was for. */
+  flex-wrap: nowrap;
 }
 
 .round-ui__inventory-main {

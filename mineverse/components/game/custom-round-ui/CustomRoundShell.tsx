@@ -1,7 +1,7 @@
 'use client';
 
 import { readDraft, writeDraft, readLanguage, writeLanguage, purgeForeignDrafts } from '@/lib/client/answer-drafts';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ChevronLeft,
@@ -20,16 +20,17 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useProctorSession } from '@/components/game/proctor/ProctorProvider';
+import { supabaseClient } from '@/lib/supabase/client';
 import { GuardianArena } from './GuardianArena';
 import { NotificationTray, type LedgerEntry } from './NotificationTray';
 import { WorldEvent } from './WorldEvent';
 import { PvpPanel } from '../pvp/PvpPanel';
 import { EndRail } from '@/components/day2/end-round/EndRail';
 import { CodeWorkspace } from '@/components/game/code/CodeWorkspace';
-import { runtimesFor } from '@/lib/gameplay/code/runtimes';
+import { defaultLanguageFor, offeredRuntimes, offersLanguage } from '@/lib/gameplay/code/runtimes';
 import { useAnswerAutosave } from '@/hooks/useAnswerAutosave';
 import type { CraftedItem, DashboardProgress } from '@/features/dashboard/types';
-import { RESOURCE_META, buildQuestionTabs, languagePrompts, payoutList, promptBlocks, questionTypeLabel, roundChoice, roundChrome, roundCraft, roundGuardian, roundObjective, roundPvp, type ResourceKey, type ShellQuestion } from './round-presentation';
+import { RESOURCE_META, buildQuestionTabs, languagePrompts, offersLanguageChoice, payoutList, promptBlocks, questionTypeLabel, roundChoice, roundChrome, roundCraft, roundGuardian, roundObjective, roundPvp, type ResourceKey, type ShellQuestion } from './round-presentation';
 import './round-ui.css';
 import { Hotbar } from '@/components/game/inventory/Hotbar';
 import { MinecraftCraftingTable } from './MinecraftCraftingTable';
@@ -200,6 +201,24 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
     return () => window.clearInterval(poll);
   }, [refresh]);
 
+  /**
+   * Refetch the moment an admin unlocks the round or its boss.
+   *
+   * The dashboard has always listened on this channel; the round shells never
+   * did, so once a team was inside a round the only way anything reached them
+   * was the ten-second poll. That is why unlocking the boss appeared to need a
+   * hard refresh.
+   */
+  useEffect(() => {
+    const channel = supabaseClient
+      .channel('round_status')
+      .on('broadcast', { event: 'unlock' }, () => void refresh())
+      .subscribe();
+    return () => {
+      void supabaseClient.removeChannel(channel);
+    };
+  }, [refresh]);
+
   useEffect(() => {
     const tick = window.setInterval(() => setNow(Date.now()), 1_000);
     return () => window.clearInterval(tick);
@@ -216,17 +235,45 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
     return () => window.removeEventListener('keydown', selectHotbarSlot);
   }, []);
 
+  /**
+   * Restore what this team had typed and picked — once, not on every poll.
+   *
+   * `refresh` runs every ten seconds and hands back a fresh `questions` array,
+   * so depending on that array meant this effect re-ran on every tick and
+   * *replaced* both pieces of state wholesale. Two things followed from that,
+   * and both were reported as the round losing work:
+   *
+   *  - the language reset to the default every ten seconds, because the stored
+   *    choice was checked against `language_options`, which is empty for most of
+   *    the bank, so it never survived the check;
+   *  - the drafts were overwritten from localStorage, which is empty whenever
+   *    `teamCode` is null — and it was null for everyone while the dashboard was
+   *    returning 403, so every answer typed was wiped on the next tick.
+   *
+   * Hydrating once per team and round fixes the clobber at its source. The ref
+   * is the guard rather than a dependency list because `questions` legitimately
+   * changes identity on every poll and we want exactly the first one.
+   */
+  const hydratedFor = useRef<string | null>(null);
+
   useEffect(() => {
+    if (!teamCode || questions.length === 0) return;
+
+    const key = `${teamCode}:${roundId}`;
+    if (hydratedFor.current === key) return;
+    hydratedFor.current = key;
+
     // Clears anything left by a previous team on this machine before reading.
     purgeForeignDrafts(teamCode);
+
     const loaded: Record<string, string> = {};
     const loadedLanguages: Record<string, string> = {};
     for (const question of questions) {
       loaded[question.id] = readDraft(teamCode, roundId, question.id);
       const saved = readLanguage(teamCode, roundId, question.id);
-      // Only honour a language the question still offers.
-      if (saved && (question.language_options ?? []).includes(saved)) loadedLanguages[question.id] = saved;
+      if (offersLanguage(question.language_options, saved)) loadedLanguages[question.id] = saved!;
     }
+
     setDrafts(loaded);
     setLanguages(loadedLanguages);
   }, [questions, roundId, teamCode]);
@@ -305,7 +352,7 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
         ? {
             question_id: questionId,
             code: text,
-            language: languages[questionId] ?? runtimesFor(question.language_options)[0]?.id ?? null,
+            language: languages[questionId] ?? defaultLanguageFor(question.language_options),
           }
         : { question_id: questionId, answer_text: text };
     },
@@ -338,7 +385,7 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
       const isCode = question.type === 'coding' || question.type === 'code_completion';
       // The team's actual choice, falling back to the question's first option
       // only when it never made one.
-      const chosen = languages[question.id] ?? runtimesFor(question.language_options)[0]?.id ?? null;
+      const chosen = languages[question.id] ?? defaultLanguageFor(question.language_options);
       const response = await fetch('/api/submissions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -416,7 +463,7 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
 
   /**
    * Ends the round for this team: locks every answer they saved, then drops them
-   * back on the main screen. Only answered questions are sent — the section endpoint
+   * back on the dashboard. Only answered questions are sent — the section endpoint
    * rejects a list containing an unanswered one, and a team that ran out of time
    * still needs a way to hand in what they did finish.
    */
@@ -667,18 +714,18 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
                       <span className="round-ui__type-badge">{questionTypeLabel(currentQuestion.type)}</span>
                     </p>
                     {currentQuestion.title && <p className="round-ui__question-title">{currentQuestion.title}</p>}
-                    {['coding', 'code_completion', 'debugging', 'debug_output', 'output'].includes(currentQuestion.type) && (
+                    {offersLanguageChoice(currentQuestion) && (
                       <div style={{ marginBottom: '16px' }}>
                         <select
                           style={{ width: 'auto', padding: '6px 12px', fontSize: '13px', display: 'inline-block', backgroundColor: 'rgba(0, 0, 0, 0.6)', color: '#fff', border: '1px solid rgba(255, 255, 255, 0.2)', borderRadius: '4px', cursor: 'pointer', appearance: 'auto', minHeight: 'auto', fontFamily: 'var(--rd-font-mono)' }}
-                          value={languages[currentQuestion.id] ?? runtimesFor(currentQuestion.language_options?.length ? currentQuestion.language_options : ['python', 'cpp', 'java', 'javascript', 'c'])[0]?.id ?? ''}
+                          value={languages[currentQuestion.id] ?? defaultLanguageFor(currentQuestion.language_options)}
                           onChange={(e) => {
                             setLanguages((prev) => ({ ...prev, [currentQuestion.id]: e.target.value }));
                             writeLanguage(teamCode, roundId, currentQuestion.id, e.target.value);
                           }}
                           disabled={readOnly}
                         >
-                          {runtimesFor(currentQuestion.language_options?.length ? currentQuestion.language_options : ['python', 'cpp', 'java', 'javascript', 'c']).map((rt) => (
+                          {offeredRuntimes(currentQuestion.language_options).map((rt) => (
                             <option key={rt.id} value={rt.id} style={{ backgroundColor: '#222', color: '#fff' }}>
                               {rt.label}
                             </option>
@@ -686,7 +733,7 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
                         </select>
                       </div>
                     )}
-                    <QuestionPrompt question={currentQuestion} language={languages[currentQuestion.id] ?? runtimesFor(currentQuestion.language_options?.length ? currentQuestion.language_options : ['python', 'cpp', 'java', 'javascript', 'c'])[0]?.id ?? null} />
+                    <QuestionPrompt question={currentQuestion} language={languages[currentQuestion.id] ?? defaultLanguageFor(currentQuestion.language_options)} />
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                       <label className="round-ui__field-label" style={{ margin: 0 }} htmlFor={`answer-${currentQuestion.id}`}>Your answer</label>
                     </div>
@@ -796,7 +843,7 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
                   className="round-ui__btn round-ui__btn--finish"
                   disabled={finishing}
                   onClick={() => setConfirmFinish(true)}
-                  title="Submit the whole round and go back to the main screen"
+                  title="Submit the whole round and go back to the dashboard"
                 >
                   <Flag size={14} /> {finishing ? 'Submitting…' : 'Finish round'}
                 </button>
@@ -904,7 +951,7 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
               Your {answeredIds.length} saved {answeredIds.length === 1 ? 'answer' : 'answers'} are sent for grading and
               can no longer be changed.
               {unansweredCount > 0 && ` ${unansweredCount} question${unansweredCount === 1 ? '' : 's'} left unanswered will score nothing.`}
-              {' '}You will be taken back to the main screen.
+              {' '}You will be taken back to the dashboard.
             </p>
             <div className="round-ui__confirm-actions">
               <button type="button" className="round-ui__btn round-ui__btn--ghost" onClick={() => setConfirmFinish(false)} disabled={finishing}>

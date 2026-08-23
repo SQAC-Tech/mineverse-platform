@@ -62,21 +62,39 @@ export function NotificationTray({ entries, pendingGrading, storageKey }: Notifi
     if (newest) window.localStorage.setItem(storageKey, newest);
   };
 
-  // Trigger achievement toast for new notifications
-  const prevEntriesLength = useRef(entries.length);
+  /**
+   * Toast whatever is newer than the newest entry we have already toasted.
+   *
+   * This counted entries and toasted the difference, which works right up until
+   * the list is full. The feed is fetched with `limit=12`, so once a team has
+   * twelve ledger rows the length is pinned at twelve, the difference is always
+   * zero, and no notification ever fires again — for the rest of the event.
+   * Every team crosses twelve entries early in Round 1.
+   *
+   * Tracking the newest id instead makes the check independent of the window
+   * size, and `findIndex` bounds the slice to entries we have genuinely not
+   * seen: if more than twelve land between two polls we toast the twelve we can
+   * see rather than replaying the whole tray.
+   */
+  const lastToastedId = useRef<string | null>(entries[0]?.id ?? null);
   useEffect(() => {
-    if (entries.length > prevEntriesLength.current) {
-      // New entries added
-      const newEntries = entries.slice(0, entries.length - prevEntriesLength.current);
-      newEntries.forEach(entry => {
-        const parts = deltaParts(entry.delta);
-        const desc = parts.length === 0 
-          ? 'Inventory updated' 
-          : parts.map(({ resource, value }) => `${value > 0 ? '+' : ''}${value} ${resource}`).join(', ');
-        triggerAchievement(sourceLabel(entry), desc);
-      });
+    if (entries.length === 0) return;
+    if (entries[0].id === lastToastedId.current) return;
+
+    const seenAt = lastToastedId.current
+      ? entries.findIndex((entry) => entry.id === lastToastedId.current)
+      : -1;
+    const fresh = seenAt === -1 ? entries : entries.slice(0, seenAt);
+
+    for (const entry of fresh) {
+      const parts = deltaParts(entry.delta);
+      const desc = parts.length === 0
+        ? 'Inventory updated'
+        : parts.map(({ resource, value }) => `${value > 0 ? '+' : ''}${value} ${resource}`).join(', ');
+      triggerAchievement(sourceLabel(entry), desc);
     }
-    prevEntriesLength.current = entries.length;
+
+    lastToastedId.current = entries[0].id;
   }, [entries]);
 
   const toggle = () => {

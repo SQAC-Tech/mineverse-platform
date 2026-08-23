@@ -70,8 +70,24 @@ export function Rulebook({ onClose }: RulebookProps) {
     pageRef.current?.scrollTo({ top: 0 });
   }, [chapter]);
 
+  /**
+   * Focus the close button once, when the book opens.
+   *
+   * This used to share an effect with the Escape listener, keyed on `onClose` —
+   * and the dashboard passes `onClose={() => setShowRules(false)}`, a fresh
+   * function on every one of its renders. So every ten-second poll re-ran the
+   * effect and re-focused the button, and focusing scrolls an element into
+   * view: the page jumped back to the top under whoever was reading it.
+   *
+   * `preventScroll` is belt and braces — nothing should scroll on a focus we
+   * only take once, but the cost of being wrong here is the bug we just had.
+   */
   useEffect(() => {
-    closeRef.current?.focus();
+    closeRef.current?.focus({ preventScroll: true });
+  }, []);
+
+  // Kept separate, and keyed on `onClose` because it genuinely calls it.
+  useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
     };

@@ -127,3 +127,41 @@ export function runtimesFor(languageOptions: string[] | null | undefined): Runti
   // De-duplicate: `py` and `python` are the same runtime and must not appear twice.
   return [...new Map(resolved.map((runtime) => [runtime.id, runtime])).values()];
 }
+
+/**
+ * What a question offers when it names nothing.
+ *
+ * Most of the bank has an empty `language_options`, and every caller used to
+ * inline its own fallback list — the same five ids, written out five times, all
+ * of them starting with `python`. That ordering was the default a team got, so
+ * a C++ event handed everyone a Python editor.
+ *
+ * C++ leads because that is what the question bank is mostly written in. The
+ * list lives here once so the picker, the prompt and the editor cannot drift
+ * apart again.
+ */
+export const DEFAULT_LANGUAGE_OPTIONS = ['cpp', 'python', 'java', 'javascript', 'c'];
+
+/** The runtimes to actually show for a question, fallback included. */
+export function offeredRuntimes(languageOptions: string[] | null | undefined): Runtime[] {
+  const named = runtimesFor(languageOptions);
+  return named.length > 0 ? named : runtimesFor(DEFAULT_LANGUAGE_OPTIONS);
+}
+
+/** The language a question starts on before the team picks one. */
+export function defaultLanguageFor(languageOptions: string[] | null | undefined): string {
+  return offeredRuntimes(languageOptions)[0]?.id ?? 'cpp';
+}
+
+/**
+ * Whether a question still offers a language the team picked earlier.
+ *
+ * The stored choice used to be checked against `language_options` directly,
+ * which is empty for most of the bank — so `[].includes('cpp')` was false and
+ * every remembered choice was silently thrown away and reset to the default.
+ */
+export function offersLanguage(languageOptions: string[] | null | undefined, language: string | null): boolean {
+  if (!language) return false;
+  const resolved = resolveRuntime(language);
+  return resolved !== null && offeredRuntimes(languageOptions).some((runtime) => runtime.id === resolved.id);
+}
