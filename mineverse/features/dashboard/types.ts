@@ -28,6 +28,8 @@ export interface DashboardRound {
   score: number | null;
   can_enter: boolean;
   unlocked_by_dev_mode: boolean;
+  /** The tool this biome needs, when the team has not crafted it yet. */
+  needs_craft: string | null;
 }
 
 export interface CraftedItem {
