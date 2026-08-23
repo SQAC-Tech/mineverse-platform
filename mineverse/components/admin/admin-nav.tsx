@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, CreditCard, Users, Clock, ClipboardCheck,
-  Zap, Swords, Coins, Trophy, ClipboardList, Eye, Moon, FileText,
+  Zap, Swords, Coins, Trophy, ClipboardList, Eye, Moon, FileText, UserCheck,
 } from 'lucide-react';
 
 /**
@@ -39,6 +39,10 @@ const NAV_GROUPS = [
       { name: 'Grant Resources', href: '/admin/resources', icon: Coins },
       { name: 'PvP Matches', href: '/admin/pvp', icon: Swords },
       { name: 'Proctor', href: '/admin/proctor', icon: Eye },
+      // Team attendance gates the rounds -- a team with no record here cannot
+      // start the round its checkpoint covers, so this sits with Live Ops and
+      // above the desk-staff log it is often confused with.
+      { name: 'Team Attendance', href: '/admin/attendance', icon: UserCheck },
       { name: 'Desk Attendance', href: '/admin/staff-attendance', icon: ClipboardList },
     ],
   },

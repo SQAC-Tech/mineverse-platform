@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth/session';
 import { verifyTeamRoundAccess } from '@/lib/gameplay/utils/access';
-import { isDemoTeamId } from '@/lib/gameplay/demo-teams';
 
 /**
  * Page-level gate for a round route.
@@ -28,13 +27,18 @@ export async function requireRoundAccess(roundId: number) {
   if (!hasAccess) redirect('/dashboard');
 
   /**
-   * Demo teams walk rounds unproctored.
+   * Nobody is exempt from the proctor, demo teams included.
    *
-   * Read here because this is the one place every round page already awaits,
-   * and because the demo list is server-only config that must not be shipped
-   * to the browser. Returned rather than applied, so the page decides.
+   * Demo teams used to walk rounds unproctored so an organiser could alt-tab
+   * without racking up violations. That convenience cost more than it saved:
+   * the demo teams are the only accounts the proctor is ever rehearsed on, so
+   * exempting them meant the gate, the fullscreen lock and the violation
+   * counter were never exercised before the teams arrived.
+   *
+   * Kept in the return shape, and always false, so the round pages do not all
+   * have to change and the exemption cannot creep back in silently.
    */
-  const proctorExempt = await isDemoTeamId(session.team_id);
+  const proctorExempt = false;
 
   return { ...session, proctorExempt };
 }
