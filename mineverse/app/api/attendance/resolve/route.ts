@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase/server';
 import { requirePanelScope } from '@/lib/panel/require-admin';
+import { markingEntitlement } from '@/lib/attendance/gates';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,6 +45,27 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: false, error: `No team found for ${code}.` }, { status: 404 });
   }
 
+  /**
+   * Whether this team should be standing here at all.
+   *
+   * Surfaced on the scan rather than only at round entry, so the volunteer is
+   * told while the team is in front of them — a team that never RSVP'd can be
+   * sent to an organizer there and then, instead of discovering it when a round
+   * refuses to open.
+   *
+   * A warning, not a refusal: `POST /mark` is what enforces it. A scan that
+   * returns nothing at all would leave the desk with no idea why.
+   */
+  const { data: checkpointRow } = Number.isInteger(checkpointId)
+    ? await supabaseServer
+        .from('attendance_checkpoints')
+        .select('day')
+        .eq('id', checkpointId)
+        .maybeSingle()
+    : { data: null };
+
+  const entitlement = await markingEntitlement(team.id, Number(checkpointRow?.day ?? 1));
+
   const members = [...(team.members ?? [])].sort(
     (a, b) => Number(b.is_team_lead) - Number(a.is_team_lead) || a.name.localeCompare(b.name),
   );
@@ -74,6 +96,8 @@ export async function POST(req: Request) {
       team_name: team.team_name,
       team_size: team.team_size,
       is_payment_verified: team.is_payment_verified,
+      entitled: entitlement.ok,
+      entitlement_message: entitlement.message ?? null,
       members,
       existing,
     },

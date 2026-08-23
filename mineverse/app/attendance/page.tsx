@@ -29,6 +29,9 @@ type ResolvedTeam = {
   team_name: string;
   team_size: number;
   is_payment_verified: boolean;
+  /** False when this team has no seat at this checkpoint — see `markingEntitlement`. */
+  entitled: boolean;
+  entitlement_message: string | null;
   members: Member[];
   existing: { member_ids: string[]; members_present: number } | null;
 };
@@ -184,6 +187,12 @@ export default function AttendancePanel() {
               <div>
                 <p className="font-mono text-lg font-bold text-cyan-400">{team.team_code}</p>
                 <p className="text-sm text-slate-400">{team.team_name}</p>
+                {!team.entitled && (
+                  <p className="mt-2 rounded bg-red-500/10 px-2 py-1 text-xs font-semibold text-red-400">
+                    {team.entitlement_message ?? 'This team cannot be marked present.'} Saving will be
+                    refused.
+                  </p>
+                )}
                 {!team.is_payment_verified && (
                   <p className="mt-2 rounded bg-amber-500/10 px-2 py-1 text-xs text-amber-400">
                     Payment not verified — check with the desk before marking.
@@ -276,10 +285,12 @@ export default function AttendancePanel() {
                 >
                   Cancel
                 </Button>
+                {/* Disabled rather than hidden: the volunteer needs to see that
+                    marking is the thing being refused, not that they mis-scanned. */}
                 <Button
                   className="h-12 flex-1 bg-cyan-600 font-bold text-white hover:bg-cyan-500"
                   onClick={mark}
-                  disabled={busy}
+                  disabled={busy || !team.entitled}
                 >
                   Mark {present.length}/{team.team_size}
                 </Button>

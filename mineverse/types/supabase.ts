@@ -17,6 +17,7 @@ export type Database = {
       attendance_checkpoints: {
         Row: {
           code: string
+          covers_rounds: number[]
           created_at: string
           day: number
           id: number
@@ -26,6 +27,7 @@ export type Database = {
         }
         Insert: {
           code: string
+          covers_rounds?: number[]
           created_at?: string
           day: number
           id?: number
@@ -35,6 +37,7 @@ export type Database = {
         }
         Update: {
           code?: string
+          covers_rounds?: number[]
           created_at?: string
           day?: number
           id?: number
