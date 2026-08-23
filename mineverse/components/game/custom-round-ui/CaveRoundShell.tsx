@@ -487,9 +487,13 @@ export function CaveRoundShell() {
       }
       // Closes the proctor session and leaves fullscreen before navigating, so
       // the dashboard is not stuck behind a fullscreen scrim. Every way out of
-      // a round lands there — it is where the next round is opened from.
+      // a round lands there -- it is where the next round is opened from.
+      //
+      // `replace`, not `push`: the round is sealed, so leaving it on the history
+      // stack means Back walks a team straight back into a paper they can no
+      // longer answer. That is the round reappearing after it was handed in.
       await proctor?.finish();
-      router.push('/dashboard');
+      router.replace('/dashboard');
     } catch {
       toast.error('Could not reach the server. Nothing was submitted.');
     } finally {
@@ -934,7 +938,7 @@ export function CaveRoundShell() {
           crafting={crafting}
           craftShortfall={craftShortfall}
           onCraft={() => void craftRoundItem()}
-          onContinue={() => { setCraftPrompt(false); router.push('/dashboard'); }}
+          onContinue={() => { setCraftPrompt(false); router.replace('/dashboard'); }}
         />
       )}
       {modal && (
