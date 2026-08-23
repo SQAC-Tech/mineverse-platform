@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { promptBlocks, payoutText } from '@/components/game/custom-round-ui/round-presentation';
 import { runtimesFor, resolveRuntime, type Runtime } from '@/lib/gameplay/code/runtimes';
+import { contractOf, starterFor, type LanguageId } from '@/lib/gameplay/code/contract';
 import './code-workspace.css';
 
 // Monaco reaches for `window` and `document` as it loads, so it must not be part
@@ -133,6 +134,17 @@ export function CodeWorkspace({
 }: CodeWorkspaceProps) {
   const runtimes = runtimesFor(question.language_options);
   const active = resolveRuntime(language) ?? runtimes[0] ?? null;
+
+  /* Reset restores this question's generated stub. It used to hand back the
+     runtime's whole-program template — the `int main()` scaffold the function
+     model exists to remove — so pressing it undid the stub rather than the
+     team's edits. */
+  const contract = contractOf((question as { runtime_meta?: unknown }).runtime_meta ?? null)
+    ?? (question as { fn_contract?: Parameters<typeof starterFor>[0] | null }).fn_contract
+    ?? null;
+  const starter = contract && active
+    ? starterFor(contract, active.id as LanguageId)
+    : active?.starter ?? '';
   const samples = question.sample_test_cases ?? [];
 
   const [split, setSplit] = useState(38);
@@ -403,7 +415,7 @@ export function CodeWorkspace({
 
             <span className="cw-toolbar__spacer" />
 
-            <button type="button" className="cw-btn" onClick={() => active && onDraftChange(active.starter)} disabled={locked || !active}>
+            <button type="button" className="cw-btn" onClick={() => onDraftChange(starter)} disabled={locked || !active}>
               <RotateCcw size={14} /> Reset
             </button>
           </div>

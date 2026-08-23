@@ -539,3 +539,27 @@
   height: 100%;
   background: linear-gradient(90deg, #4f9d63, #7fd99a);
 }
+
+/* ── Statement layout ────────────────────────────────────────── */
+
+/*
+ * The statement is written with its own line breaks — rules on their own lines,
+ * an indented example under each. A `<p>` collapses all of that into one
+ * paragraph, which is how "Rules: - Duplicate weights count only once. - Print
+ * the second highest..." ended up as a single run-on line.
+ */
+.cw-problem p {
+  white-space: pre-wrap;
+}
+
+/*
+ * `overflow: hidden` clipped a listing that was taller than its box rather than
+ * letting the pane scroll, so an example showed one line sliced through the
+ * middle. The problem pane is the scroll area; a listing just takes the height
+ * it needs and wraps.
+ */
+.cw-problem pre {
+  overflow: visible;
+  max-height: none;
+  min-height: 0;
+}
