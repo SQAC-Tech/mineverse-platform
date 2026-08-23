@@ -2981,3 +2981,86 @@
   bottom: 12px;
   z-index: 10;
 }
+
+/* ── Scrollbars, per biome ───────────────────────────────────── */
+
+/*
+ * The base scrollbar lives in app/globals.css; this only re-points its two
+ * variables at whichever biome is on screen.
+ *
+ * Written once against `--rd-accent` rather than five times per palette, so a
+ * biome that changes its accent — or a new one — gets a matching scrollbar
+ * without touching this block. The forest's `#7ad64e` is what turns the
+ * guardian arena's bar green; the cave gets blue, the mountain amber, the
+ * Nether ember, the End purple, all for free.
+ *
+ * Set on the scene roots rather than on the panels that scroll, because the
+ * arena, the rail, the question list and the prompt all scroll and all sit
+ * inside one of these.
+ */
+.round-ui,
+.round-ui-scene,
+.biome {
+  --sb-track: rgb(from var(--rd-edge) r g b / 35%);
+  --sb-thumb: rgb(from var(--rd-accent) r g b / 55%);
+  --sb-thumb-hover: rgb(from var(--rd-accent) r g b / 80%);
+}
+
+/* The parchment panels are light, so the dark-on-light pairing inverts. */
+.round-ui__code,
+.round-ui__prompt-blocks {
+  --sb-track: rgba(0, 0, 0, 0.12);
+  --sb-thumb: rgba(0, 0, 0, 0.34);
+  --sb-thumb-hover: rgba(0, 0, 0, 0.5);
+}
+
+/* ── Craft prompt, after a round is handed in ────────────────── */
+
+.rcp {
+  max-width: min(520px, 92vw);
+  text-align: left;
+}
+
+.rcp__eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 10px;
+  color: var(--rd-accent);
+  font-family: var(--rd-font-display);
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.rcp__title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 8px;
+  color: var(--rd-gold);
+  font-family: var(--rd-font-display);
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: 0.5px;
+}
+
+.rcp__body {
+  margin: 0 0 14px;
+  color: var(--rd-ink);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.rcp__bench {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.rcp__short {
+  margin: 0 0 12px;
+  color: var(--rd-ink-dim);
+  font-size: 12.5px;
+  line-height: 1.5;
+}

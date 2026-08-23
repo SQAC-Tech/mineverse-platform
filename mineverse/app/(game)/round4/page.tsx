@@ -12,10 +12,10 @@ export const dynamic = 'force-dynamic';
  * the round actually has. `/portal` renders the same component.
  */
 export default async function Round4Page() {
-  await requireRoundAccess(4);
+  const { proctorExempt } = await requireRoundAccess(4);
 
   return (
-    <ProctoredRound roundId={4}>
+    <ProctoredRound roundId={4} exempt={proctorExempt}>
       <PortalRepairUI />
     </ProctoredRound>
   );

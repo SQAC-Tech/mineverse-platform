@@ -315,8 +315,11 @@ export function GuardianArena({
                   </div>
 
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    {/* Nine of the arena's aptitude questions carry a single
-                        prompt. A picker on those changed nothing at all. */}
+                    {/* Fifteen of the arena's aptitude questions carry a single
+                        prompt — all nine of the Skeleton Archer's, three each
+                        for the Forest and Blaze. The old picker rendered on
+                        those too and switching it changed nothing, because
+                        there was no second body to switch to. */}
                     {offersLanguageChoice(question) && (
                     <select
                       className="round-ui__field"

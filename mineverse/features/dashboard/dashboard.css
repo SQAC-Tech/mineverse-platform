@@ -1091,8 +1091,59 @@
   display: flex;
   flex-direction: column;
   gap: 5px;
+  /* Same reason as `.rb__page` — a long chapter list must scroll, not stretch. */
+  min-height: 0;
   padding: 16px 10px 16px 14px;
   overflow-y: auto;
+}
+
+/* ── Page turn ───────────────────────────────────────────────── */
+
+/* Sits below the parchment and never scrolls with it, so the way forward is
+   always on screen — the tabs alone meant going back to the spine each time. */
+.rb__turn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex: 0 0 auto;
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 2px solid rgba(150, 116, 60, 0.4);
+}
+
+.rb__turn-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 14px;
+  border: 2px solid #8a6428;
+  border-top-color: #b98c4c;
+  border-left-color: #b98c4c;
+  border-bottom-color: #5d3f14;
+  border-right-color: #5d3f14;
+  background: linear-gradient(180deg, #e6d3a4 0%, #d3bc86 100%);
+  color: #3a2a12;
+  font-family: var(--font-minecraft), 'Press Start 2P', ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+}
+
+.rb__turn-btn:hover:not(:disabled) {
+  background: linear-gradient(180deg, #f2e3bd 0%, #e2cd9c 100%);
+}
+
+.rb__turn-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.rb__turn-where {
+  color: #6b4a1c;
+  font-family: var(--font-minecraft), 'Press Start 2P', ui-monospace, monospace;
+  font-size: 9px;
+  letter-spacing: 0.5px;
 }
 
 .rb__index-title {
@@ -1136,6 +1187,21 @@
 }
 
 .rb__page {
+  display: flex;
+  flex-direction: column;
+  /*
+   * Without this the card resizes itself to whatever chapter is open.
+   *
+   * A grid item defaults to `min-height: auto`, which refuses to shrink below
+   * its content — so a long chapter overrode the card's `height: min(760px,
+   * 100%)`, grew the whole book past the viewport, and left the page behind it
+   * scrolling. And because the backdrop centres the card, a card whose height
+   * changed per chapter *moved* every time a tab was clicked.
+   *
+   * Pinned to zero, the card keeps the one height it declares and only the
+   * parchment inside it scrolls.
+   */
+  min-height: 0;
   padding: clamp(18px, 2.6vh, 30px) clamp(18px, 2.6vw, 38px);
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -1741,4 +1807,179 @@
   .wm__pin--open:hover {
     transform: translate(-50%, -50%);
   }
+}
+
+/* ── Dashboard overlays: marketplace and traders ─────────────── */
+
+/*
+ * The plain sibling of the rulebook's book. Same structural rules: a fixed
+ * card that cannot resize itself around its contents, and a body that scrolls
+ * on its own rather than growing the card and moving it.
+ */
+.dov__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 950;
+  display: grid;
+  place-items: center;
+  padding: clamp(10px, 3vh, 34px);
+  background: rgba(2, 3, 6, 0.86);
+  animation: d-fade 0.22s ease-out;
+}
+
+.dov {
+  display: flex;
+  flex-direction: column;
+  width: min(920px, 100%);
+  height: min(700px, 100%);
+  border: 4px solid #7a5326;
+  border-top-color: #a9793f;
+  border-left-color: #a9793f;
+  border-bottom-color: #3d2711;
+  border-right-color: #3d2711;
+  background: linear-gradient(160deg, #221a10 0%, #17110a 100%);
+  box-shadow: 0 18px 0 rgba(0, 0, 0, 0.35), 0 34px 70px rgba(0, 0, 0, 0.75);
+  animation: rb-open 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.dov__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  flex: 0 0 auto;
+  padding: 16px 18px;
+  border-bottom: 2px solid rgba(216, 174, 106, 0.3);
+}
+
+.dov__title {
+  margin: 0;
+  color: #e7c583;
+  font-family: var(--font-minecraft), 'Press Start 2P', ui-monospace, monospace;
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 1.2px;
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.8);
+}
+
+.dov__sub {
+  margin: 7px 0 0;
+  color: #b9a882;
+  font-family: var(--font-minecraft-body), var(--d-font);
+  font-size: 13px;
+}
+
+.dov__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  border: 2px solid #8a6428;
+  background: #3a2a12;
+  color: #f0dfb6;
+  cursor: pointer;
+}
+
+.dov__close:hover {
+  background: #4d3818;
+}
+
+/* `min-height: 0` is the load-bearing line — without it the body refuses to
+   shrink below its content and stretches the card off the screen. */
+.dov__body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 16px 18px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* ── The shop row above the rulebook button ──────────────────── */
+
+.dash__shops {
+  position: absolute;
+  bottom: clamp(54px, 7.5vh, 78px);
+  left: 50%;
+  z-index: 3;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  transform: translateX(-50%);
+}
+
+.dash__shop {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: clamp(7px, 1.1vh, 11px) clamp(13px, 1.5vw, 20px);
+  border: 3px solid #e8bd7d;
+  border-bottom-color: #6b4520;
+  border-right-color: #6b4520;
+  background: linear-gradient(180deg, #6d5a2a 0%, #4a3a16 55%, #33270e 100%);
+  color: #fde9c2;
+  font-family: var(--font-minecraft), 'Press Start 2P', ui-monospace, monospace;
+  font-size: clamp(8px, 0.85vw, 11px);
+  letter-spacing: 0.8px;
+  cursor: pointer;
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.75);
+}
+
+.dash__shop:hover:not(:disabled) {
+  border-color: #f6dcb4;
+  background: linear-gradient(180deg, #866f34 0%, #5c4820 55%, #3f3012 100%);
+}
+
+.dash__shop:disabled {
+  border-color: #4a4036;
+  border-bottom-color: #241d15;
+  border-right-color: #241d15;
+  background: linear-gradient(180deg, #2b2620 0%, #1d1913 100%);
+  color: #7d7264;
+  cursor: not-allowed;
+}
+
+/* ── Scrollbars ──────────────────────────────────────────────── */
+
+/* The dashboard is the Nether palette; its scrollbars follow the ember the
+   rest of its chrome uses. Base rules are in app/globals.css. */
+.dash {
+  --sb-track: rgba(82, 32, 38, 0.4);
+  --sb-thumb: rgb(from var(--d-ember) r g b / 55%);
+  --sb-thumb-hover: rgb(from var(--d-ember) r g b / 82%);
+}
+
+/* Parchment: the rulebook's page and the tan overlays read as paper, so a
+   glowing ember bar down the side of them would look pasted on. */
+.rb__page,
+.rb__index {
+  --sb-track: rgba(93, 63, 20, 0.18);
+  --sb-thumb: rgba(93, 63, 20, 0.55);
+  --sb-thumb-hover: rgba(93, 63, 20, 0.78);
+}
+
+.dov__body {
+  --sb-track: rgba(216, 174, 106, 0.14);
+  --sb-thumb: rgba(216, 174, 106, 0.45);
+  --sb-thumb-hover: rgba(216, 174, 106, 0.7);
+}
+
+/* The overlay header leads with the item's own block, like the shop mockups. */
+.dov__heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.dov__icon {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  image-rendering: pixelated;
 }

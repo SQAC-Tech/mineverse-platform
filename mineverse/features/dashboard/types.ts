@@ -72,3 +72,10 @@ export interface LedgerEntry {
   reason: string | null;
   created_at: string;
 }
+
+/** Which traders have arrived. Decided server-side from the rounds' status. */
+export interface DashboardTrader {
+  key: 'ancient_shrine' | 'piglin_merchant';
+  round_id: number;
+  open: boolean;
+}

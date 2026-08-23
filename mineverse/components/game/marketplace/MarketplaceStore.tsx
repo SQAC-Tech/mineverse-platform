@@ -2,19 +2,51 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { Store, Gem, AlertTriangle } from 'lucide-react';
+import { Lightbulb, RotateCcw, Shield, Sparkles } from 'lucide-react';
 import { marketplaceList, type MarketplaceEntry } from '@/lib/gameplay/marketplace/catalog';
-import { Panel, Btn } from '@/components/admin/nether-ui';
+import { RESOURCE_META } from '@/components/game/custom-round-ui/round-presentation';
+import '@/features/dashboard/shop-ui.css';
 
 interface MarketplaceStoreProps {
   onPurchased?: () => void;
   refreshToken?: number;
+  /** Live emerald balance, so an item that cannot be afforded says so up front. */
+  emeralds?: number;
 }
 
 /* Prices and copy come from the catalog the purchase route charges against. */
 const ITEMS = marketplaceList();
 
-export function MarketplaceStore({ onPurchased }: MarketplaceStoreProps) {
+const EMERALD = RESOURCE_META.find((meta) => meta.key === 'emerald')?.icon ?? '/emerald.svg';
+
+/**
+ * The icon for a row.
+ *
+ * The five bundles pay a resource, so they show that resource's own block —
+ * the same SVG the hotbar draws, so a Wood Bundle is visibly the thing it
+ * gives you. The consumables have no block to show and get a glyph rather than
+ * an invented asset.
+ */
+const CONSUMABLE_ICONS: Record<string, typeof Lightbulb> = {
+  hint: Lightbulb,
+  totem_of_undying: Shield,
+  guardian_retry_token: RotateCcw,
+  revival_potion: Sparkles,
+  strength_potion: Sparkles,
+};
+
+function RowIcon({ entry }: { entry: MarketplaceEntry }) {
+  const reward = entry.resourceReward ?? {};
+  const key = Object.keys(reward)[0];
+  const meta = key ? RESOURCE_META.find((resource) => resource.key === key) : null;
+
+  if (meta) return <img src={meta.icon} alt="" />;
+
+  const Glyph = CONSUMABLE_ICONS[entry.item] ?? Sparkles;
+  return <Glyph size={24} aria-hidden="true" />;
+}
+
+export function MarketplaceStore({ onPurchased, emeralds }: MarketplaceStoreProps) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,42 +79,43 @@ export function MarketplaceStore({ onPurchased }: MarketplaceStoreProps) {
   };
 
   return (
-    <Panel
-      title={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}><Store size={13} /> Marketplace</span>}
-      subtitle="Wandering Villager — pays in emeralds"
-    >
-      {error && (
-        <div
-          style={{
-            display: 'flex', gap: 8, padding: 9, marginBottom: 10, fontSize: 10.5,
-            background: 'rgb(from var(--accent-danger) r g b / 45%)',
-            border: '1px solid #a3324a', color: '#ff9db0',
-          }}
-        >
-          <AlertTriangle size={12} style={{ flexShrink: 0, marginTop: 1 }} /> {error}
-        </div>
-      )}
+    <div className="shop">
+      {error && <p className="shop__error">{error}</p>}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-        {ITEMS.map((item) => (
-          <div
-            key={item.item}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 9, justifyContent: 'space-between',
-              padding: 9, background: 'var(--bg-void)',
-              border: '1px solid rgb(from var(--accent-muted) r g b / 22%)',
-            }}
-          >
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 10.5 }}>{item.label}</div>
-              <div className="n-panel-sub">{item.description}</div>
-            </div>
-            <Btn small disabled={busy !== null} onClick={() => purchase(item)} style={{ flexShrink: 0 }}>
-              <Gem size={10} /> {busy === item.item ? '…' : item.costEmerald}
-            </Btn>
+      {ITEMS.map((entry) => {
+        // Only greyed out when the balance is actually known — the server is
+        // still the one that decides, and a missing balance must not lock the
+        // shop.
+        const unaffordable = typeof emeralds === 'number' && emeralds < entry.costEmerald;
+
+        return (
+          <div className="shop__row" key={entry.item}>
+            <span className="shop__slot">
+              <RowIcon entry={entry} />
+            </span>
+
+            <span className="shop__name">
+              <b>{entry.label}</b>
+              <span>{entry.description}</span>
+            </span>
+
+            <span className={unaffordable ? 'shop__price shop__price--short' : 'shop__price'}>
+              <img src={EMERALD} alt="emeralds" />
+              {entry.costEmerald}
+            </span>
+
+            <button
+              type="button"
+              className="shop__btn"
+              disabled={busy !== null || unaffordable}
+              onClick={() => void purchase(entry)}
+              title={unaffordable ? `Costs ${entry.costEmerald} emeralds` : `Buy ${entry.label}`}
+            >
+              {busy === entry.item ? '…' : 'BUY'}
+            </button>
           </div>
-        ))}
-      </div>
-    </Panel>
+        );
+      })}
+    </div>
   );
 }

@@ -23,17 +23,18 @@ import { useProctorSession } from '@/components/game/proctor/ProctorProvider';
 import { supabaseClient } from '@/lib/supabase/client';
 import { GuardianArena } from './GuardianArena';
 import { NotificationTray, type LedgerEntry } from './NotificationTray';
-import { WorldEvent } from './WorldEvent';
+import { WorldEvent, EVENT_FX } from './WorldEvent';
 import { PvpPanel } from '../pvp/PvpPanel';
 import { EndRail } from '@/components/day2/end-round/EndRail';
 import { CodeWorkspace } from '@/components/game/code/CodeWorkspace';
+import { InspectorCard, usesInspector } from '@/components/game/code/InspectorCard';
 import { defaultLanguageFor, offeredRuntimes, offersLanguage } from '@/lib/gameplay/code/runtimes';
 import { useAnswerAutosave } from '@/hooks/useAnswerAutosave';
 import type { CraftedItem, DashboardProgress } from '@/features/dashboard/types';
 import { RESOURCE_META, buildQuestionTabs, languagePrompts, offersLanguageChoice, payoutList, promptBlocks, questionTypeLabel, roundChoice, roundChrome, roundCraft, roundGuardian, roundObjective, roundPvp, type ResourceKey, type ShellQuestion } from './round-presentation';
 import './round-ui.css';
 import { Hotbar } from '@/components/game/inventory/Hotbar';
-import { MinecraftCraftingTable } from './MinecraftCraftingTable';
+import { RoundCraftPrompt } from './RoundCraftPrompt';
 
 interface CustomRoundShellProps {
   roundId: number;
@@ -146,7 +147,7 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
   const [confirmFinish, setConfirmFinish] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const [crafting, setCrafting] = useState(false);
-  const [craftingOpen, setCraftingOpen] = useState(false);
+  const [craftPrompt, setCraftPrompt] = useState(false);
   const [guardianOpen, setGuardianOpen] = useState(false);
   const [railOpen, setRailOpen] = useState(true);
   const [activeSlot, setActiveSlot] = useState(1);
@@ -289,6 +290,16 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
    */
   const usesEditor = (question: { type: string }) => question.type === 'coding';
 
+  /**
+   * Questions that show code but are not answered with code.
+   *
+   * Debugging grades a line number, code completion one expression, debug
+   * output the corrected output — none of them execute what is submitted. They
+   * get a read-only listing with real line numbers and the answer box attached
+   * to it, rather than a wall of pre-numbered text and a detached textarea.
+   */
+  const inspects = (question: ShellQuestion) => usesInspector(question);
+
   const codingQuestion = questions.find((question) => question.id === codingId) ?? null;
 
   const objective = roundObjective(roundId);
@@ -313,6 +324,9 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
     ? Math.max(0, Math.floor((new Date(activeEvent.expires_at).getTime() - now) / 1000))
     : null;
   const eventLive = Boolean(activeEvent) && (eventRemaining === null || eventRemaining > 0);
+  /* Only while the event is actually running — a lapsed window leaves the
+     card in place but the sky should clear. */
+  const eventFx = eventLive ? EVENT_FX[activeEvent?.event_key ?? ''] ?? null : null;
   const isRoundLocked = (remainingSeconds === 0 && Boolean(endsAt)) || roundStatus === 'completed' || roundStatus === 'locked';
 
   // What the round's own recipe costs, against what the team is holding.
@@ -492,6 +506,15 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
       }
       toast.success('Your final answers have been recorded.');
       setConfirmFinish(false);
+
+      /* One last thing before the dashboard: the round's own recipe. Crafting
+         is session-scoped, not round-scoped, so a sealed paper does not stop
+         it — which is what makes asking here possible at all. */
+      if (craft) {
+        await proctor?.finish();
+        setCraftPrompt(true);
+        return;
+      }
       // Closes the proctor session and leaves fullscreen before navigating, so
       // the dashboard is not stuck behind a fullscreen scrim. Every way out of
       // a round lands there — it is where the next round is opened from.
@@ -546,6 +569,9 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
   return (
     <main className={`round-ui ${chrome.themeClass}`}>
       <div className="round-ui__backdrop" aria-hidden="true" />
+      {/* Between the artwork and the scrim, so the weather falls over the scene
+          and the shade then dims both together. */}
+      {eventFx && <div className={`round-ui__weather round-ui__weather--${eventFx}`} aria-hidden="true" />}
       <div className="round-ui__shade" aria-hidden="true" />
 
       <div className="round-ui__page">
@@ -733,6 +759,18 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
                         </select>
                       </div>
                     )}
+                    {inspects(currentQuestion) ? (
+                      /* Listing and answer in one card — see InspectorCard. */
+                      <InspectorCard
+                        type={currentQuestion.type}
+                        prompt={questionBody(currentQuestion, languages[currentQuestion.id] ?? defaultLanguageFor(currentQuestion.language_options))}
+                        value={drafts[currentQuestion.id] ?? ''}
+                        disabled={readOnly}
+                        language={languages[currentQuestion.id] ?? defaultLanguageFor(currentQuestion.language_options)}
+                        onChange={(next) => changeDraft(currentQuestion.id, next)}
+                      />
+                    ) : (
+                    <>
                     <QuestionPrompt question={currentQuestion} language={languages[currentQuestion.id] ?? defaultLanguageFor(currentQuestion.language_options)} />
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                       <label className="round-ui__field-label" style={{ margin: 0 }} htmlFor={`answer-${currentQuestion.id}`}>Your answer</label>
@@ -762,6 +800,8 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
                         onChange={(event) => changeDraft(currentQuestion.id, event.target.value)}
                         placeholder={isRoundLocked ? 'The round has ended.' : currentIsFinal ? 'This answer is final.' : 'Type your answer here…'}
                       />
+                    )}
+                    </>
                     )}
                     {currentIsFinal ? (
                       <p className="round-ui__locked-note">
@@ -1008,36 +1048,21 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
         </div>
       )}
 
-      {craft && (
-        <>
-          <button
-            type="button"
-            className="mc-crafting-toggle-btn"
-            onClick={() => setCraftingOpen(!craftingOpen)}
-            title="Open Crafting Table"
-          >
-            <img src="/crafting.svg" alt="Crafting Table" />
-          </button>
-          {craftingOpen && (
-            <div className="mc-crafting-popover">
-              <button 
-                className="mc-crafting-close" 
-                onClick={() => setCraftingOpen(false)}
-                title="Close"
-              >×</button>
-              <MinecraftCraftingTable
-                craft={craft}
-                canCraft={canCraft}
-                crafting={crafting}
-                craftShortfall={craftShortfall}
-                onCraft={() => {
-                  void craftRoundItem();
-                  if (canCraft) setCraftingOpen(false);
-                }}
-              />
-            </div>
-          )}
-        </>
+      {/* The bench is no longer here. It spent the whole timed round competing
+          with the questions, and a team could still finish having never opened
+          it — then be stopped at the next biome by a pickaxe they never made.
+          It is asked for on submit instead, in `RoundCraftPrompt`. */}
+      {craftPrompt && craft && (
+        <RoundCraftPrompt
+          roundName={chrome.name}
+          craft={craft}
+          crafted={crafted.some((entry) => entry.item === craft.item && entry.crafted)}
+          canCraft={canCraft}
+          crafting={crafting}
+          craftShortfall={craftShortfall}
+          onCraft={() => void craftRoundItem()}
+          onContinue={() => { setCraftPrompt(false); router.push('/dashboard'); }}
+        />
       )}
     </main>
   );

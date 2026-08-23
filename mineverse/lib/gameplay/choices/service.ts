@@ -28,6 +28,44 @@ export const CHOICES: Record<ChoiceKey, ChoiceConfig> = {
   }
 };
 
+/**
+ * The round each choice belongs to.
+ *
+ * The Ancient Shrine is the Cave Biome's trader, the Piglin Merchant the
+ * Mountain's. Kept here rather than in the panel that draws them, because the
+ * route deciding whether a trade is allowed needs the same answer.
+ */
+export const CHOICE_ROUND: Record<ChoiceKey, number> = {
+  ancient_shrine: 2,
+  piglin_merchant: 3,
+};
+
+/**
+ * Whether a choice event is open for trading.
+ *
+ * The brief says the Shrine "appears after completion of the Cave Biome" — it
+ * is a between-rounds decision, made with the round's takings in hand. So the
+ * test is that its round has *started*, not that it is currently running: once
+ * the Cave Biome opens the Shrine stays available for the rest of the event.
+ *
+ * This matters because the trade now happens from the dashboard. The select
+ * route used to require `verifyTeamRoundAccess`, which demands an active round
+ * and attendance for it — so the one moment the brief describes, after the
+ * round closed, was the one moment a team could not trade.
+ */
+export async function isChoiceOpen(choiceKey: ChoiceKey): Promise<boolean> {
+  const roundId = CHOICE_ROUND[choiceKey];
+  if (!roundId) return false;
+
+  const { data } = await supabaseServer
+    .from('rounds')
+    .select('status')
+    .eq('id', roundId)
+    .maybeSingle();
+
+  return data?.status === 'active' || data?.status === 'completed';
+}
+
 export async function makeChoiceDecision(teamId: string, choiceKey: ChoiceKey, option: ChoiceOption, idempotencyKey: string) {
   const config = CHOICES[choiceKey];
   if (!config) return { success: false, error: 'INVALID_CHOICE', message: 'Invalid choice event.' };

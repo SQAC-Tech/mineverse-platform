@@ -1,0 +1,107 @@
+/*
+ * A code listing with its answer attached.
+ *
+ * The point of the layout is proximity: the listing, the question about it and
+ * the box you answer in are one card. They used to be a `<pre>` of numbered
+ * text and a textarea a scroll away from each other, so a team read a line,
+ * scrolled, and typed a number from memory.
+ */
+
+.ic {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ic__intro,
+.ic__outro {
+  margin: 0;
+  color: var(--rd-board-ink, #d8dbc9);
+  font-size: 14px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.ic__listing {
+  overflow: hidden;
+  border: 2px solid var(--rd-board-line, #3a4436);
+  border-radius: 2px;
+  background: #0d1016;
+}
+
+.ci {
+  width: 100%;
+}
+
+/* A pickable listing has to look pickable, so the rows take a pointer and lift
+   under one. Monaco owns the interior, so the cue is set on the line Monaco
+   draws rather than on a wrapper it would paint over. */
+.ci--pickable .monaco-editor .view-line {
+  cursor: pointer;
+}
+
+.ci--pickable .monaco-editor .view-lines > .view-line:hover {
+  background: rgba(242, 193, 78, 0.08);
+}
+
+/* The chosen line, and its marker in the gutter. Amber rather than the biome
+   accent: this is a decision the team has made, not a piece of the scenery. */
+.ci__line--picked {
+  background: rgba(242, 193, 78, 0.16);
+}
+
+.ci__gutter--picked {
+  width: 3px !important;
+  margin-left: 3px;
+  background: #f2c14e;
+}
+
+.ic__answer {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.ic__label {
+  color: var(--rd-gold, #f2c14e);
+  font-family: var(--rd-font-display, ui-monospace, monospace);
+  font-size: 10px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+.ic__field {
+  flex: 1 1 220px;
+  min-width: 0;
+  padding: 9px 11px;
+  border: 2px solid var(--rd-board-line, #3a4436);
+  border-radius: 2px;
+  background: var(--rd-board-sunk, #12160f);
+  color: var(--rd-board-ink, #e6e9d8);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 14px;
+}
+
+/* A line number is at most three digits — a full-width box for it invites a
+   sentence, which is not what this question grades. */
+.ic__field--line {
+  flex: 0 0 96px;
+  text-align: center;
+}
+
+.ic__field:focus-visible {
+  border-color: var(--rd-gold, #f2c14e);
+  outline: none;
+}
+
+.ic__field:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.ic__hint {
+  flex: 1 1 100%;
+  color: var(--rd-board-dim, #93a089);
+  font-size: 12px;
+}

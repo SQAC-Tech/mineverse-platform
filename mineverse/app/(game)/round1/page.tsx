@@ -5,10 +5,10 @@ import { ProctoredRound } from '@/components/game/proctor/ProctoredRound';
 export const dynamic = 'force-dynamic';
 
 export default async function Round1Page() {
-  await requireRoundAccess(1);
+  const { proctorExempt } = await requireRoundAccess(1);
 
   return (
-    <ProctoredRound roundId={1}>
+    <ProctoredRound roundId={1} exempt={proctorExempt}>
       <CustomRoundShell roundId={1} />
     </ProctoredRound>
   );

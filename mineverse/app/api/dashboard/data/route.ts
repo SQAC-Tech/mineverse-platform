@@ -5,6 +5,8 @@ import { touchLoginLease } from '@/lib/auth/login-lease';
 import { isDemoTeamCode } from '@/lib/gameplay/demo-teams';
 import { DEV_UNLOCK_ALL_ROUNDS } from '@/lib/gameplay/dev-mode';
 import { CRAFT_RECIPES, type CraftItem } from '@/lib/gameplay/crafting/rules';
+import { ROUND_CONFIGS } from '@/lib/gameplay/round-config';
+import type { ChoiceKey } from '@/lib/gameplay/choices/service';
 import { dashboardEntitlement } from '@/lib/attendance/gates';
 
 export const dynamic = 'force-dynamic';
@@ -212,6 +214,36 @@ export async function GET() {
         missing: missingForPortal,
       },
     },
+    /**
+     * What the dashboard may open, decided here rather than in the browser.
+     *
+     * Trading moved off the round pages and onto the dashboard, so the
+     * dashboard needs to know when each trader has arrived. The brief puts the
+     * marketplace at the Cave Biome and says it stays available for the rest of
+     * the event; the Shrine belongs to the same round and the Piglin Merchant
+     * to the Mountain. "Has the round started" is the whole test — the traders
+     * do not close again when their round does.
+     *
+     * Derived from `ROUND_CONFIGS` rather than hardcoded here, so a round whose
+     * marketplace flag changes cannot leave this behind.
+     */
+    market: {
+      open: (rounds as Array<{ round_id: number; round_status: string }>).some(
+        (row) =>
+          ROUND_CONFIGS[row.round_id]?.marketplace &&
+          (row.round_status === 'active' || row.round_status === 'completed'),
+      ),
+    },
+    traders: (Object.values(ROUND_CONFIGS) as Array<{ id: number; choice: string | null }>)
+      .filter((config): config is { id: number; choice: ChoiceKey } => config.choice === 'ancient_shrine' || config.choice === 'piglin_merchant')
+      .map((config) => {
+        const round = (rounds as Array<{ round_id: number; round_status: string }>).find((row) => row.round_id === config.id);
+        return {
+          key: config.choice,
+          round_id: config.id,
+          open: round?.round_status === 'active' || round?.round_status === 'completed',
+        };
+      }),
     dev_unlock: DEV_UNLOCK_ALL_ROUNDS,
     server_time: new Date().toISOString(),
   });

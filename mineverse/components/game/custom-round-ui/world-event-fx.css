@@ -276,3 +276,189 @@
     animation: none;
   }
 }
+
+/* ── Full-screen weather ─────────────────────────────────────── */
+
+/*
+ * The same event, on the whole scene rather than in its card.
+ *
+ * The `.we-fx` field above is a fixed set of ~60 box-shadow stamps covering
+ * about 338x510px — deliberately, because it lines a 260px panel. Stretched
+ * over a viewport it would thin out to a drizzle, so the full-screen layer is
+ * a different technique: a small SVG tile, repeated, translated by exactly one
+ * tile height. The loop lands on identical pixels so there is no seam, and a
+ * transform on a repeating background is one composited layer rather than a
+ * full-viewport repaint every frame — which matters on lab machines running
+ * this for an hour.
+ *
+ * Sits between the scene's backdrop and its shade, so the weather falls over
+ * the artwork and the scrim then dims both together. Rain (Round 1) and the
+ * fertile marsh (Round 2) have full-screen treatments; the rest keep their card
+ * weather, and adding one is a matter of one more `--<fx>` block here.
+ */
+.round-ui__weather {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  animation: we-fx-in 900ms ease-out both;
+}
+
+.round-ui__weather::before,
+.round-ui__weather::after {
+  content: '';
+  position: absolute;
+  /* Overscan: the layer is translated a whole tile, so it must have a tile of
+     slack above and below or the edges would sweep bare. */
+  top: -160px;
+  left: 0;
+  width: 100%;
+  height: calc(100% + 320px);
+  background-repeat: repeat;
+  will-change: transform;
+}
+
+/* Far sheet: short, faint, slow. */
+.round-ui__weather--rain::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cg stroke='%23cfe6fb' stroke-width='1.6' stroke-linecap='round' opacity='0.42'%3E%3Cline x1='18' y1='10' x2='15' y2='28'/%3E%3Cline x1='52' y1='34' x2='49' y2='52'/%3E%3Cline x1='96' y1='6' x2='93' y2='24'/%3E%3Cline x1='124' y1='48' x2='121' y2='66'/%3E%3Cline x1='8' y1='72' x2='5' y2='90'/%3E%3Cline x1='66' y1='88' x2='63' y2='106'/%3E%3Cline x1='110' y1='96' x2='107' y2='114'/%3E%3Cline x1='34' y1='110' x2='31' y2='128'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 140px 140px;
+  animation: rd-rain-far 1.15s linear infinite;
+}
+
+/* Near sheet: longer, brighter, twice the speed. Depth comes from the pair. */
+.round-ui__weather--rain::after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cg stroke='%23e6f4ff' stroke-width='2' stroke-linecap='round' opacity='0.66'%3E%3Cline x1='12' y1='4' x2='7' y2='34'/%3E%3Cline x1='58' y1='20' x2='53' y2='50'/%3E%3Cline x1='88' y1='48' x2='83' y2='78'/%3E%3Cline x1='30' y1='62' x2='25' y2='92'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 100px 100px;
+  animation: rd-rain-near 0.62s linear infinite;
+}
+
+/* A wash over the scene so the weather reads even where the art is dark. */
+.round-ui__weather--rain {
+  background:
+    linear-gradient(180deg, rgba(150, 190, 225, 0.16), rgba(150, 190, 225, 0) 45%),
+    linear-gradient(0deg, rgba(30, 60, 80, 0.22), transparent 55%);
+}
+
+/* Translating exactly one tile height is what keeps the loop seamless. */
+@keyframes rd-rain-far {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(0, 140px, 0); }
+}
+
+@keyframes rd-rain-near {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(0, 100px, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .round-ui__weather::before,
+  .round-ui__weather::after {
+    animation: none;
+  }
+}
+
+/* ── fertile_marsh, full screen — Round 2 ─────────────────────── */
+
+/*
+ * Spores rising off the whole cave instead of one card.
+ *
+ * Same tiling technique as the rain, inverted: the sheets translate *up* by
+ * exactly one tile height, because a marsh coming alive drifts off the floor
+ * rather than falling onto it. The sideways sway peaks at the halfway mark and
+ * returns to zero, so the loop still lands on identical pixels — drifting one
+ * way for a whole cycle would reopen the seam the tiling exists to avoid.
+ *
+ * The spore green is baked into the SVG rather than mixed from `--rd-accent`
+ * the way the card does it, because a data URI cannot read a custom property.
+ * It is the same bog green the card mixes to: Round 2's palette is blue, and
+ * raw accent here would just look like more Cave Biome.
+ */
+.round-ui__weather--marsh {
+  background:
+    radial-gradient(62% 48% at 22% 100%, rgba(122, 214, 96, 0.2), transparent 70%),
+    radial-gradient(54% 46% at 80% 4%, rgba(94, 200, 238, 0.12), transparent 68%),
+    linear-gradient(0deg, rgba(96, 186, 82, 0.14), transparent 52%);
+}
+
+/* Far sheet: fine motes, faint, slow. */
+.round-ui__weather--marsh::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150'%3E%3Cg fill='%23a4ef73' opacity='0.5'%3E%3Ccircle cx='14' cy='22' r='1.6'/%3E%3Ccircle cx='58' cy='9' r='1.4'/%3E%3Ccircle cx='97' cy='34' r='1.6'/%3E%3Ccircle cx='133' cy='18' r='1.3'/%3E%3Ccircle cx='31' cy='63' r='1.5'/%3E%3Ccircle cx='76' cy='71' r='1.3'/%3E%3Ccircle cx='118' cy='84' r='1.6'/%3E%3Ccircle cx='7' cy='99' r='1.4'/%3E%3Ccircle cx='63' cy='112' r='1.5'/%3E%3Ccircle cx='104' cy='128' r='1.3'/%3E%3Ccircle cx='142' cy='118' r='1.5'/%3E%3Ccircle cx='42' cy='137' r='1.4'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 150px 150px;
+  animation: rd-marsh-far 15s linear infinite;
+}
+
+/* Near sheet: fatter spores, brighter, quicker. Depth comes from the pair. */
+.round-ui__weather--marsh::after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='110' height='110'%3E%3Cg fill='%23c2f79a' opacity='0.82'%3E%3Ccircle cx='19' cy='16' r='2.6'/%3E%3Ccircle cx='72' cy='31' r='2.3'/%3E%3Ccircle cx='45' cy='58' r='2.7'/%3E%3Ccircle cx='95' cy='74' r='2.4'/%3E%3Ccircle cx='12' cy='86' r='2.5'/%3E%3Ccircle cx='63' cy='99' r='2.2'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 110px 110px;
+  animation: rd-marsh-near 9.5s linear infinite;
+}
+
+/* Up by exactly one tile, with the sway returning to zero at both ends. */
+@keyframes rd-marsh-far {
+  0%   { transform: translate3d(0, 0, 0); }
+  50%  { transform: translate3d(-5px, -75px, 0); }
+  100% { transform: translate3d(0, -150px, 0); }
+}
+
+@keyframes rd-marsh-near {
+  0%   { transform: translate3d(0, 0, 0); }
+  50%  { transform: translate3d(6px, -55px, 0); }
+  100% { transform: translate3d(0, -110px, 0); }
+}
+
+/* ── gold_rush, full screen — Round 3 ─────────────────────────── */
+
+/*
+ * Motes of gold drifting across the mountain.
+ *
+ * Included because Round 3 already renders this layer — `EVENT_FX` maps
+ * `gold_rush` to `gold`, and without a block here the scene mounted an empty
+ * div. Drift is sideways rather than up or down: rain falls, spores rise, and
+ * a gold rush should not read as either.
+ *
+ * No sweeping sheen at this scale. On the card it is a highlight crossing a
+ * small panel; stretched over a viewport it becomes a bar of light sliding over
+ * the whole screen every six seconds, which is the sort of thing that pulls a
+ * team's eye off a question they are timed on.
+ */
+.round-ui__weather--gold {
+  background:
+    radial-gradient(72% 54% at 50% 0%, rgba(242, 193, 78, 0.16), transparent 72%),
+    linear-gradient(0deg, rgba(240, 160, 60, 0.1), transparent 46%);
+}
+
+/* The base layer only overscans vertically, because rain and spores only move
+   that way. Gold drifts sideways, so it needs slack on the left and right or
+   the translate would sweep a bare strip in behind it. */
+.round-ui__weather--gold::before,
+.round-ui__weather--gold::after {
+  left: -180px;
+  width: calc(100% + 360px);
+}
+
+.round-ui__weather--gold::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cg fill='%23f2c14e' opacity='0.55'%3E%3Ccircle cx='21' cy='17' r='1.5'/%3E%3Ccircle cx='68' cy='38' r='1.3'/%3E%3Ccircle cx='112' cy='12' r='1.6'/%3E%3Ccircle cx='147' cy='51' r='1.4'/%3E%3Ccircle cx='38' cy='74' r='1.5'/%3E%3Ccircle cx='89' cy='91' r='1.3'/%3E%3Ccircle cx='129' cy='104' r='1.5'/%3E%3Ccircle cx='9' cy='118' r='1.4'/%3E%3Ccircle cx='57' cy='133' r='1.6'/%3E%3Ccircle cx='103' cy='147' r='1.3'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 160px 160px;
+  animation: rd-gold-far 17s linear infinite;
+}
+
+.round-ui__weather--gold::after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cg fill='%23fff0c2' opacity='0.8'%3E%3Ccircle cx='24' cy='21' r='2.4'/%3E%3Ccircle cx='81' cy='44' r='2.1'/%3E%3Ccircle cx='51' cy='72' r='2.5'/%3E%3Ccircle cx='104' cy='95' r='2.2'/%3E%3Ccircle cx='14' cy='106' r='2.3'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 120px 120px;
+  animation: rd-gold-near 11s linear infinite;
+}
+
+/* Sideways by exactly one tile width, so the loop closes on the same pixels. */
+@keyframes rd-gold-far {
+  0%   { transform: translate3d(0, 0, 0); }
+  50%  { transform: translate3d(80px, 7px, 0); }
+  100% { transform: translate3d(160px, 0, 0); }
+}
+
+@keyframes rd-gold-near {
+  0%   { transform: translate3d(0, 0, 0); }
+  50%  { transform: translate3d(60px, -6px, 0); }
+  100% { transform: translate3d(120px, 0, 0); }
+}

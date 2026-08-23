@@ -14,10 +14,10 @@ export const dynamic = 'force-dynamic';
  * ROUND_CONFIGS rather than a hardcoded round id.
  */
 export default async function Round5Page() {
-  await requireRoundAccess(5);
+  const { proctorExempt } = await requireRoundAccess(5);
 
   return (
-    <ProctoredRound roundId={5}>
+    <ProctoredRound roundId={5} exempt={proctorExempt}>
       <CustomRoundShell roundId={5} />
     </ProctoredRound>
   );

@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Scroll, Check, AlertTriangle } from 'lucide-react';
+import { ArrowDown } from 'lucide-react';
 import type { ChoiceKey } from '@/lib/gameplay/choices/service';
-import { Panel, Btn, Pill, Loading } from '@/components/admin/nether-ui';
+import { RESOURCE_META } from '@/components/game/custom-round-ui/round-presentation';
+import '@/features/dashboard/shop-ui.css';
 
 interface ChoicePanelProps {
   choiceKey: ChoiceKey;
@@ -60,7 +61,8 @@ export function ChoicePanel({ choiceKey, onDecided, refreshToken }: ChoicePanelP
         body: JSON.stringify({
           choice_key: choiceKey,
           option: option.option,
-          round_id: roundIdFor(choiceKey),
+          // No round_id: the server derives the trader's round from the choice
+          // key itself (`CHOICE_ROUND`), so a client cannot disagree with it.
           idempotency_key: crypto.randomUUID(),
         }),
       });
@@ -88,101 +90,103 @@ export function ChoicePanel({ choiceKey, onDecided, refreshToken }: ChoicePanelP
     }
   };
 
+  const options = choice?.options ?? [];
+
   return (
-    <Panel
-      title={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}><Scroll size={13} /> {choice?.title ?? 'Choice event'}</span>}
-      actions={choice?.decided ? <Pill tone="ok"><Check size={10} /> decided</Pill> : <Pill tone="warn">pending</Pill>}
-    >
+    <div className="shop">
+      {choice?.prompt && <p className="shop__note">{choice.prompt}</p>}
+
+      {!choice?.decided && (
+        <p className="shop__warn">&#9670; ONE CHOICE &mdash; CANNOT BE UNDONE &#9670;</p>
+      )}
+
+      {error && <p className="shop__error">{error}</p>}
+
       {loading ? (
-        <Loading label="Loading event" />
+        <p className="shop__note">Loading&hellip;</p>
       ) : !choice ? (
-        <div className="n-empty">This event is not available.</div>
+        <p className="shop__note">This trader is not available.</p>
+      ) : choice.decided ? (
+        <p className="shop__decided">
+          You offered <b>{labelFor(options, choice.selected_option)}</b>. This decision is final.
+        </p>
       ) : (
-        <>
-          <p style={{ fontSize: 11, marginBottom: 12 }}>{choice.prompt}</p>
+        <div className="shop__cards">
+          {options.map((option) => {
+            // "Ignore" is the option that only ever costs, so it is drawn drab
+            // rather than dressed up as a trade.
+            const isRefusal = option.option === 'ignore';
+            const costs = legs(option.delta, 'cost');
+            const gains = legs(option.delta, 'gain');
 
-          {error && (
-            <div
-              style={{
-                display: 'flex', gap: 8, padding: 9, marginBottom: 10, fontSize: 10.5,
-                background: 'rgb(from var(--accent-danger) r g b / 45%)',
-                border: '1px solid #a3324a', color: '#ff9db0',
-              }}
-            >
-              <AlertTriangle size={12} style={{ flexShrink: 0, marginTop: 1 }} /> {error}
-            </div>
-          )}
+            return (
+              <div className={isRefusal ? 'shop__card shop__card--dull' : 'shop__card'} key={option.option}>
+                <p className="shop__card-title">{option.label}</p>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {choice.options.map((option) => {
-              const chosen = choice.selected_option === option.option;
-              return (
-                <div
-                  key={option.option}
-                  style={{
-                    padding: 10,
-                    background: 'var(--bg-void)',
-                    border: `1px solid ${chosen ? 'var(--accent-primary)' : 'rgb(from var(--accent-muted) r g b / 25%)'}`,
-                    opacity: choice.decided && !chosen ? 0.45 : 1,
-                  }}
+                {costs.map((leg) => (
+                  <span className="shop__leg shop__leg--cost" key={`c-${leg.key}`}>
+                    {leg.icon ? <img src={leg.icon} alt="" /> : null}
+                    <b>{leg.amount}</b>
+                  </span>
+                ))}
+
+                {gains.length > 0 && (
+                  <span className="shop__arrow" aria-hidden="true">
+                    <ArrowDown size={18} />
+                  </span>
+                )}
+
+                {gains.map((leg) => (
+                  <span className="shop__leg shop__leg--gain" key={`g-${leg.key}`}>
+                    {leg.icon ? <img src={leg.icon} alt="" /> : null}
+                    <b>+{leg.amount}</b>
+                  </span>
+                ))}
+
+                <button
+                  type="button"
+                  className={isRefusal ? 'shop__btn' : 'shop__btn shop__btn--gold'}
+                  disabled={busy !== null}
+                  onClick={() => setConfirm(option)}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                    <div>
-                      <div style={{ fontSize: 11 }}>{option.label}</div>
-                      <div className="n-panel-sub n-mono" style={{ marginTop: 3 }}>{describe(option.delta)}</div>
-                    </div>
-                    {chosen ? (
-                      <Pill tone="ok"><Check size={10} /> chosen</Pill>
-                    ) : !choice.decided ? (
-                      <Btn small disabled={busy !== null} onClick={() => setConfirm(option)}>Choose</Btn>
-                    ) : null}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {!choice.decided && (
-            <p className="n-panel-sub" style={{ marginTop: 10 }}>
-              You can only decide once, and it cannot be undone.
-            </p>
-          )}
-        </>
+                  {busy === option.option ? '…' : 'CHOOSE'}
+                </button>
+              </div>
+            );
+          })}
+        </div>
       )}
 
       {confirm && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          style={{
-            position: 'fixed', inset: 0, zIndex: 100, background: 'rgb(0 0 0 / 72%)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
-          }}
-          onClick={() => setConfirm(null)}
-        >
-          <div className="n-panel" style={{ maxWidth: 360, width: '100%' }} onClick={(e) => e.stopPropagation()}>
-            <div className="n-panel-head"><div className="n-panel-title">Confirm choice</div></div>
-            <div className="n-panel-body">
-              <p style={{ fontSize: 11, marginBottom: 6 }}>{confirm.label}</p>
-              <p className="n-panel-sub n-mono" style={{ marginBottom: 12 }}>{describe(confirm.delta)}</p>
-              <p className="n-panel-sub" style={{ marginBottom: 14 }}>
-                This is final — the event cannot be replayed.
-              </p>
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                <Btn variant="ghost" onClick={() => setConfirm(null)}>Cancel</Btn>
-                <Btn variant="primary" disabled={busy !== null} onClick={() => decide(confirm)}>
-                  {busy ? 'Recording…' : 'Confirm'}
-                </Btn>
-              </div>
-            </div>
+        <div className="shop__decided" role="alertdialog">
+          <p style={{ margin: '0 0 10px' }}>
+            Offer <b>{confirm.label}</b> ({describe(confirm.delta)})? This cannot be undone.
+          </p>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+            <button type="button" className="shop__btn shop__btn--gold" disabled={busy !== null} onClick={() => void decide(confirm)}>
+              {busy ? '…' : 'CONFIRM'}
+            </button>
+            <button type="button" className="shop__btn" disabled={busy !== null} onClick={() => setConfirm(null)}>
+              CANCEL
+            </button>
           </div>
         </div>
       )}
-    </Panel>
+    </div>
   );
 }
 
-/** Ancient Shrine resolves in the Cave Biome, the Piglin Merchant in the Mountain. */
-function roundIdFor(key: ChoiceKey) {
-  return key === 'ancient_shrine' ? 2 : 3;
+/** The delta split into what it takes and what it gives, with block icons. */
+function legs(delta: Delta, side: 'cost' | 'gain') {
+  return Object.entries(delta ?? {})
+    .filter(([, value]) => (side === 'cost' ? value < 0 : value > 0))
+    .map(([key, value]) => ({
+      key,
+      amount: side === 'cost' ? value : value,
+      icon: RESOURCE_META.find((meta) => meta.key === key)?.icon ?? null,
+    }));
+}
+
+function labelFor(options: ChoiceOption[], selected: string | null) {
+  return options.find((option) => option.option === selected)?.label ?? selected ?? 'an offering';
 }
