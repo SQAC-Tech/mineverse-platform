@@ -187,6 +187,42 @@ export async function upsertTeamSubmission(teamId: string, payload: z.infer<type
   };
 }
 
+/**
+ * Records that this team has been through this round.
+ *
+ * `team_round_access.completed_at` had no writer anywhere in the codebase, and
+ * three things read it: the world map decides `REPLAY` versus `ACCESS` from it,
+ * it is what makes the *next* biome appear on the map at all, and the admin
+ * round screen reports it. So a team that finished Round 1 was indistinguishable
+ * from one that had never opened it — the pin still read ACCESS, and walking
+ * back into the round they had just handed in was the obvious thing to do.
+ *
+ * `started_at` is backfilled here for the same reason: a round finished without
+ * one would otherwise report as never begun.
+ */
+export async function markRoundAttempted(teamId: string, roundId: number) {
+  const nowIso = new Date().toISOString();
+
+  const { data: existing, error } = await db
+    .from('team_round_access')
+    .select('id, started_at')
+    .eq('team_id', teamId)
+    .eq('round_id', roundId)
+    .maybeSingle();
+
+  if (error) throw error;
+  // No access row means the team was never entitled to the round; writing one
+  // here would grant access as a side effect of submitting.
+  if (!existing) return;
+
+  const { error: updateError } = await db
+    .from('team_round_access')
+    .update({ completed_at: nowIso, started_at: existing.started_at ?? nowIso })
+    .eq('id', existing.id);
+
+  if (updateError) throw updateError;
+}
+
 export const sectionSubmitPayloadSchema = z.object({
   round_id: z.number().int(),
   question_ids: z.array(z.string().uuid()).min(1).max(100),
@@ -338,6 +374,16 @@ export async function lockTeamSection(teamId: string, payload: z.infer<typeof se
       : await gradeSubmissionsNow({ teamId, roundId: payload.round_id, questionIds: payload.question_ids });
   } catch (gradingError) {
     console.error('[submissions] section locked but grading failed:', gradingError);
+  }
+
+  if (payload.finish) {
+    // Same containment as grading: the answers are already sealed, and losing
+    // the marker is recoverable where losing the hand-in is not.
+    try {
+      await markRoundAttempted(teamId, payload.round_id);
+    } catch (markError) {
+      console.error('[submissions] round finished but could not be marked attempted:', markError);
+    }
   }
 
   return {
