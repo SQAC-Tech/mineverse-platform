@@ -389,10 +389,27 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
   const sectionLocked = activeQuestions.length > 0
     && activeQuestions.every((question) => FINAL_STATUSES.includes(question.submission_status ?? ''));
   const answeredInSection = activeQuestions.filter((question) => Boolean(question.submission_status)).length;
-  const sectionReady = activeQuestions.length > 0 && activeQuestions.every((question) =>
-    Boolean(question.submission_status)
-    && (question.type !== 'coding' || question.coding_evaluation?.status === 'completed'),
-  );
+  /**
+   * Every question answered. Nothing more.
+   *
+   * This also demanded that each coding question carry a completed evaluation,
+   * which locked the button for every team on any section holding one: not a
+   * single coding submission on this platform has ever reached that state, so
+   * the gate was never passable rather than rarely.
+   *
+   * It was never needed for correctness either. Coding answers are marked after
+   * the round by the admin grading run against the hidden tests, exactly like
+   * every other question type — the in-editor evaluation is feedback for the
+   * team, not the mark. Making feedback mandatory turned a judge outage, or
+   * simply using Save, into a round a team could not hand in.
+   */
+  const sectionReady = activeQuestions.length > 0
+    && activeQuestions.every((question) => Boolean(question.submission_status));
+
+  /** Answered, but never run against the tests — worth nudging, not blocking. */
+  const unevaluatedCoding = activeQuestions.filter(
+    (question) => question.type === 'coding' && question.coding_evaluation?.status !== 'completed',
+  ).length;
   const currentIsFinal = FINAL_STATUSES.includes(currentQuestion?.submission_status ?? '');
   const readOnly = isRoundLocked || currentIsFinal;
 
@@ -1015,7 +1032,13 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
                     className="round-ui__btn round-ui__btn--lock"
                     disabled={!sectionReady || lockingSection}
                     onClick={() => setConfirmSection(activeTab)}
-                    title={sectionReady ? 'Submit this section' : 'Save every answer in this section first'}
+                    title={
+                      !sectionReady
+                        ? 'Save every answer in this section first'
+                        : unevaluatedCoding > 0
+                          ? `${unevaluatedCoding} coding answer${unevaluatedCoding === 1 ? '' : 's'} never ran against the tests — you can still submit`
+                          : 'Submit this section'
+                    }
                   >
                     <LockKeyhole size={14} /> Submit section
                   </button>

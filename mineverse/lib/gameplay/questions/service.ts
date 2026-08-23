@@ -275,31 +275,22 @@ export async function lockTeamSection(teamId: string, payload: z.infer<typeof se
      */
     return response?.kind !== 'coding_evaluation';
   });
+  /**
+   * Deliberately not a blocker any more.
+   *
+   * This refused the whole section until every coding answer carried a
+   * completed evaluation. Across the live database not one coding submission
+   * had ever reached that state, so the gate was never passable — a team could
+   * answer everything and still be unable to hand the round in, and the message
+   * told them to do the thing they had already done.
+   *
+   * It was never load-bearing. Coding answers are marked after the round by the
+   * admin grading run against the hidden tests, like every other type; the
+   * in-editor evaluation is feedback for the team, not the mark. Left as a
+   * counted warning so the console can still see who never ran their code.
+   */
   if (untestedCoding.length > 0) {
-    /**
-     * Name them, and say which button.
-     *
-     * "Submit and evaluate 2 coding questions" is true and useless: a team that
-     * has written and *saved* an answer reads it as the platform losing their
-     * work. Saving and submitting are different actions here — Save keeps a
-     * draft, Submit runs it against the tests — and the message never said so,
-     * so nobody knew which one they were missing or on which question.
-     */
-    const titles = valid
-      .filter((question: QuestionRow) => untestedCoding.some((row: SubmissionRow) => row.question_id === question.id))
-      .map((question: QuestionRow) => {
-        const content = question.content as { title?: unknown } | null;
-        return typeof content?.title === 'string' ? content.title : 'a coding question';
-      });
-
-    return {
-      ok: false as const,
-      status: 400,
-      code: 'CODING_EVALUATION_REQUIRED',
-      message:
-        `Open ${titles.length === 1 ? 'this question' : 'these questions'} and press Submit in the code editor first: ` +
-        `${titles.join(', ')}. Saving keeps a draft; Submit is what runs it against the tests.`,
-    };
+    console.warn(`[submissions] locking a section with ${untestedCoding.length} unevaluated coding answer(s)`);
   }
 
   // Graded and manual-review rows are already final; re-locking them would
