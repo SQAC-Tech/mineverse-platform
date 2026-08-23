@@ -57,7 +57,20 @@ export function DashboardShell() {
         return;
       }
 
-      if (!payload.success) return;
+      /**
+       * A refused dashboard has to say so.
+       *
+       * This returned silently on any failure, which meant an entitlement 403
+       * rendered as a dashboard stuck on empty — no team name, no rounds, no
+       * reason. Every team hit exactly that when the RSVP gate refused all
+       * fifty of them, and from the outside it looked like data not loading.
+       */
+      if (!payload.success) {
+        if (response.status === 403 && typeof payload.message === 'string') {
+          toast.error(payload.message, { id: 'dashboard-entitlement', duration: 10000 });
+        }
+        return;
+      }
 
       setTeam(payload.team ?? null);
       setRounds(payload.rounds ?? []);

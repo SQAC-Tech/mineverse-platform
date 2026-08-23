@@ -1,4 +1,5 @@
 import { supabaseServer } from '@/lib/supabase/server';
+import { isDemoTeamId, noteDemoBypass } from '@/lib/gameplay/demo-teams';
 
 /**
  * The typed client, not the `as any` escape hatch the older gameplay modules
@@ -114,6 +115,13 @@ const OK: Entitlement = { ok: true };
  * instead of the team discovering it when a round will not open.
  */
 export async function markingEntitlement(teamId: string, day: number): Promise<Entitlement> {
+  // Same reasoning as the dashboard: a demo team has to be markable at the desk
+  // for anyone to rehearse the desk.
+  if (await isDemoTeamId(teamId)) {
+    noteDemoBypass('attendance marking entitlement');
+    return OK;
+  }
+
   if (day >= 2) {
     const { data: state } = await db
       .from('team_game_state')
@@ -162,6 +170,14 @@ export async function markingEntitlement(teamId: string, day: number): Promise<E
  * demanding the team be in the room.
  */
 export async function dashboardEntitlement(teamId: string): Promise<Entitlement> {
+  // A demo team exists to walk the event before the teams do. It is not on the
+  // shortlist and never will be, so every gate below would refuse it — which is
+  // how the organizers' own dashboard came to be as blank as everyone else's.
+  if (await isDemoTeamId(teamId)) {
+    noteDemoBypass('dashboard entitlement');
+    return OK;
+  }
+
   const { count: shortlistSize } = await db
     .from('screening_shortlist')
     .select('team_id', { count: 'exact', head: true });
@@ -176,12 +192,23 @@ export async function dashboardEntitlement(teamId: string): Promise<Entitlement>
   if (!row || row.result !== 'shortlisted') {
     return { ok: false, reason: 'NOT_SHORTLISTED', message: 'Your team did not clear the screening round.' };
   }
+
+  /**
+   * The RSVP is recorded, not enforced.
+   *
+   * It used to close the dashboard, on the reasoning that a team which never
+   * replied has no seat. That reasoning needed the replies to actually reach the
+   * table, and they never did: the RSVP is a Google Form and nothing imports it,
+   * so all fifty shortlisted teams sat at `rsvp_confirmed_at is null` and every
+   * one of them got a 403 for their own dashboard.
+   *
+   * Blocking here bought nothing anyway. The shortlist check above is what keeps
+   * a team that did not qualify out, and *attendance* — being in the room — is
+   * what opens a round. An unconfirmed team that never turns up is stopped at
+   * the desk, which is the gate that was always doing the real work.
+   */
   if (!row.rsvp_confirmed_at) {
-    return {
-      ok: false,
-      reason: 'NO_RSVP',
-      message: 'We have not received your RSVP yet. Fill the form, or find an organizer at the desk.',
-    };
+    console.warn(`[gates] team ${teamId} opened the dashboard without a recorded RSVP`);
   }
 
   return OK;
