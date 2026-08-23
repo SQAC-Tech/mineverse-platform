@@ -409,7 +409,7 @@ export function CaveRoundShell() {
 
   /**
    * Ends the round for this team: locks every answer they saved, then drops them
-   * back on the main screen. Only answered questions are sent — the section endpoint
+   * back on the dashboard. Only answered questions are sent — the section endpoint
    * rejects a list containing an unanswered one, and a team that ran out of time
    * still needs a way to hand in what they did finish.
    */
@@ -736,7 +736,7 @@ export function CaveRoundShell() {
                   className="round-ui__btn round-ui__btn--finish"
                   disabled={finishing}
                   onClick={() => setConfirmFinish(true)}
-                  title="Submit the whole round and go back to the main screen"
+                  title="Submit the whole round and go back to the dashboard"
                 >
                   <Flag size={14} /> {finishing ? 'Submitting…' : 'Finish round'}
                 </button>
@@ -852,7 +852,7 @@ export function CaveRoundShell() {
               Your {answeredIds.length} saved {answeredIds.length === 1 ? 'answer' : 'answers'} are sent for grading and
               can no longer be changed.
               {unansweredCount > 0 && ` ${unansweredCount} question${unansweredCount === 1 ? '' : 's'} left unanswered will score nothing.`}
-              {' '}You will be taken back to the main screen.
+              {' '}You will be taken back to the dashboard.
             </p>
             <div className="round-ui__confirm-actions">
               <button type="button" className="round-ui__btn round-ui__btn--ghost" onClick={() => setConfirmFinish(false)} disabled={finishing}>
