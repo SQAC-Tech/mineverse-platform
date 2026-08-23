@@ -29,7 +29,7 @@ import { z } from 'zod';
 import type { ExpectedAnswer } from './deterministic';
 
 const GROQ_ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions';
-const DEFAULT_MODEL = 'llama-3.3-70b-versatile';
+const DEFAULT_MODEL = 'openai/gpt-oss-120b';
 
 /** Judgement in [0,1] plus one line a human can audit it by. */
 export interface LlmVerdict {
