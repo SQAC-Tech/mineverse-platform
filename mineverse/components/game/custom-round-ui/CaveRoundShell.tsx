@@ -1,9 +1,9 @@
 'use client';
 
-import { readDraft, writeDraft, purgeForeignDrafts } from '@/lib/client/answer-drafts';
-import { defaultLanguageFor, offeredRuntimes } from '@/lib/gameplay/code/runtimes';
+import { readDraft, writeDraft, readLanguage, writeLanguage, purgeForeignDrafts } from '@/lib/client/answer-drafts';
+import { defaultLanguageFor, offeredRuntimes, offersLanguage } from '@/lib/gameplay/code/runtimes';
 import { useAnswerAutosave } from '@/hooks/useAnswerAutosave';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Brain,
@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useProctorSession } from '@/components/game/proctor/ProctorProvider';
+import { supabaseClient } from '@/lib/supabase/client';
 import { CraftingPanel } from '@/components/game/crafting/CraftingPanel';
 import { MarketplaceStore } from '@/components/game/marketplace/MarketplaceStore';
 import { Hotbar } from '@/components/game/inventory/Hotbar';
@@ -201,6 +202,24 @@ export function CaveRoundShell() {
     return () => window.clearInterval(poll);
   }, [refresh]);
 
+  /**
+   * Refetch the moment an admin unlocks the round or its boss.
+   *
+   * The dashboard has always listened on this channel; the round shells never
+   * did, so once a team was inside a round the only way anything reached them
+   * was the ten-second poll. That is why unlocking the boss appeared to need a
+   * hard refresh.
+   */
+  useEffect(() => {
+    const channel = supabaseClient
+      .channel('round_status')
+      .on('broadcast', { event: 'unlock' }, () => void refresh())
+      .subscribe();
+    return () => {
+      void supabaseClient.removeChannel(channel);
+    };
+  }, [refresh]);
+
   useEffect(() => {
     const tick = window.setInterval(() => setNow(Date.now()), 1_000);
     return () => window.clearInterval(tick);
@@ -217,12 +236,40 @@ export function CaveRoundShell() {
     return () => window.removeEventListener('keydown', selectSlot);
   }, []);
 
+  /**
+   * Restore this team's drafts and language picks — once, not on every poll.
+   *
+   * Identical to the guard in `CustomRoundShell`, and for the same reason:
+   * `refresh` hands back a new `questions` array every ten seconds, so keying
+   * this effect on it meant `setDrafts` overwrote the editor from localStorage
+   * on every tick — with nothing at all whenever `teamCode` was still null.
+   *
+   * The language was worse off here than in the other shell: it was never read
+   * or written at all, so Round 2's picker forgot the team's choice on every
+   * reload. It is persisted now, like everywhere else.
+   */
+  const hydratedFor = useRef<string | null>(null);
+
   useEffect(() => {
+    if (!teamCode || questions.length === 0) return;
+
+    const key = `${teamCode}:${ROUND_ID}`;
+    if (hydratedFor.current === key) return;
+    hydratedFor.current = key;
+
     // Clears anything left by a previous team on this machine before reading.
     purgeForeignDrafts(teamCode);
+
     const localDrafts: Record<string, string> = {};
-    for (const question of questions) localDrafts[question.id] = readDraft(teamCode, ROUND_ID, question.id);
+    const localLanguages: Record<string, string> = {};
+    for (const question of questions) {
+      localDrafts[question.id] = readDraft(teamCode, ROUND_ID, question.id);
+      const saved = readLanguage(teamCode, ROUND_ID, question.id);
+      if (offersLanguage(question.language_options, saved)) localLanguages[question.id] = saved!;
+    }
+
     setDrafts(localDrafts);
+    setLanguages(localLanguages);
   }, [questions, teamCode]);
 
   const grouped = useMemo(() => {
@@ -570,7 +617,10 @@ export function CaveRoundShell() {
                         <select
                           style={{ width: 'auto', padding: '6px 12px', fontSize: '13px', display: 'inline-block', backgroundColor: 'rgba(0, 0, 0, 0.6)', color: '#fff', border: '1px solid rgba(255, 255, 255, 0.2)', borderRadius: '4px', cursor: 'pointer', appearance: 'auto', minHeight: 'auto', fontFamily: 'var(--rd-font-mono)' }}
                           value={currentLanguage}
-                          onChange={(e) => setLanguages((prev) => ({ ...prev, [question.id]: e.target.value }))}
+                          onChange={(e) => {
+                            setLanguages((prev) => ({ ...prev, [question.id]: e.target.value }));
+                            writeLanguage(teamCode, ROUND_ID, question.id, e.target.value);
+                          }}
                           disabled={readOnly}
                         >
                           {offeredRuntimes(question.language_options).map((rt) => (

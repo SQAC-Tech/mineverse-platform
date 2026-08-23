@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useProctorSession } from '@/components/game/proctor/ProctorProvider';
+import { supabaseClient } from '@/lib/supabase/client';
 import { GuardianArena } from './GuardianArena';
 import { NotificationTray, type LedgerEntry } from './NotificationTray';
 import { WorldEvent } from './WorldEvent';
@@ -198,6 +199,24 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
     void refresh();
     const poll = window.setInterval(() => void refresh(), 10_000);
     return () => window.clearInterval(poll);
+  }, [refresh]);
+
+  /**
+   * Refetch the moment an admin unlocks the round or its boss.
+   *
+   * The dashboard has always listened on this channel; the round shells never
+   * did, so once a team was inside a round the only way anything reached them
+   * was the ten-second poll. That is why unlocking the boss appeared to need a
+   * hard refresh.
+   */
+  useEffect(() => {
+    const channel = supabaseClient
+      .channel('round_status')
+      .on('broadcast', { event: 'unlock' }, () => void refresh())
+      .subscribe();
+    return () => {
+      void supabaseClient.removeChannel(channel);
+    };
   }, [refresh]);
 
   useEffect(() => {

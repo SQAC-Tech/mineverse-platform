@@ -99,6 +99,21 @@ export async function POST(req: Request) {
     if (!round) return NextResponse.json({ success: false, error: 'Round not found' }, { status: 404 });
     const newStatus = !round.guardian_unlocked;
     await supabaseServer.from('rounds').update({ guardian_unlocked: newStatus }).eq('id', round_id);
+
+    /**
+     * Tell the rounds in progress, the way `toggle` already does.
+     *
+     * Without this the boss had no push path at all: a team sitting in the
+     * round only learned it had been unlocked on the next ten-second poll, and
+     * only if that poll succeeded. Unlocking the boss is an announcement made
+     * to a hall of people waiting for it, so it should not need a refresh.
+     */
+    supabaseClient.channel('round_status').send({
+      type: 'broadcast',
+      event: 'unlock',
+      payload: { round_id, team_id: 'all' },
+    });
+
     return NextResponse.json({ success: true, newStatus: newStatus ? 'boss unlocked' : 'boss locked' });
   }
 
