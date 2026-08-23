@@ -87,6 +87,8 @@ interface ActionData {
   errors?: string[];
   granted?: number;
   unlocked?: number;
+  confirmed?: boolean;
+  with_access?: number;
   shortlisted?: number | MailRunSummary;
   rejected?: number | MailRunSummary;
 }
@@ -197,7 +199,15 @@ export default function ScreeningAdminPage() {
       reportRun('Shortlisted', res.data.shortlisted as MailRunSummary);
       reportRun('Rejected', res.data.rejected as MailRunSummary);
     } else if (action === 'commit_shortlist') {
-      toast.success(`Shortlist frozen — ${res.data.shortlisted} in, ${res.data.rejected} out, Round 1 opened to ${res.data.unlocked}, ${res.data.granted} granted resources.`);
+      toast.success(`Shortlist frozen — ${res.data.shortlisted} in, ${res.data.rejected} out, ${res.data.granted} granted resources.`);
+      toast.warning('Round 1 is open to nobody yet. It unlocks per team as you mark each RSVP.');
+    } else if (action === 'set_rsvp') {
+      // The number that matters is how many can actually start Round 1.
+      toast.success(
+        res.data.confirmed
+          ? `RSVP confirmed — Round 1 now open to ${res.data.with_access} teams.`
+          : `RSVP cleared — Round 1 access withdrawn, ${res.data.with_access} teams remain.`,
+      );
     } else {
       toast.success('Done.');
     }
@@ -295,7 +305,7 @@ export default function ScreeningAdminPage() {
           <StatTile
             label="RSVP confirmed"
             value={`${rsvpCount} / ${data.rsvp.length}`}
-            hint="Marked by hand from the form replies"
+            hint="Round 1 is open to exactly these teams"
             icon={<Check size={14} />}
           />
         )}
@@ -305,7 +315,7 @@ export default function ScreeningAdminPage() {
         title="Shortlist"
         subtitle={
           data.committed
-            ? 'Frozen. Clear it before changing anything — the result mails read from this list. Mark each RSVP as the form replies come in.'
+            ? 'Frozen. Round 1 opens to a team the moment you mark its RSVP, and closes again if you unmark it.'
             : 'Cut each year separately, and keep both even — PvP pairs inside a year. Committing freezes the list, opens Round 1 to it, and grants opening resources.'
         }
         actions={
@@ -351,6 +361,16 @@ export default function ScreeningAdminPage() {
           </div>
         }
       >
+        {/* The state that looks fine and is not: a frozen list where nothing has
+            been confirmed means Round 1 is open to nobody. */}
+        {data.committed && rsvpCount === 0 && (
+          <div style={{ marginBottom: 12, padding: '10px 12px', border: '1px solid var(--warn, #f2c14e)', borderLeft: '3px solid var(--warn, #f2c14e)', fontSize: 11.5, lineHeight: 1.55 }}>
+            <strong>No RSVPs marked yet, so Round 1 is open to nobody.</strong>{' '}
+            Access is granted per team as you mark each reply below. A team that arrives without
+            having replied can be let in by marking it here.
+          </div>
+        )}
+
         {/* Blocks the commit. An odd year is the failure this screen exists to
             prevent, and it is invisible in a merged table. */}
         {!data.committed && problems.length > 0 && (
@@ -684,7 +704,8 @@ export default function ScreeningAdminPage() {
               {confirm === 'commit' && (
                 <>
                   {cut1 + cut2} teams go through and {Math.max(0, data.ranked.length - cut1 - cut2)} do
-                  not. Round 1 opens to those {cut1 + cut2} and closes to everyone else. Each qualifier
+                  not. Round 1 stays shut to everyone for now — it opens team by team as you mark each
+                  RSVP, so nobody can start until they have confirmed. Each qualifier
                   is granted{' '}
                   {Object.entries(data.config.grant).map(([key, value]) => `${value} ${key}`).join(', ') || 'nothing'}.
                   {' '}Both years are even, so PvP pairs {cut1 / 2} first-year and {cut2 / 2} second-year
