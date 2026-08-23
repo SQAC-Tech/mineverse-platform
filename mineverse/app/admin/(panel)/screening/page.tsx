@@ -21,6 +21,8 @@ interface RankedTeam {
   submitted_at: string | null;
   auto_submitted: boolean;
   status: string;
+  /** Seconds on the relay. The key the cut is actually decided on. */
+  relay_seconds: number | null;
   result: 'shortlisted' | 'rejected' | null;
 }
 
@@ -130,10 +132,11 @@ export default function ScreeningAdminPage() {
     if (!data) return;
     download(
       'screening-ranking',
-      'rank,team_code,team_name,total_score,raw_score,bonus,correct,submitted_at,auto_submitted,result',
+      'rank,team_code,team_name,total_score,raw_score,bonus,correct,relay_seconds,submitted_at,auto_submitted,result',
       data.ranked.map((team) => [
         team.rank, team.team_code, JSON.stringify(team.team_name), team.total_score, team.raw_score,
-        team.bonus_points, team.correct_count, team.submitted_at ?? '', team.auto_submitted, team.result ?? '',
+        team.bonus_points, team.correct_count, team.relay_seconds ?? '',
+        team.submitted_at ?? '', team.auto_submitted, team.result ?? '',
       ].join(',')),
     );
   };
@@ -219,14 +222,14 @@ export default function ScreeningAdminPage() {
         {!data.committed && contested.length > 1 && (
           <div style={{ marginBottom: 12, padding: '10px 12px', border: '1px solid var(--warn, #f2c14e)', borderLeft: '3px solid var(--warn, #f2c14e)', fontSize: 11.5, lineHeight: 1.55 }}>
             <strong>{contested.length} teams are tied on {cutScore} points across the cut line.</strong>{' '}
-            They are separated by who submitted first — {contested.filter((t) => t.rank <= cut).length} of
-            them make it. Check the submit times below before you commit.
+            They are separated by relay time — {contested.filter((t) => t.rank <= cut).length} of
+            them make it. Check the relay times below before you commit.
           </div>
         )}
 
-        <Table head={['#', 'Team', 'Score', 'Correct', 'Submitted', 'Result', '']}>
+        <Table head={['#', 'Team', 'Score', 'Correct', 'Relay time', 'Submitted', 'Result', '']}>
           {data.ranked.length === 0 ? (
-            <Empty colSpan={7}>Nothing submitted yet. Teams appear here as they hand in.</Empty>
+            <Empty colSpan={8}>Nothing submitted yet. Teams appear here as they hand in.</Empty>
           ) : (
             data.ranked.map((team) => {
               const inCut = data.committed ? team.result === 'shortlisted' : team.rank <= cut;
@@ -254,12 +257,21 @@ export default function ScreeningAdminPage() {
                     </div>
                   </td>
                   <td style={{ fontVariantNumeric: 'tabular-nums' }}>{team.correct_count}</td>
+                  {/* The tiebreak, spelled out. Nearly every team full-clears,
+                      so this column is what the cut is really made on. */}
+                  <td style={{ fontVariantNumeric: 'tabular-nums' }}>
+                    {team.relay_seconds === null ? (
+                      <span className="n-panel-sub">not timed</span>
+                    ) : (
+                      <strong>{mmss(team.relay_seconds)}</strong>
+                    )}
+                    {onBoundary && <div style={{ fontSize: 10, color: 'var(--warn, #f2c14e)' }}>tied at the line</div>}
+                  </td>
                   <td>
                     <span className="n-panel-sub">{ist(team.submitted_at)}</span>
                     {team.auto_submitted && (
                       <div className="n-panel-sub" style={{ fontSize: 10 }}>ran out of time</div>
                     )}
-                    {onBoundary && <div style={{ fontSize: 10, color: 'var(--warn, #f2c14e)' }}>tied at the line</div>}
                   </td>
                   <td>
                     {data.committed ? (

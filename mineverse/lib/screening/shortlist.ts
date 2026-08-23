@@ -16,6 +16,12 @@ export interface RankedTeam {
   submitted_at: string | null;
   auto_submitted: boolean;
   status: string;
+  /**
+   * Seconds spent on the relay, summed over the puzzles this team actually
+   * solved. Null only when no relay row exists at all, which in practice means
+   * a team that solved nothing.
+   */
+  relay_seconds: number | null;
   /** Set once a shortlist has been committed. */
   result: 'shortlisted' | 'rejected' | null;
 }
@@ -23,25 +29,82 @@ export interface RankedTeam {
 /**
  * The ranking chain, as a pure function.
  *
- * Score first, then whoever submitted earlier, then team code. The third key
- * does no moral work — it exists so running this twice can never produce two
- * different lists, which starts to matter the moment result mails have gone out.
+ * Score, then relay time, then submit time, then team code.
+ *
+ * Relay time is the key that actually draws the line. 61 of the 78 teams that
+ * sat the qualifier cleared all three puzzles, so the score separates almost
+ * nobody — whatever sits second in this chain *is* the shortlist.
+ *
+ * It used to be submit time, and submit time is a clock, not a performance: the
+ * window ran four and a half hours, so a team that took twelve minutes at 18:10
+ * outranked a team that took four at 21:40. MNV-348 solved the whole relay in
+ * 251 seconds, the fastest in the field, and sat 30-odd places down the table
+ * for the crime of starting late. Relay time is what the team did; the hour
+ * they happened to log in is not.
+ *
+ * The timings come from `relay_screening_attempts`, which the paper writes as
+ * it goes — a per-puzzle duration measured while the puzzle is open, so idle
+ * time between the handoffs does not count against anyone.
+ *
+ * Submit time stays as the third key rather than being dropped: it is the only
+ * ordering left for the handful of teams with no relay row. Team code is fourth
+ * and does no moral work — it exists so running this twice can never produce
+ * two different lists, which starts to matter the moment result mails have gone
+ * out.
  *
  * Split out of `rankTeams` so it can be tested against hand-built ties without
  * a database.
  */
-export function sortByRank<T extends { total_score: number; submitted_at: string | null; team_code: string }>(
-  teams: T[],
-): T[] {
+export function sortByRank<
+  T extends {
+    total_score: number;
+    relay_seconds?: number | null;
+    submitted_at: string | null;
+    team_code: string;
+  },
+>(teams: T[]): T[] {
   return [...teams].sort((a, b) => {
     if (b.total_score !== a.total_score) return b.total_score - a.total_score;
-    // A team with no submit time has not finished; it sorts last rather than
-    // first, which a null-as-zero comparison would do.
+
+    // Missing timings sort last rather than first, which a null-as-zero
+    // comparison would do — an unrecorded relay is not a zero-second one.
+    const aRelay = a.relay_seconds ?? Number.MAX_SAFE_INTEGER;
+    const bRelay = b.relay_seconds ?? Number.MAX_SAFE_INTEGER;
+    if (aRelay !== bRelay) return aRelay - bRelay;
+
     const aTime = a.submitted_at ? new Date(a.submitted_at).getTime() : Number.MAX_SAFE_INTEGER;
     const bTime = b.submitted_at ? new Date(b.submitted_at).getTime() : Number.MAX_SAFE_INTEGER;
     if (aTime !== bTime) return aTime - bTime;
+
     return a.team_code.localeCompare(b.team_code);
   });
+}
+
+/**
+ * Total relay seconds from one telemetry row.
+ *
+ * Summed over the puzzles that were actually solved, so a team that stopped at
+ * puzzle two is timed on two puzzles. That only ever compares it against other
+ * teams that stopped at two — a shorter relay is a lower score, and the score
+ * is ranked first.
+ *
+ * A row with no timings at all returns null rather than 0: an older attempt
+ * predating the telemetry columns must not be handed the fastest time in the
+ * field.
+ */
+interface RelayTiming {
+  team_id: string;
+  year1_duration_seconds: number | null;
+  year2_duration_seconds: number | null;
+  year3_duration_seconds: number | null;
+}
+
+function relaySeconds(row: RelayTiming | undefined): number | null {
+  if (!row) return null;
+  const parts = [row.year1_duration_seconds, row.year2_duration_seconds, row.year3_duration_seconds]
+    .filter((value): value is number => typeof value === 'number');
+  if (parts.length === 0) return null;
+  return parts.reduce((total, value) => total + value, 0);
 }
 
 /** The ranking, in full, from the database. */
@@ -54,6 +117,16 @@ export async function rankTeams(): Promise<RankedTeam[]> {
   const { data: decided } = await db.from('screening_shortlist').select('team_id, result');
   const resultByTeam = new Map((decided ?? []).map((row: any) => [row.team_id, row.result]));
 
+  // Read whole rather than joined onto the attempt: `relay_screening_attempts`
+  // is a separate table keyed by team, not a child of the attempt, and there is
+  // no foreign key for PostgREST to embed across.
+  const { data: relay } = await db
+    .from('relay_screening_attempts')
+    .select('team_id, year1_duration_seconds, year2_duration_seconds, year3_duration_seconds');
+  const relayByTeam = new Map<string, RelayTiming>(
+    ((relay ?? []) as RelayTiming[]).map((row) => [row.team_id, row]),
+  );
+
   const rows = (attempts ?? []).map((attempt: any) => ({
     team_id: attempt.team_id,
     team_code: attempt.teams?.team_code ?? '',
@@ -65,6 +138,7 @@ export async function rankTeams(): Promise<RankedTeam[]> {
     submitted_at: attempt.submitted_at,
     auto_submitted: Boolean(attempt.auto_submitted),
     status: attempt.status,
+    relay_seconds: relaySeconds(relayByTeam.get(attempt.team_id)),
     result: (resultByTeam.get(attempt.team_id) as RankedTeam['result']) ?? null,
     rank: 0,
   }));
@@ -80,8 +154,9 @@ export interface ShortlistPreview {
   rejected: RankedTeam[];
   /**
    * Teams sitting on the same score across the cut line. Not an error — the
-   * submit-time tiebreak already resolved them — but the one thing a human
-   * should actually look at before committing.
+   * relay-time tiebreak already resolved them — but the one thing a human
+   * should actually look at before committing. With a field where nearly
+   * everyone full-clears, expect this to be most of the table.
    */
   contested: RankedTeam[];
   committed: boolean;

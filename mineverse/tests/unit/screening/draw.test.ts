@@ -122,7 +122,7 @@ describe('option shuffling', () => {
 });
 
 describe('the scoring ceiling', () => {
-  it('is 50 before the bonus', () => {
+  it('is 50', () => {
     // 10 x 1.5 + 10 x 2 + 5 x 3. Guards against someone changing the mix or a
     // weight without noticing the maximum moved.
     expect(MAX_RAW_SCORE).toBe(50);

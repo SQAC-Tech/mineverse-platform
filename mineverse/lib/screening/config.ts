@@ -7,11 +7,10 @@
  * `supabaseServer`, which carries the service-role key.
  *
  * WHAT A PLAYER MAY SEE: `SCREENING_DURATION_MINUTES`, `SCREENING_QUESTION_COUNT`.
- * WHAT A PLAYER MUST NOT SEE: the difficulty weights, the draw mix, and the
- * first-year bonus. A team that knows hard questions pay double will farm the
- * five hard ones and skip the rest; a team that knows about the bonus reads it
- * as a quota. None of the organiser-only values below are ever serialized into
- * a player-facing response — see `serializeScreeningQuestion`.
+ * WHAT A PLAYER MUST NOT SEE: the difficulty weights and the draw mix. A team
+ * that knows hard questions pay double will farm the five hard ones and skip
+ * the rest. None of the organiser-only values below are ever serialized into a
+ * player-facing response — see `serializeScreeningQuestion`.
  */
 
 export const SCREENING_ROUND_ID = 0;
@@ -163,13 +162,20 @@ export const MAX_RAW_SCORE = (Object.keys(DRAW_MIX) as Difficulty[]).reduce(
 );
 
 /**
- * Organiser-only. Awarded when *every* member of the team is a first year.
+ * There is no first-year bonus.
  *
- * A team is the unit here and teams can be mixed. Paying any team that contains
- * one first year would let a single junior carry two seniors past an
- * all-first-year team, which inverts the intent of favouring first years.
+ * There was one — a flat 10 points to a team whose every member was a first
+ * year, on the reasoning that a first-year team is at a disadvantage against
+ * seniors. It was removed before the shortlist was drawn, deliberately.
+ *
+ * With 61 of 78 teams clearing all three puzzles, the score barely separates
+ * the field at all; ten free points on top of a 100-point full clear did not
+ * favour first years so much as decide the cut outright, and it decided it for
+ * teams that had already solved everything there was to solve. The two papers
+ * are the accommodation. `bonus_points` is still written (as 0) and still
+ * carried through the ranking, so the column and the CSV keep their shape and
+ * old rows stay readable.
  */
-export const FIRST_YEAR_BONUS = 10;
 
 /**
  * Extra resources granted on top of what a team already starts with.

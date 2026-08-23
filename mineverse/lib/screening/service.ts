@@ -4,7 +4,6 @@ import { noteDevUnlockBypass } from '@/lib/gameplay/dev-mode';
 import {
   applyCipher,
   DEV_OPEN_SCREENING,
-  FIRST_YEAR_BONUS,
   GAUNTLET_PUZZLES,
   REQUIRE_PAYMENT_VERIFIED,
   SCREENING_QUESTION_COUNT,
@@ -92,31 +91,6 @@ export async function getTeamYear(teamId: string, now: Date = new Date()): Promi
     (members ?? []).map((member: { registration_no: string | null }) => member.registration_no),
     now,
   );
-}
-
-/**
- * True when every member of the team is a first year.
- *
- * A team is the unit, so paying any team that merely contains a first year
- * would let one junior carry two seniors past an all-first-year team — the
- * opposite of favouring first years. See FIRST_YEAR_BONUS.
- *
- * Same rule as the paper, deliberately: a team that sits the first-year paper
- * is exactly the team that collects the first-year bonus. Deriving both from
- * `getTeamYear` is what keeps that true — they were two separate readings of
- * the roster before, and only one of them was server-side.
- */
-export async function isFirstYearTeam(teamId: string, now: Date = new Date()): Promise<boolean> {
-  const { data: members } = await db
-    .from('members')
-    .select('registration_no')
-    .eq('team_id', teamId);
-
-  // An empty roster is not a first-year team. `teamAcademicYear` already
-  // returns 2 for one, but saying so here keeps the intent readable.
-  if (!members?.length) return false;
-
-  return (await getTeamYear(teamId, now)) === 1;
 }
 
 /* ------------------------------------------------------------------- start */
@@ -509,9 +483,8 @@ export async function saveGauntletAnswer(
   if (relayError) console.error('Relay mirror write failed:', relayError);
 
   // Finishing hands the paper in through the same function the deadline sweep
-  // uses. It used to write `total_score: 100` inline here, which is how a
-  // completed attempt ended up skipping the first-year bonus that an expired
-  // one received — the two paths disagreed because there were two of them.
+  // uses. It used to write `total_score: 100` inline here, and the two paths
+  // disagreed about the score because there were two of them.
   if (isCompleted) await submitAttempt(teamId);
 
   return {
@@ -571,7 +544,6 @@ export async function submitAttempt(
   const solved = solvedPuzzleIds(attempt.option_order);
   const { raw_score: rawScore, correct_count: correctCount } = scoreGauntlet(solved);
 
-  const bonus = (await isFirstYearTeam(teamId)) ? FIRST_YEAR_BONUS : 0;
   const submittedAt = new Date().toISOString();
 
   /**
@@ -591,8 +563,10 @@ export async function submitAttempt(
       submitted_at: submittedAt,
       auto_submitted: ranOut && !finished,
       raw_score: rawScore,
-      bonus_points: bonus,
-      total_score: rawScore + bonus,
+      // Written rather than left alone: a re-grade of a row carrying the
+      // retired first-year bonus has to clear it, not inherit it.
+      bonus_points: 0,
+      total_score: rawScore,
       correct_count: correctCount,
       // A team that solved all three puzzles has submitted, even when it is the
       // deadline sweep that writes the row — "expired" beside a full score
