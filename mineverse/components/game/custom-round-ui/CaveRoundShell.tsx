@@ -26,18 +26,19 @@ import {
 import { toast } from 'sonner';
 import { useProctorSession } from '@/components/game/proctor/ProctorProvider';
 import { supabaseClient } from '@/lib/supabase/client';
-import { CraftingPanel } from '@/components/game/crafting/CraftingPanel';
 import { Hotbar } from '@/components/game/inventory/Hotbar';
 import type { CraftedItem } from '@/features/dashboard/types';
 import { GuardianArena } from './GuardianArena';
 import { NotificationTray, type LedgerEntry } from './NotificationTray';
 import { WorldEvent, EVENT_FX } from './WorldEvent';
-import { languagePrompts, offersLanguageChoice, payoutList, promptBlocks, questionTypeLabel, roundGuardian } from './round-presentation';
+import { languagePrompts, offersLanguageChoice, payoutList, promptBlocks, questionTypeLabel, roundCraft, roundGuardian } from './round-presentation';
+import { RoundCraftPrompt } from './RoundCraftPrompt';
+import { InspectorCard, usesInspector } from '@/components/game/code/InspectorCard';
 import './round-ui.css';
 
 type CaveTab = 'aptitudes' | 'debugging' | 'completion' | 'output';
 type ResourceKey = 'wood' | 'stone' | 'iron' | 'gold' | 'diamond' | 'emerald' | 'obsidian';
-type ModalName = 'guardian' | 'crafting' | null;
+type ModalName = 'guardian' | null;
 
 interface Question {
   id: string;
@@ -122,6 +123,8 @@ function initials(name: string | null | undefined) {
 }
 
 const caveGuardian = roundGuardian(2);
+/** Round 2's own recipe — the Stone Pickaxe that opens the Mountain. */
+const caveCraft = roundCraft(ROUND_ID);
 
 export function CaveRoundShell() {
   const router = useRouter();
@@ -151,6 +154,8 @@ export function CaveRoundShell() {
   const [roundStatus, setRoundStatus] = useState<string | null>(null);
   const [guardianUnlocked, setGuardianUnlocked] = useState(false);
   const [crafted, setCrafted] = useState<CraftedItem[]>([]);
+  const [crafting, setCrafting] = useState(false);
+  const [craftPrompt, setCraftPrompt] = useState(false);
 
   const refresh = useCallback(async () => {
     const [round, resourceResult, teamResult, historyResult] = await Promise.allSettled([
@@ -286,6 +291,40 @@ export function CaveRoundShell() {
   const currentIndex = Math.min(activeIndexes[activeTab], Math.max(0, activeQuestions.length - 1));
   const question = activeQuestions[currentIndex];
   
+  const craftShortfall = caveCraft
+    ? Object.entries(caveCraft.cost)
+        .map(([key, need]) => ({ key, short: (need as number) - (resourceData?.balance?.[key as ResourceKey] ?? 0) }))
+        .filter((entry) => entry.short > 0)
+    : [];
+  const canCraft = Boolean(caveCraft) && craftShortfall.length === 0;
+
+  const craftRoundItem = async () => {
+    if (!caveCraft) return;
+    setCrafting(true);
+    try {
+      const response = await fetch('/api/team/craft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Idempotency-Key': crypto.randomUUID() },
+        body: JSON.stringify({ item: caveCraft.item }),
+      });
+      const json = await response.json();
+      if (!json.success) {
+        toast.error(json.error?.message ?? `Unable to craft the ${caveCraft.label}.`);
+        return;
+      }
+      toast.success(
+        caveCraft.unlockRoundId
+          ? `${caveCraft.label} crafted — Round ${caveCraft.unlockRoundId} is unlocked.`
+          : `${caveCraft.label} crafted.`,
+      );
+      await refresh();
+    } catch {
+      toast.error('Could not reach the server. Please try crafting again.');
+    } finally {
+      setCrafting(false);
+    }
+  };
+
   const currentLanguage = question ? (languages[question.id] ?? defaultLanguageFor(question.language_options)) : defaultLanguageFor(null);
   // The language-specific body when the question has one for the selected
   // runtime, the generic prompt otherwise. See `languagePrompts`.
@@ -433,6 +472,14 @@ export function CaveRoundShell() {
       }
       toast.success('Your final answers have been recorded.');
       setConfirmFinish(false);
+
+      /* The Stone Pickaxe before the Mountain. Crafting is session-scoped, not
+         round-scoped, so a sealed paper does not stop it. */
+      if (caveCraft) {
+        await proctor?.finish();
+        setCraftPrompt(true);
+        return;
+      }
       // Closes the proctor session and leaves fullscreen before navigating, so
       // the dashboard is not stuck behind a fullscreen scrim. Every way out of
       // a round lands there — it is where the next round is opened from.
@@ -639,6 +686,18 @@ export function CaveRoundShell() {
                       </div>
                     )}
 
+                    {usesInspector(question) ? (
+                      /* Listing and answer in one card — see InspectorCard. */
+                      <InspectorCard
+                        type={question.type}
+                        prompt={activePrompt}
+                        value={drafts[question.id] ?? ''}
+                        disabled={readOnly}
+                        language={currentLanguage}
+                        onChange={(next) => updateDraft(question.id, next)}
+                      />
+                    ) : (
+                    <>
                     <div className="round-ui__prompt-blocks">
                       {promptBlocks(activePrompt).map((block, index) =>
                         block.kind === 'code' ? (
@@ -659,6 +718,8 @@ export function CaveRoundShell() {
                       rows={question.type === 'code_completion' ? 6 : 4}
                       placeholder={roundLocked ? 'The round has ended.' : currentIsFinal ? 'This answer is final.' : 'Type your answer here…'}
                     />
+                    </>
+                    )}
                     {currentIsFinal ? (
                       <p className="round-ui__locked-note">
                         <LockKeyhole size={14} aria-hidden="true" /> This answer is final and can no longer be changed.
@@ -801,21 +862,10 @@ export function CaveRoundShell() {
               </div>
               <Hotbar balance={resourceData?.balance} crafted={crafted} activeSlot={slot} onSelect={setSlot} />
             </div>
-            <div className="round-ui__inventory-actions">
-              <button
-                type="button"
-                className="mc-crafting-toggle-btn"
-                onClick={() => setModal('crafting')}
-                title="Open Crafting Table"
-              >
-                <img src="/crafting.svg" alt="Crafting Table" />
-              </button>
-              {/* The marketplace and the Ancient Shrine moved to the dashboard.
-                  Both are decisions made with a round's takings in hand — the
-                  brief has the Shrine appearing after the Cave Biome closes —
-                  and neither should be eating into a timed round. Crafting
-                  stays: it is the round's own objective. */}
-            </div>
+            {/* Nothing here any more. The marketplace and the Ancient Shrine
+                moved to the dashboard, and the crafting bench is asked for on
+                submit — see `RoundCraftPrompt`. All three were decisions made
+                with a round's takings in hand, competing with its questions. */}
           </section>
 
           <aside className="round-ui__panel round-ui__companion" aria-hidden="true">
@@ -866,6 +916,18 @@ export function CaveRoundShell() {
         </div>
       )}
 
+      {craftPrompt && caveCraft && (
+        <RoundCraftPrompt
+          roundName="Cave Biome"
+          craft={caveCraft}
+          crafted={crafted.some((entry) => entry.item === caveCraft.item && entry.crafted)}
+          canCraft={canCraft}
+          crafting={crafting}
+          craftShortfall={craftShortfall}
+          onCraft={() => void craftRoundItem()}
+          onContinue={() => { setCraftPrompt(false); router.push('/dashboard'); }}
+        />
+      )}
       {modal && (
         <div className="round-ui__modal" role="dialog" aria-modal="true">
           <div className="round-ui__modal-card biome">
@@ -886,7 +948,6 @@ export function CaveRoundShell() {
                 onResolved={() => { void refresh(); }}
               />
             )}
-            {modal === 'crafting' && <CraftingPanel refreshToken={0} onCrafted={() => { void refresh(); }} />}
           </div>
         </div>
       )}

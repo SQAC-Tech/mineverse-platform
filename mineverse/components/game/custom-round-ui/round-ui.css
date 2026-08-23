@@ -3013,3 +3013,54 @@
   --sb-thumb: rgba(0, 0, 0, 0.34);
   --sb-thumb-hover: rgba(0, 0, 0, 0.5);
 }
+
+/* ── Craft prompt, after a round is handed in ────────────────── */
+
+.rcp {
+  max-width: min(520px, 92vw);
+  text-align: left;
+}
+
+.rcp__eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 10px;
+  color: var(--rd-accent);
+  font-family: var(--rd-font-display);
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.rcp__title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 8px;
+  color: var(--rd-gold);
+  font-family: var(--rd-font-display);
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: 0.5px;
+}
+
+.rcp__body {
+  margin: 0 0 14px;
+  color: var(--rd-ink);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.rcp__bench {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.rcp__short {
+  margin: 0 0 12px;
+  color: var(--rd-ink-dim);
+  font-size: 12.5px;
+  line-height: 1.5;
+}

@@ -199,6 +199,87 @@ export function promptBlocks(prompt: string): Array<{ kind: 'text' | 'code'; bod
     .filter((block) => block.body.trim().length > 0);
 }
 
+export interface ExtractedCode {
+  /** The listing with any baked-in line numbers removed. */
+  code: string;
+  /** The fence's language tag, when the prompt carried one. */
+  language: string | null;
+  /** True when the source numbered its own lines, so a viewer must not double them. */
+  wasNumbered: boolean;
+  /** Prose before and after the listing, kept so the question still reads. */
+  intro: string;
+  outro: string;
+}
+
+/** `1   int main() {` — a listing that numbers itself, as the debugging bank does. */
+const NUMBERED_LINE = /^\s*(\d+)(?:\s{2,}|\t|\s*$)/;
+
+/**
+ * Pulls the code listing out of a question prompt.
+ *
+ * The bank writes code three different ways: fenced with a language tag and
+ * self-numbered lines (debugging), unfenced and unnumbered (code completion,
+ * debug output), and not at all (aptitude). This finds whichever is there.
+ *
+ * The numbering is the interesting part. Those digits are *text* — the prompt
+ * literally contains "7       for (int i = 0; ...", which is why the rendered
+ * listing looks like a paste rather than code, and why nothing can highlight or
+ * address a line. Stripping them lets a real editor put real line numbers in a
+ * gutter, and `wasNumbered` tells the caller the question means to talk about
+ * lines at all.
+ *
+ * Returns null rather than guessing when there is no listing worth showing —
+ * one stray indented sentence is prose, not a program.
+ */
+export function extractCodeBlock(prompt: string): ExtractedCode | null {
+  const source = String(prompt ?? '');
+
+  const fenced = source.match(/```([A-Za-z+#]*)\s*\n([\s\S]*?)```/);
+  let body: string;
+  let language: string | null = null;
+  let intro: string;
+  let outro: string;
+
+  if (fenced) {
+    language = fenced[1]?.trim() ? fenced[1].trim().toLowerCase() : null;
+    body = fenced[2];
+    intro = source.slice(0, fenced.index ?? 0);
+    outro = source.slice((fenced.index ?? 0) + fenced[0].length);
+  } else {
+    // No fence: fall back to the same prose/code split the plain renderer uses,
+    // and take the longest run of code lines.
+    const blocks = promptBlocks(source);
+    const codeBlocks = blocks.filter((block) => block.kind === 'code');
+    if (codeBlocks.length === 0) return null;
+
+    const largest = codeBlocks.reduce((a, b) => (b.body.split('\n').length > a.body.split('\n').length ? b : a));
+    if (largest.body.split('\n').length < 3) return null;
+
+    body = largest.body;
+    const at = source.indexOf(body);
+    intro = at >= 0 ? source.slice(0, at) : '';
+    outro = at >= 0 ? source.slice(at + body.length) : '';
+  }
+
+  const lines = body.replace(/^\n+|\n+$/g, '').split('\n');
+  if (lines.length < 2) return null;
+
+  // Only treat the digits as numbering when most of the listing agrees. One
+  // line starting with a number is a statement; ten in sequence is a gutter.
+  const numbered = lines.filter((line) => NUMBERED_LINE.test(line)).length;
+  const wasNumbered = numbered >= Math.max(2, Math.ceil(lines.length * 0.6));
+
+  const code = (wasNumbered ? lines.map((line) => line.replace(NUMBERED_LINE, '')) : lines).join('\n');
+
+  return {
+    code: code.replace(/\s+$/, ''),
+    language,
+    wasNumbered,
+    intro: intro.replace(/```[A-Za-z+#]*\s*$/, '').trim(),
+    outro: outro.replace(/^```/, '').trim(),
+  };
+}
+
 // --------------------------------------------------------------- round chrome
 
 interface RoundChrome {

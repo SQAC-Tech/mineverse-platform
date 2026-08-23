@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import Editor, { loader, type OnMount } from '@monaco-editor/react';
 import type * as MonacoNs from 'monaco-editor';
+import { MINEVERSE_THEME, MINEVERSE_THEME_DATA } from './monaco-theme';
 
 /**
  * Monaco, served from our own origin.
@@ -14,8 +15,6 @@ import type * as MonacoNs from 'monaco-editor';
  * loader at it.
  */
 loader.config({ paths: { vs: '/monaco/vs' } });
-
-export const MINEVERSE_THEME = 'mineverse-dark';
 
 interface CodeEditorProps {
   value: string;
@@ -53,30 +52,7 @@ export function CodeEditor({
   }, [onRun, onSave]);
 
   const handleMount = useCallback<OnMount>((editor, monaco) => {
-    monaco.editor.defineTheme(MINEVERSE_THEME, {
-      base: 'vs-dark',
-      inherit: true,
-      rules: [
-        { token: 'comment', foreground: '6f7f66', fontStyle: 'italic' },
-        { token: 'keyword', foreground: 'c48cff' },
-        { token: 'string', foreground: 'a8d97a' },
-        { token: 'number', foreground: 'f2c14e' },
-        { token: 'type', foreground: '7ad6c0' },
-      ],
-      colors: {
-        // Sits inside the round's panel, so it borrows the panel's darkness
-        // rather than Monaco's default near-black.
-        'editor.background': '#0d1016',
-        'editor.lineHighlightBackground': '#161b24',
-        'editorLineNumber.foreground': '#4a5560',
-        'editorLineNumber.activeForeground': '#c9d4c2',
-        'editorCursor.foreground': '#f2c14e',
-        'editor.selectionBackground': '#2b3a4a',
-        'editorIndentGuide.background1': '#1d242e',
-        'editorGutter.background': '#0d1016',
-        'scrollbarSlider.background': '#2a333d80',
-      },
-    });
+    monaco.editor.defineTheme(MINEVERSE_THEME, MINEVERSE_THEME_DATA);
     monaco.editor.setTheme(MINEVERSE_THEME);
 
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => actions.current.onRun?.());
