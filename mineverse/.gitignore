@@ -70,3 +70,6 @@ clean-db-snapshot-*.json
 # the editor is served from our own origin instead of a CDN. Generated on
 # install and before every build, so it never belongs in git.
 /public/monaco
+
+# Scratch files from ad-hoc DB dumps/scans
+.tmp-*.mjs
