@@ -71,11 +71,16 @@ export async function POST(req: Request) {
   );
 
   // Pre-fill the checkboxes when this team was already marked at this checkpoint.
-  let existing: { member_ids: string[]; members_present: number } | null = null;
+  let existing: {
+    member_ids: string[];
+    members_present: number;
+    marked_at: string;
+    method: string;
+  } | null = null;
   if (Number.isInteger(checkpointId)) {
     const { data: record } = await supabaseServer
       .from('attendance_records')
-      .select('id, members_present, attendance_member_records(member_id)')
+      .select('id, members_present, method, marked_at, updated_at, attendance_member_records(member_id)')
       .eq('team_id', team.id)
       .eq('checkpoint_id', checkpointId)
       .maybeSingle();
@@ -83,10 +88,35 @@ export async function POST(req: Request) {
     if (record) {
       existing = {
         members_present: record.members_present,
+        // The later of the two: re-marking is an edit, and "marked at 9:02" is
+        // misleading once someone has corrected it at 9:40.
+        marked_at: record.updated_at ?? record.marked_at,
+        method: record.method,
         member_ids: (record.attendance_member_records ?? []).map((r) => r.member_id),
       };
     }
   }
+
+  /**
+   * Where else this team has been marked today.
+   *
+   * A desk covering Round 3 wants to know the team was seen in the morning; a
+   * team appearing at the second desk having skipped the first is worth a
+   * question, not a silent tick.
+   */
+  const { data: otherRecords } = await supabaseServer
+    .from('attendance_records')
+    .select('checkpoint_id, members_present, attendance_checkpoints(label, day, sequence)')
+    .eq('team_id', team.id);
+
+  const history = (otherRecords ?? [])
+    .map((row) => ({
+      checkpoint_id: row.checkpoint_id,
+      members_present: row.members_present,
+      label: (row.attendance_checkpoints as unknown as { label: string } | null)?.label ?? '',
+      sequence: (row.attendance_checkpoints as unknown as { sequence: number } | null)?.sequence ?? 0,
+    }))
+    .sort((a, b) => a.sequence - b.sequence);
 
   return NextResponse.json({
     success: true,
@@ -98,8 +128,20 @@ export async function POST(req: Request) {
       is_payment_verified: team.is_payment_verified,
       entitled: entitlement.ok,
       entitlement_message: entitlement.message ?? null,
+      /**
+       * The roster length, not `teams.team_size`.
+       *
+       * They disagree: two teams carry a size of 1 and have two members on the
+       * roster, which rendered as "Mark 2/1" at the desk. The people standing
+       * there are the roster, so that is the denominator; the declared size is
+       * passed through beside it so a mismatch is visible rather than silently
+       * papered over.
+       */
+      roster_size: members.length,
+      size_mismatch: members.length !== team.team_size,
       members,
       existing,
+      history,
     },
   });
 }
