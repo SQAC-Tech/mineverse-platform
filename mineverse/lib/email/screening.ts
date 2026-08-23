@@ -1,4 +1,4 @@
-import { deliver, mcButton, mcLayout, mcRow, mcTitle, type EmailResult } from './index';
+import { deliver, EVENT, mcButton, mcLayout, mcRow, mcTitle, type EmailResult } from './index';
 import { env } from '@/lib/env';
 
 /**
@@ -6,8 +6,13 @@ import { env } from '@/lib/env';
  *
  * Kept out of index.ts because they are a self-contained set with a shared
  * constraint the others do not have: none of them may state how the paper was
- * scored. The weights, the first-year bonus and the tiebreak are organiser-only,
- * and a mail is the easiest place for them to leak.
+ * scored. The weights and the exact tiebreak are organiser-only, and a mail is
+ * the easiest place for them to leak.
+ *
+ * The second constraint is newer and was learned the hard way: never blame the
+ * venue. Saying we had "more teams than seats" reads as a capacity cut, which
+ * invites "so we were good enough, you just ran out of room?" — an argument
+ * nobody can win over email. The cut was on merit; the mail says so.
  */
 
 /**
@@ -41,8 +46,9 @@ function istWindow(startsAt: string | null, endsAt: string | null) {
  * The pre-round announcement.
  *
  * States the mechanics and exactly one selection criterion — answer correctly,
- * submit early. Nothing about difficulty weights or bonuses: a team that learns
- * the five hard questions pay double will farm those and skip twenty.
+ * answer quickly. Nothing about difficulty weights: a team that learns the five
+ * hard questions pay double will farm those and skip twenty. Nothing about seat
+ * counts either, for the reason in the file header.
  */
 export async function sendScreeningAnnouncementEmail({
   to, team_id, team_name, team_code, starts_at, ends_at, duration_minutes, question_count,
@@ -67,7 +73,7 @@ export async function sendScreeningAnnouncementEmail({
     </table>
 
     <h3 class="pixel" style="color: #fca311; font-size: 24px; font-weight: normal; margin-top: 40px; border-bottom: 2px solid #333333; padding-bottom: 10px;">&gt; HOW TEAMS ARE PICKED</h3>
-    <p><strong style="color: #4ade80;">Answer correctly, and submit early.</strong> Both count. Only a limited number of teams move on to the event, so do not leave it to the last hour.</p>
+    <p><strong style="color: #4ade80;">Answer correctly, and answer quickly.</strong> Both count — the teams that go through are the ones that get the most right in the least time, so do not sit on a question you have already solved.</p>
 
     <h3 class="pixel" style="color: #fca311; font-size: 24px; font-weight: normal; margin-top: 40px; border-bottom: 2px solid #333333; padding-bottom: 10px;">&gt; BEFORE YOU START</h3>
     <p>You may start any time inside the window, and your ${duration_minutes} minutes run from the moment you do — even if you start close to the end. You will not be cut off part-way.</p>
@@ -114,9 +120,9 @@ export async function sendScreeningShortlistedEmail({
     <p>Your opening resources are already in your team inventory — you will see them the moment Round 1 unlocks.</p>
 
     <table width="100%" border="0" cellpadding="0" cellspacing="0" style="margin: 30px 0;">
-      ${mcRow('Date', process.env.NEXT_PUBLIC_EVENT_DATE_DISPLAY || '')}
-      ${mcRow('Reporting time', process.env.NEXT_PUBLIC_EVENT_TIME || '')}
-      ${mcRow('Venue', process.env.NEXT_PUBLIC_EVENT_VENUE || '')}
+      ${mcRow('Date', EVENT.date)}
+      ${mcRow('Reporting time', EVENT.time)}
+      ${mcRow('Venue', EVENT.venue)}
       ${mcRow('Team code', `<span class="pixel" style="color:#fde047; font-size:24px;">${team_code}</span>`)}
     </table>
 
@@ -162,6 +168,8 @@ export async function sendScreeningShortlistedEmail({
  *
  * No score and no rank. A number invites an argument that cannot be won by
  * email on the 23rd, and it tells the team nothing they can act on.
+ *
+ * It also does not mention seats. See the note at the top of this file.
  */
 export async function sendScreeningRejectedEmail({
   to, team_id, team_name, team_code,
@@ -173,7 +181,8 @@ export async function sendScreeningRejectedEmail({
   const html = mcLayout(`
     ${mcTitle('NOT THIS TIME')}
     <p>Team <strong style="color: #fca311;">${team_name} (${team_code})</strong> — thank you for sitting the screening round.</p>
-    <p>We had many more teams than seats, and this time you did not make the cut. That is a decision about one 30-minute paper, and nothing more than that.</p>
+    <p>This time you did not make the cut. The teams that went through were the ones that answered the most and got there the fastest, and on that count you fell short of them.</p>
+    <p>That is a decision about one 30-minute paper, and nothing more than that.</p>
     <p>We would genuinely like to see you at the next one. Keep an eye on the club announcements — there will be another.</p>
     <p style="color: #a3a3a3; font-size: 14px; margin-top: 30px;">If something went wrong on the day — a crash, a power cut, anything — reply to this email and tell us. We would rather hear it than not.</p>
   `);

@@ -3,7 +3,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
-  AlertTriangle, Award, Check, Clock, Download, Mail, RefreshCw, RotateCcw, Send, Trophy, Users,
+  AlertTriangle, ArrowUp, Award, Check, Clock, Download, Mail, RefreshCw, RotateCcw, Send, Trophy, Users,
 } from 'lucide-react';
 import {
   Panel, Btn, Table, Empty, Loading, PageTitle, Grid, StatTile, Pill, apiCall,
@@ -91,6 +91,8 @@ interface ActionData {
   with_access?: number;
   shortlisted?: number | MailRunSummary;
   rejected?: number | MailRunSummary;
+  promoted?: Array<{ team_id: string; team_code: string; team_name: string; year: 1 | 2 }>;
+  parity?: string | null;
 }
 
 interface MailLogEntry {
@@ -201,6 +203,14 @@ export default function ScreeningAdminPage() {
     } else if (action === 'commit_shortlist') {
       toast.success(`Shortlist frozen — ${res.data.shortlisted} in, ${res.data.rejected} out, ${res.data.granted} granted resources.`);
       toast.warning('Round 1 is open to nobody yet. It unlocks per team as you mark each RSVP.');
+    } else if (action === 'promote_teams') {
+      const promoted = res.data.promoted as Array<{ team_code: string }>;
+      toast.success(
+        promoted.length === 0
+          ? 'Already on the shortlist — nothing to do.'
+          : `${promoted.map((team) => team.team_code).join(', ')} promoted. Press "Send results" to mail them; the teams already mailed are skipped.`,
+      );
+      if (res.data.parity) toast.warning(res.data.parity as string);
     } else if (action === 'set_rsvp') {
       // The number that matters is how many can actually start Round 1.
       toast.success(
@@ -470,6 +480,11 @@ export default function ScreeningAdminPage() {
                       <Pill tone={inCut ? 'live' : 'idle'}>{inCut ? 'would take' : 'would cut'}</Pill>
                     )}
                   </td>
+                  {/*
+                    Reset before the cut, promote after it. They are the same
+                    column because they are the same thing at two different
+                    moments: the manual override on one team's result.
+                  */}
                   <td>
                     {!data.committed && (
                       <Btn
@@ -482,6 +497,23 @@ export default function ScreeningAdminPage() {
                         }}
                       >
                         Reset
+                      </Btn>
+                    )}
+                    {data.committed && team.result !== 'shortlisted' && (
+                      <Btn
+                        small
+                        disabled={busy}
+                        onClick={() => {
+                          if (window.confirm(
+                            `Promote ${team.team_code} onto the shortlist?
+
+They have already been sent the rejection mail. This cannot be undone from here, and they will need the shortlisted mail sent to them afterwards.`,
+                          )) {
+                            void act('promote_teams', { team_ids: [team.team_id] });
+                          }
+                        }}
+                      >
+                        <ArrowUp size={11} /> Promote
                       </Btn>
                     )}
                   </td>

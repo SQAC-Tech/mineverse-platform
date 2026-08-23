@@ -362,6 +362,120 @@ export async function commitShortlist(cut: ShortlistCut, actor: string): Promise
   };
 }
 
+export type PromotionResult =
+  | {
+      ok: true;
+      promoted: Array<{ team_id: string; team_code: string; team_name: string; year: 1 | 2 }>;
+      already: string[];
+      granted: number;
+      year_counts: { year1: number; year2: number };
+      parity: string | null;
+    }
+  | { ok: false; code: string; message: string };
+
+/**
+ * Moves a team from below the cut onto the shortlist, after the fact.
+ *
+ * The cut is one number and the world is not: a seat is turned down, a team is
+ * mailed the wrong result, an organiser decides the room holds two more. Before
+ * this existed the only way to act on any of that was to clear the whole frozen
+ * shortlist and re-commit, which re-ranks all 78 teams and re-opens every
+ * decision downstream of it. This moves one team and leaves the rest alone.
+ *
+ * Deliberately one-way. There is no demote: a team that has been told it is in
+ * cannot be told it is out, and a function that can do it is a function that can
+ * do it by accident at 2am.
+ *
+ * `result_mailed_at` is cleared so the console shows the team as unmailed and
+ * the next results run picks it up. The run itself is guarded on `email_logs`,
+ * not on this column, so the promoted team gets the shortlisted mail while the
+ * teams already mailed are skipped — which is exactly the behaviour wanted.
+ */
+export async function promoteToShortlist(teamIds: string[], actor: string): Promise<PromotionResult> {
+  const ids = [...new Set(teamIds.filter(Boolean))];
+  if (ids.length === 0) {
+    return { ok: false, code: 'NO_TEAMS', message: 'Pick at least one team to promote.' };
+  }
+
+  const { data: rows } = await db
+    .from('screening_shortlist')
+    .select('team_id, result')
+    .in('team_id', ids);
+
+  const found = (rows ?? []) as Array<{ team_id: string; result: string }>;
+  if (found.length === 0) {
+    return { ok: false, code: 'NOT_ON_LIST', message: 'No frozen shortlist row for those teams — is the shortlist committed?' };
+  }
+
+  const missing = ids.filter((id) => !found.some((row) => row.team_id === id));
+  if (missing.length > 0) {
+    return { ok: false, code: 'NOT_ON_LIST', message: `${missing.length} of those teams never sat the screening round.` };
+  }
+
+  // Already-shortlisted teams are reported, not treated as an error: pressing
+  // the button twice should be dull, not destructive.
+  const already = found.filter((row) => row.result === 'shortlisted').map((row) => row.team_id);
+  const toPromote = found.filter((row) => row.result !== 'shortlisted').map((row) => row.team_id);
+
+  if (toPromote.length > 0) {
+    const { error } = await db
+      .from('screening_shortlist')
+      .update({ result: 'shortlisted', decided_by: actor, decided_at: new Date().toISOString(), result_mailed_at: null })
+      .in('team_id', toPromote);
+
+    if (error) {
+      console.error('Promotion failed:', error);
+      return { ok: false, code: 'PROMOTE_FAILED', message: 'Could not update the shortlist.' };
+    }
+  }
+
+  // The same bundle every other qualifier got, on the same idempotency key, so
+  // a team promoted twice is still paid once.
+  const granted = await grantOpeningResources(toPromote.map((team_id) => ({ team_id })));
+
+  // No RSVP yet, so this opens Round 1 to nobody new — called anyway because
+  // every other writer of `result` calls it, and a path that skips it is how
+  // the two states drift apart.
+  await syncRoundOneAccess();
+
+  const ranked = await rankTeams();
+  const byId = new Map(ranked.map((team) => [team.team_id, team]));
+  const shortlisted = ranked.filter((team) => team.result === 'shortlisted' || toPromote.includes(team.team_id));
+  const yearCounts = {
+    year1: shortlisted.filter((team) => team.year === 1).length,
+    year2: shortlisted.filter((team) => team.year === 2).length,
+  };
+
+  // Reported, not enforced. A promotion of one now and one later passes through
+  // an odd count legitimately, so refusing here would block the normal way of
+  // working; the console shows the warning and the organiser decides.
+  const odd = [
+    yearCounts.year1 % 2 === 1 ? `year 1 (${yearCounts.year1})` : null,
+    yearCounts.year2 % 2 === 1 ? `year 2 (${yearCounts.year2})` : null,
+  ].filter(Boolean);
+
+  for (const teamId of toPromote) {
+    console.warn(`[shortlist] promoted team ${teamId} by ${actor}`);
+  }
+
+  return {
+    ok: true,
+    promoted: toPromote.map((teamId) => {
+      const team = byId.get(teamId);
+      return {
+        team_id: teamId,
+        team_code: team?.team_code ?? teamId,
+        team_name: team?.team_name ?? '',
+        year: team?.year ?? 2,
+      };
+    }),
+    already,
+    granted,
+    year_counts: yearCounts,
+    parity: odd.length > 0 ? `Odd count in ${odd.join(' and ')} — PvP needs an even number per year.` : null,
+  };
+}
+
 /**
  * Who is entitled to open Round 1: shortlisted *and* RSVP confirmed.
  *
