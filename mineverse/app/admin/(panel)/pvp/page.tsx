@@ -85,7 +85,10 @@ export default function AdminPvpPage() {
   // A live match needs a tighter refresh than the list.
   useEffect(() => {
     if (!detail || detail.status !== 'live') return;
-    const poll = window.setInterval(() => void loadDetail(detail.id), 5000);
+    // 15s, not 5s. A match detail is watched while a duel runs, and the
+    // organiser is looking at a ten-minute clock — five seconds bought nothing
+    // and cost twelve requests a minute per open tab.
+    const poll = window.setInterval(() => void loadDetail(detail.id), 15_000);
     return () => window.clearInterval(poll);
   }, [detail, loadDetail]);
 
