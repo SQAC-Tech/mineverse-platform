@@ -106,7 +106,11 @@ export function DashboardShell() {
 
   useEffect(() => {
     void load();
-    return startPoll(load, 20_000);
+    // 45s, not 20s. One tick of this route is ~10 PostgREST round trips, so at
+    // twenty seconds a hall of a hundred teams is fifty requests a second
+    // before anybody plays anything. An admin unlocking a round still lands
+    // instantly on the realtime channel below.
+    return startPoll(load, 45_000);
   }, [load]);
 
   // Refetch the moment an admin unlocks a round, rather than up to 10s later.

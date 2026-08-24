@@ -275,6 +275,42 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
     return () => window.clearInterval(tick);
   }, []);
 
+  /**
+   * When the clock runs out, the team is signed out.
+   *
+   * The round already goes read-only at zero, but leaving everyone parked on a
+   * dead screen invites the obvious question — is it frozen, or is it over? A
+   * logout answers it, clears the hall's seats for the next thing, and hands
+   * the login page back so a team can come straight back in when the duel opens.
+   *
+   * The ref makes it fire once. `now` ticks every second, so without it every
+   * tick after expiry would fire another logout.
+   */
+  const expiredRef = useRef(false);
+  useEffect(() => {
+    if (!endsAt || expiredRef.current) return;
+    if (new Date(endsAt).getTime() > Date.now()) return;
+
+    expiredRef.current = true;
+    void autosave.flush();
+    toast('Time is up — the round has ended.', { duration: 6000 });
+
+    // Long enough to read the toast, short enough that nobody starts poking at
+    // a screen that no longer accepts anything.
+    const leave = window.setTimeout(async () => {
+      try {
+        await fetch('/api/auth/logout', { method: 'POST' });
+      } finally {
+        router.push('/login');
+      }
+    }, 4_000);
+
+    return () => window.clearTimeout(leave);
+    // `now` is the tick that re-evaluates this; the flush closure changes on
+    // every keystroke and must not restart the countdown.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [endsAt, now, router]);
+
   useEffect(() => {
     const selectHotbarSlot = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;

@@ -19,13 +19,14 @@ const db = supabaseServer as any;
 /**
  * Whether beating the Blaze Guardian is also required to enter.
  *
- * Off. The duel is described to teams as the payoff for earning, trading and
- * crafting, and the Blaze Guardian is a separate optional fight inside Round 3 —
- * gating on it would shut out teams that spent the round doing exactly what
- * they were told to do. Flip to `true` and the requirement is live again; the
- * panel reads the same flag, so the checklist follows.
+ * On. Round 3's guardian is `mandatory: true` in `ROUND_CONFIGS`, and the duel
+ * is what that mandate is for — a team that skipped the Blaze does not walk
+ * into the arena on the strength of its crafting alone.
+ *
+ * The panel reads this same flag, so the checklist follows it: turn it off and
+ * the Blaze line stops being drawn as well as stops being enforced.
  */
-export const PVP_REQUIRES_BLAZE_GUARDIAN = false;
+export const PVP_REQUIRES_BLAZE_GUARDIAN = true;
 
 export interface PvpEntryEligibility {
   hasIronArmor: boolean;

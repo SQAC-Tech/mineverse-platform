@@ -84,7 +84,11 @@ export function PvpPanel() {
 
   useEffect(() => {
     void fetchPvp();
-    const poll = window.setInterval(fetchPvp, 5000);
+    // 12s, not 5s. Two requests per team every five seconds is sixteen a second
+    // across a duelling hall, and the realtime `match_started` broadcast below
+    // is what actually makes a pairing land instantly — the poll is only the
+    // fallback for a dropped socket.
+    const poll = window.setInterval(fetchPvp, 12_000);
     return () => window.clearInterval(poll);
   }, [fetchPvp]);
 
