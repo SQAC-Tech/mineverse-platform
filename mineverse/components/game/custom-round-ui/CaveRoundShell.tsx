@@ -160,12 +160,22 @@ export function CaveRoundShell() {
   const [craftPrompt, setCraftPrompt] = useState(false);
 
   const refresh = useCallback(async () => {
-    const [round, resourceResult, teamResult, historyResult] = await Promise.allSettled([
-      fetch('/api/rounds/2/questions', { cache: 'no-store' }).then((res) => res.json()),
-      fetch('/api/team/resources', { cache: 'no-store' }).then((res) => res.json()),
+    /* One request now carries the round, the balance and the ledger feed; only
+       the dashboard snapshot stays separate, because it also writes the
+       one-device login lease and folding that in would either duplicate the
+       write or drop it. Four requests per tick per team was the largest single
+       source of load on the platform. */
+    const [snapResult, teamResult] = await Promise.allSettled([
+      fetch(`/api/rounds/2/snapshot?limit=12`, { cache: 'no-store' }).then((res) => res.json()),
       fetch('/api/dashboard/data', { cache: 'no-store' }).then((res) => res.json()),
-      fetch('/api/team/resources/history?limit=12', { cache: 'no-store' }).then((res) => res.json()),
     ]);
+
+    // Null unless the round itself came back cleanly. The balance and the feed
+    // are optional inside it, so a missing one keeps the last good value.
+    const snap = snapResult.status === 'fulfilled' && snapResult.value?.success ? snapResult.value.data : null;
+    const round = snapResult.status === 'fulfilled'
+      ? { status: 'fulfilled' as const, value: snap ? { success: true, data: snap.round } : snapResult.value }
+      : { status: 'rejected' as const, value: null as never };
     let requestFailed = false;
     if (round.status === 'fulfilled' && round.value.success) {
       setQuestions(round.value.data.questions ?? []);
@@ -187,7 +197,7 @@ export function CaveRoundShell() {
       }
       requestFailed = true;
     }
-    if (resourceResult.status === 'fulfilled' && resourceResult.value.success) setResourceData(resourceResult.value.data);
+    if (snap?.resources) setResourceData(snap.resources);
     else requestFailed = true;
     if (teamResult.status === 'fulfilled' && teamResult.value.success) {
       setTeam(teamResult.value.team ?? null);
@@ -196,7 +206,7 @@ export function CaveRoundShell() {
       // then simply never appeared in the inventory beside it.
       setCrafted(teamResult.value.crafted ?? []);
     }
-    if (historyResult.status === 'fulfilled' && historyResult.value.success) setHistory(historyResult.value.data.entries ?? []);
+    if (snap?.history) setHistory(snap.history.entries ?? []);
     setOffline(requestFailed);
     // `proctor` and `router` are deliberately not dependencies. `useProctor`
     // returns a fresh object every render, so listing it would give `refresh` a
