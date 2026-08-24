@@ -181,6 +181,47 @@ export async function GET() {
     };
   });
 
+  /**
+   * The duel, added to the map even though no team has an access row for it.
+   *
+   * Every other round appears because `team_round_access` has a row for it.
+   * The duel was split out of Round 3 during the event and has no rows at all,
+   * so without this it would be invisible on the map — a round nobody could
+   * find, which is the same as one that does not exist. It carries no unlock,
+   * so the only thing deciding `can_enter` is whether the round is running;
+   * attendance is enforced at the door by `verifyTeamRoundAccess`.
+   */
+  const duel = Object.values(ROUND_CONFIGS).find((config) => config.pvp);
+  if (duel && !rounds.some((row) => row.round_id === duel.id)) {
+    const { data: duelRound } = await supabaseServer
+      .from('rounds')
+      .select('id, name, day, sequence, description, time_allotted, status, ends_at')
+      .eq('id', duel.id)
+      .maybeSingle();
+
+    // Only once the round actually exists in the database — otherwise the map
+    // would offer a door that opens onto nothing.
+    if (duelRound) {
+      rounds.push({
+        round_id: duel.id,
+        name: duelRound.name ?? duel.name,
+        day: duelRound.day ?? 1,
+        sequence: duelRound.sequence ?? null,
+        description: duelRound.description ?? duel.tagline,
+        time_allotted: duelRound.time_allotted ?? null,
+        round_status: duelRound.status ?? 'locked',
+        ends_at: duelRound.ends_at ?? null,
+        is_locked: false,
+        completed_at: null,
+        score: null,
+        can_enter: DEV_UNLOCK_ALL_ROUNDS || isDemo || duelRound.status === 'active',
+        unlocked_by_dev_mode: DEV_UNLOCK_ALL_ROUNDS && duelRound.status !== 'active',
+        needs_craft: null,
+      });
+      rounds.sort((a, b) => a.round_id - b.round_id);
+    }
+  }
+
   const craftedAt = new Map<string, string>(
     ((craftedResult.data ?? []) as Array<{ item: string; crafted_at: string }>).map((row) => [row.item, row.crafted_at]),
   );
