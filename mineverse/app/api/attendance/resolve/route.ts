@@ -92,7 +92,7 @@ export async function POST(req: Request) {
         // misleading once someone has corrected it at 9:40.
         marked_at: record.updated_at ?? record.marked_at,
         method: record.method,
-        member_ids: (record.attendance_member_records ?? []).map((r) => r.member_id),
+        member_ids: (record.attendance_member_records ?? []).map((r: { member_id: string }) => r.member_id),
       };
     }
   }

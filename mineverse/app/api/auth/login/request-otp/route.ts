@@ -103,7 +103,7 @@ export async function POST(req: Request) {
   if (!team) return NextResponse.json({ success: false, error: 'Team not found' }, { status: 404 });
   if (!isDemoTeam && !team.is_payment_verified) return NextResponse.json({ success: false, error: 'Payment not verified' }, { status: 403 });
 
-  const lead = team.members.find(m => m.is_team_lead);
+  const lead = team.members.find((m: { is_team_lead: boolean }) => m.is_team_lead);
   if (!lead) return NextResponse.json({ success: false, error: 'Team lead not found' }, { status: 500 });
 
   const otp = isDemoTeam ? '000000' : generateOtp();
