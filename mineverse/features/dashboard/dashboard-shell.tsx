@@ -135,24 +135,6 @@ export function DashboardShell() {
     return [...playable].reverse().find((round) => round.completed_at) ?? null;
   }, [rounds]);
 
-  /**
-   * The duel, given its own button rather than a pin on the map.
-   *
-   * The map reveals a biome only once the one before it is finished, and the
-   * duel sits outside that chain — it is open to anyone who was marked present
-   * for Round 3, whatever else they have or have not done. A button says that
-   * plainly; a pin would have to be argued into the reveal rule.
-   *
-   * Shown only once the round exists and is running, so it is not a dead
-   * control for most of the event. When the round is live but the team was
-   * never scanned, it stays visible and disabled — "go and get marked" is a
-   * more useful thing to read than a button that is not there.
-   */
-  const duelRound = useMemo(
-    () => rounds.find((round) => round.round_id === PVP_ROUND_ID) ?? null,
-    [rounds],
-  );
-
   /* Only traders whose round has opened. A locked one is not worth a button. */
   const openTraders = useMemo(() => traders.filter((trader) => trader.open), [traders]);
 
@@ -247,19 +229,17 @@ export function DashboardShell() {
               ENTER WORLD
             </button>
 
-            {duelRound && duelRound.round_status === 'active' && (
-              <button
-                type="button"
-                className="d-enter d-enter--duel"
-                disabled={!duelRound.can_enter}
-                title={duelRound.needs_attendance ? 'Get marked present at the Round 3 desk first.' : undefined}
-                onClick={() => {
-                  if (duelRound.can_enter) router.push(`/round${PVP_ROUND_ID}`);
-                }}
-              >
-                {duelRound.can_enter ? 'ENTER PVP' : 'PVP — MARK ATTENDANCE'}
-              </button>
-            )}
+            {/* Always drawn. It used to wait for `round_status === 'active'`,
+                which meant it was invisible for the whole event until an
+                organiser started the round — and invisible is indistinguishable
+                from missing. The server still decides who gets in. */}
+            <button
+              type="button"
+              className="d-enter d-enter--duel"
+              onClick={() => router.push(`/round${PVP_ROUND_ID}`)}
+            >
+              ENTER PVP
+            </button>
             {/* Decorative portal motes. */}
             {[
               { left: '4%', top: '62%', delay: '0s' },
