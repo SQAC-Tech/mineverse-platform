@@ -83,7 +83,11 @@ export async function getCurrentPvpMatch(teamId: string) {
 
     const { data: submissions, error: submissionsError } = await db
       .from('pvp_match_submissions')
-      .select('id, match_question_id, revision, status, submitted_at')
+      // `answer_text` included so the arena can restore what this team already
+      // saved — a refresh mid-duel used to blank every box while the answers
+      // sat safely on the server. It is this team's own writing, never the
+      // opponent's, and never an answer key.
+      .select('id, match_question_id, revision, status, submitted_at, answer_text')
       .eq('match_id', match.id)
       .eq('team_id', teamId);
 

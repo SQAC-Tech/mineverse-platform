@@ -57,3 +57,23 @@ export async function broadcastMatchStarted(matchId: string, teamIds: string[]):
     console.warn('[pvp-notify] broadcastMatchStarted failed:', err);
   }
 }
+
+/**
+ * Called the moment a duel is decided, so the losing team's arena stops.
+ *
+ * Only one of the two browsers pressed SUBMIT. The other is still sitting on a
+ * question with a running clock, and without this it would keep typing into a
+ * match that is already over until its next poll came round. The poll is still
+ * there as the fallback; this is what makes it instant.
+ */
+export async function broadcastMatchResolved(matchId: string, teamIds: string[], winnerTeamId: string): Promise<void> {
+  try {
+    await supabaseClient.channel('pvp_notifications').send({
+      type: 'broadcast',
+      event: 'match_resolved',
+      payload: { match_id: matchId, team_ids: teamIds, winner_team_id: winnerTeamId },
+    });
+  } catch (err) {
+    console.warn('[pvp-notify] broadcastMatchResolved failed:', err);
+  }
+}

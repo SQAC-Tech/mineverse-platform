@@ -26,7 +26,6 @@ import { GuardianArena } from './GuardianArena';
 import { NotificationTray, type LedgerEntry } from './NotificationTray';
 import { gradingMessage } from './grading-toast';
 import { WorldEvent, EVENT_FX } from './WorldEvent';
-import { PvpPanel } from '../pvp/PvpPanel';
 import { EndRail } from '@/components/day2/end-round/EndRail';
 import { CodeWorkspace } from '@/components/game/code/CodeWorkspace';
 import { InspectorCard, usesInspector } from '@/components/game/code/InspectorCard';
@@ -35,7 +34,7 @@ import { starterFor, type FnContract, type LanguageId } from '@/lib/gameplay/cod
 import type { CodingEvaluation } from '@/components/game/code/CodeWorkspace';
 import { useAnswerAutosave } from '@/hooks/useAnswerAutosave';
 import type { CraftedItem, DashboardProgress } from '@/features/dashboard/types';
-import { RESOURCE_META, buildQuestionTabs, languagePrompts, offersLanguageChoice, payoutList, promptBlocks, questionTypeLabel, roundChoice, roundChrome, roundCraft, roundGuardian, roundObjective, roundPvp, type ResourceKey, type ShellQuestion } from './round-presentation';
+import { RESOURCE_META, buildQuestionTabs, languagePrompts, offersLanguageChoice, payoutList, promptBlocks, questionTypeLabel, roundChoice, roundChrome, roundCraft, roundGuardian, roundObjective, type ResourceKey, type ShellQuestion } from './round-presentation';
 import './round-ui.css';
 import { Hotbar } from '@/components/game/inventory/Hotbar';
 import { RoundCraftPrompt } from './RoundCraftPrompt';
@@ -411,7 +410,6 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
   const objective = roundObjective(roundId);
   const guardian = roundGuardian(roundId);
   const craft = roundCraft(roundId);
-  const isPvp = roundPvp(roundId);
   const choice = roundChoice(roundId);
 
   // The tab set only exists once questions load, so the selection follows it.
@@ -1212,8 +1210,6 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
                 </button>
               </section>
               )}
-
-              {isPvp && <PvpPanel />}
 
               {/* The End is the only round with a merchant and a boss. Both are
                   driven off the round catalog rather than a hardcoded id. */}
