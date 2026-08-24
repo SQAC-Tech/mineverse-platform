@@ -148,21 +148,9 @@ export async function markingEntitlement(teamId: string, day: number): Promise<E
     .maybeSingle();
 
   // No frozen shortlist at all means the screening is not in play — a rehearsal,
-  // or an event run without one. Refusing every team then would be wrong.
-  // One integer, the same for every team, previously fetched on every
-  // dashboard tick — 34,207 HEAD requests in two hours on event day.
-  //
-  // A failed lookup is treated as "no cut has been made", which opens the
-  // dashboard. The rounds themselves are gated separately, so the worst case is
-  // a team seeing its own inventory during a database wobble.
-  let shortlistSize = 0;
-  try {
-    shortlistSize = await getCachedShortlistSize();
-  } catch (error) {
-    console.error('[gates] shortlist size lookup failed:', error);
-    return OK;
-  }
-  if (shortlistSize === 0) return OK;
+  // or an event run without one. Refusing every team then would be wrong, and a
+  // failed lookup is read the same way rather than turning the desk away.
+  if (await shortlistSizeOrZero() === 0) return OK;
 
   if (!row || row.result !== 'shortlisted') {
     return { ok: false, reason: 'NOT_SHORTLISTED', message: 'This team is not on the shortlist.' };
@@ -187,6 +175,29 @@ export async function markingEntitlement(teamId: string, day: number): Promise<E
   return OK;
 }
 
+interface ShortlistRow {
+  result: string | null;
+  rsvp_confirmed_at: string | null;
+}
+
+/**
+ * How many teams are on the shortlist, or zero if we cannot tell.
+ *
+ * One integer, identical for every team, and `dashboardEntitlement` asked the
+ * database for it on every dashboard tick — 34,207 HEAD requests in two hours
+ * on event day. Cached now, and a failed lookup answers zero, which every
+ * caller reads as "no cut has been made" and opens the gate. That is the
+ * existing fail-open behaviour, not a new one.
+ */
+async function shortlistSizeOrZero(): Promise<number> {
+  try {
+    return await getCachedShortlistSize();
+  } catch (error) {
+    console.error('[gates] shortlist size lookup failed:', error);
+    return 0;
+  }
+}
+
 /**
  * Whether a team may open the dashboard.
  *
@@ -195,7 +206,18 @@ export async function markingEntitlement(teamId: string, day: number): Promise<E
  * on the day. Nothing on it can be played, so there is nothing to protect by
  * demanding the team be in the room.
  */
-export async function dashboardEntitlement(teamId: string): Promise<Entitlement> {
+export async function dashboardEntitlement(
+  teamId: string,
+  /**
+   * The team's shortlist row, when the caller already has it.
+   *
+   * `/api/dashboard/data` reads it as part of `dashboard_snapshot`, so passing
+   * it here saves the one round trip this function would otherwise make on
+   * every tick. `null` is a real answer — the team is not on the shortlist —
+   * which is why the parameter is checked against `undefined`, not falsiness.
+   */
+  preloaded?: ShortlistRow | null,
+): Promise<Entitlement> {
   // A demo team exists to walk the event before the teams do. It is not on the
   // shortlist and never will be, so every gate below would refuse it — which is
   // how the organizers' own dashboard came to be as blank as everyone else's.
@@ -204,16 +226,11 @@ export async function dashboardEntitlement(teamId: string): Promise<Entitlement>
     return OK;
   }
 
-  const { count: shortlistSize } = await db
-    .from('screening_shortlist')
-    .select('team_id', { count: 'exact', head: true });
-  if ((shortlistSize ?? 0) === 0) return OK;
+  if (await shortlistSizeOrZero() === 0) return OK;
 
-  const { data: row } = await db
-    .from('screening_shortlist')
-    .select('result, rsvp_confirmed_at')
-    .eq('team_id', teamId)
-    .maybeSingle();
+  const row = preloaded !== undefined
+    ? preloaded
+    : (await db.from('screening_shortlist').select('result, rsvp_confirmed_at').eq('team_id', teamId).maybeSingle()).data;
 
   if (!row || row.result !== 'shortlisted') {
     return { ok: false, reason: 'NOT_SHORTLISTED', message: 'Your team did not clear the screening round.' };

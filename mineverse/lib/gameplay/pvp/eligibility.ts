@@ -37,6 +37,32 @@ export interface PvpEntryEligibility {
   reason: string | null;
 }
 
+/**
+ * The two facts this needs, when the caller already has them.
+ *
+ * `/api/dashboard/data` reads both as part of `dashboard_snapshot`, so passing
+ * them here saves two round trips on every dashboard tick.
+ */
+export interface PvpEligibilityInputs {
+  hasIronArmor: boolean;
+  hasBlazeGuardian: boolean;
+}
+
+export function pvpEligibilityFrom(inputs: PvpEligibilityInputs): PvpEntryEligibility {
+  const { hasIronArmor, hasBlazeGuardian } = inputs;
+
+  const isEligible = hasIronArmor && (!PVP_REQUIRES_BLAZE_GUARDIAN || hasBlazeGuardian);
+
+  let reason: string | null = null;
+  if (!hasIronArmor) {
+    reason = 'Craft the Iron Armor (40 Iron + 25 Gold) to enter the duel.';
+  } else if (PVP_REQUIRES_BLAZE_GUARDIAN && !hasBlazeGuardian) {
+    reason = 'Defeat the Blaze Guardian to enter the duel.';
+  }
+
+  return { hasIronArmor, hasBlazeGuardian, requiresBlazeGuardian: PVP_REQUIRES_BLAZE_GUARDIAN, isEligible, reason };
+}
+
 export async function pvpEntryEligibility(teamId: string): Promise<PvpEntryEligibility> {
   const [armorResult, blazeResult] = await Promise.all([
     db.from('crafting_log').select('item').eq('team_id', teamId).eq('item', 'iron_armor').maybeSingle(),
@@ -50,18 +76,9 @@ export async function pvpEntryEligibility(teamId: string): Promise<PvpEntryEligi
       .maybeSingle(),
   ]);
 
-  const hasIronArmor = Boolean(armorResult.data);
-  const hasBlazeGuardian = Boolean(blazeResult.data);
-
-  const isEligible =
-    hasIronArmor && (!PVP_REQUIRES_BLAZE_GUARDIAN || hasBlazeGuardian);
-
-  let reason: string | null = null;
-  if (!hasIronArmor) {
-    reason = 'Craft the Iron Armor (40 Iron + 25 Gold) to enter the duel.';
-  } else if (PVP_REQUIRES_BLAZE_GUARDIAN && !hasBlazeGuardian) {
-    reason = 'Defeat the Blaze Guardian to enter the duel.';
-  }
-
-  return { hasIronArmor, hasBlazeGuardian, requiresBlazeGuardian: PVP_REQUIRES_BLAZE_GUARDIAN, isEligible, reason };
+  return pvpEligibilityFrom({
+    hasIronArmor: Boolean(armorResult.data),
+    hasBlazeGuardian: Boolean(blazeResult.data),
+  });
 }
+
