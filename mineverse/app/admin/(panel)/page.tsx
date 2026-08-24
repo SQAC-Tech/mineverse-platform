@@ -53,7 +53,7 @@ export default function AdminOverviewPage() {
   useEffect(() => {
     void load();
     // Event day moves fast; keep the console close to live without hammering.
-    const poll = window.setInterval(load, 15000);
+    const poll = window.setInterval(load, 30000);
     return () => window.clearInterval(poll);
   }, [load]);
 

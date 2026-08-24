@@ -21,6 +21,7 @@ import {
 import { toast } from 'sonner';
 import { useProctorSession } from '@/components/game/proctor/ProctorProvider';
 import { supabaseClient } from '@/lib/supabase/client';
+import { startPoll } from '@/lib/client/poll';
 import { GuardianArena } from './GuardianArena';
 import { NotificationTray, type LedgerEntry } from './NotificationTray';
 import { gradingMessage } from './grading-toast';
@@ -239,8 +240,11 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
 
   useEffect(() => {
     void refresh();
-    const poll = window.setInterval(() => void refresh(), 10_000);
-    return () => window.clearInterval(poll);
+    // 25s, not 10s. Four requests every ten seconds per team was the single
+    // largest source of load on the platform; an admin unlocking a round or
+    // firing a world event still lands instantly through the realtime
+    // channel below, and every action refreshes on its own completion.
+    return startPoll(() => void refresh(), 25_000);
   }, [refresh]);
 
   /**

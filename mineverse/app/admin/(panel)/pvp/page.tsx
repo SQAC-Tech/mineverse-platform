@@ -78,7 +78,7 @@ export default function AdminPvpPage() {
 
   useEffect(() => {
     void load();
-    const poll = window.setInterval(load, 15000);
+    const poll = window.setInterval(load, 30000);
     return () => window.clearInterval(poll);
   }, [load]);
 

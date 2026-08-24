@@ -4,6 +4,7 @@ import './dashboard.css';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { startPoll } from '@/lib/client/poll';
 import { toast } from 'sonner';
 import { Flame, LogOut, Shield, ShoppingBag, Sparkles } from 'lucide-react';
 
@@ -102,8 +103,7 @@ export function DashboardShell() {
 
   useEffect(() => {
     void load();
-    const poll = window.setInterval(load, 10_000);
-    return () => window.clearInterval(poll);
+    return startPoll(load, 20_000);
   }, [load]);
 
   // Refetch the moment an admin unlocks a round, rather than up to 10s later.
