@@ -17,29 +17,61 @@ export interface ActiveModifier {
 export async function getActiveModifiers(teamId: string): Promise<ActiveModifier[]> {
   const nowIso = new Date().toISOString();
 
-  const { data, error } = await db
+  // 1. Team-specific event effects
+  const { data: teamEffects, error: teamError } = await db
     .from('team_event_effects')
     .select('modifier, expires_at, world_events!inner(event_key, status)')
     .eq('team_id', teamId)
     .eq('world_events.status', 'active')
     .or(`expires_at.is.null,expires_at.gt.${nowIso}`);
 
-  if (error) {
-    if (error.code === '42P01') return [];
-    throw error;
+  if (teamError && teamError.code !== '42P01') {
+    console.error('[events] error fetching team event effects:', teamError);
   }
 
-  return (data ?? [])
-    .filter((row: any) => row.modifier && Object.keys(row.modifier).length > 0)
-    .map((row: any) => {
-      const key = row.world_events?.event_key as WorldEventKey;
-      return {
+  // 2. Active global world events (scope = 'all')
+  const { data: globalEvents, error: globalError } = await db
+    .from('world_events')
+    .select('id, event_key, effect, ends_at')
+    .eq('status', 'active')
+    .eq('scope', 'all')
+    .gt('ends_at', nowIso);
+
+  if (globalError && globalError.code !== '42P01') {
+    console.error('[events] error fetching global world events:', globalError);
+  }
+
+  const modifiersByKey = new Map<string, ActiveModifier>();
+
+  // Global events apply to all teams
+  for (const event of globalEvents ?? []) {
+    const key = event.event_key as WorldEventKey;
+    const config = WORLD_EVENTS[key];
+    const modifier = (event.effect as any)?.modifier ?? config?.modifier ?? {};
+    if (Object.keys(modifier).length > 0) {
+      modifiersByKey.set(key, {
+        event_key: key,
+        label: config?.label ?? key,
+        modifier,
+        expires_at: event.ends_at,
+      });
+    }
+  }
+
+  // Overlay team-specific effects if any
+  for (const row of teamEffects ?? []) {
+    const key = row.world_events?.event_key as WorldEventKey;
+    if (row.modifier && Object.keys(row.modifier).length > 0) {
+      modifiersByKey.set(key, {
         event_key: key,
         label: WORLD_EVENTS[key]?.label ?? key,
         modifier: row.modifier,
         expires_at: row.expires_at,
-      };
-    });
+      });
+    }
+  }
+
+  return Array.from(modifiersByKey.values());
 }
 
 /**
@@ -69,8 +101,7 @@ async function eligibleTeamIds(scope: 'all' | 'targeted', targetTeamIds: string[
   const { data, error } = await db
     .from('teams')
     .select('id')
-    .eq('is_payment_verified', true)
-    .eq('status', 'active');
+    .or('is_payment_verified.eq.true,status.in.(active,verified)');
 
   if (error) throw error;
   return (data ?? []).map((team: { id: string }) => team.id);
@@ -167,19 +198,24 @@ export async function triggerWorldEvent(params: TriggerWorldEventParams) {
     throw eventError;
   }
 
-  for (const teamId of targets) {
-    // The unique (event, team) index makes a retried trigger inert rather than
-    // handing a team the modifier twice.
-    const { error: effectError } = await db.from('team_event_effects').insert({
+  if (targets.length > 0) {
+    const effects = targets.map((teamId: string) => ({
       world_event_id: event.id,
       team_id: teamId,
       modifier: config.modifier,
       resolution: 'applied',
       ledger_id: null,
       expires_at: endsAt.toISOString(),
+    }));
+
+    const { error: effectError } = await db.from('team_event_effects').upsert(effects, {
+      onConflict: 'world_event_id,team_id',
+      ignoreDuplicates: true,
     });
 
-    if (effectError && effectError.code !== '23505') throw effectError;
+    if (effectError && effectError.code !== '23505') {
+      console.error('[events] error inserting team event effects:', effectError);
+    }
   }
 
   return {
