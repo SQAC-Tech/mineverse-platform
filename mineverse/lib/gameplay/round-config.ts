@@ -123,6 +123,16 @@ export const ROUND_CONFIGS: Record<number, RoundConfig> = {
   },
 };
 
+/**
+ * The duel's round id, derived rather than written down twice.
+ *
+ * The dashboard needs it to draw the ENTER PVP button and the access check
+ * needs it to waive the per-team unlock; reading it off the `pvp` flag means
+ * moving the duel again is a one-line change here.
+ */
+export const PVP_ROUND_ID: number =
+  Object.values(ROUND_CONFIGS).find((config) => config.pvp)?.id ?? 6;
+
 export function getRoundConfig(roundId: number): RoundConfig | null {
   return ROUND_CONFIGS[roundId] ?? null;
 }

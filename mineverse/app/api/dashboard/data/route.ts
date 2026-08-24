@@ -8,6 +8,7 @@ import { CRAFT_RECIPES, requiredCraftForRound, type CraftItem } from '@/lib/game
 import { ROUND_CONFIGS } from '@/lib/gameplay/round-config';
 import type { ChoiceKey } from '@/lib/gameplay/choices/service';
 import { dashboardEntitlement } from '@/lib/attendance/gates';
+import { pvpEligibility } from '@/lib/gameplay/pvp/eligibility';
 
 export const dynamic = 'force-dynamic';
 
@@ -178,6 +179,9 @@ export async function GET() {
       // Names the missing tool so the map can say what to do rather than only
       // that the biome is shut.
       needs_craft: craftMissing && requiredCraft ? CRAFT_RECIPES[requiredCraft].label : null,
+      // Only the duel ever fills this in; declared here so the array's inferred
+      // type carries it and the duel can be pushed onto the same list.
+      needs_attendance: null as string | null,
     };
   });
 
@@ -188,8 +192,11 @@ export async function GET() {
    * The duel was split out of Round 3 during the event and has no rows at all,
    * so without this it would be invisible on the map — a round nobody could
    * find, which is the same as one that does not exist. It carries no unlock,
-   * so the only thing deciding `can_enter` is whether the round is running;
-   * attendance is enforced at the door by `verifyTeamRoundAccess`.
+   * `can_enter` asks the same two questions the door asks — is the round
+   * running, and was the team marked present at the Round 3 desk. Deriving it
+   * from round status alone would show ACCESS to a team that never turned up
+   * and then refuse them, which is the mismatch this file already warns about
+   * in the other direction for demo teams.
    */
   const duel = Object.values(ROUND_CONFIGS).find((config) => config.pvp);
   if (duel && !rounds.some((row) => row.round_id === duel.id)) {
@@ -202,6 +209,8 @@ export async function GET() {
     // Only once the round actually exists in the database — otherwise the map
     // would offer a door that opens onto nothing.
     if (duelRound) {
+      const duelEligibility = await pvpEligibility(teamId);
+
       rounds.push({
         round_id: duel.id,
         name: duelRound.name ?? duel.name,
@@ -214,9 +223,10 @@ export async function GET() {
         is_locked: false,
         completed_at: null,
         score: null,
-        can_enter: DEV_UNLOCK_ALL_ROUNDS || isDemo || duelRound.status === 'active',
+        can_enter: DEV_UNLOCK_ALL_ROUNDS || isDemo || (duelRound.status === 'active' && duelEligibility.isEligible),
         unlocked_by_dev_mode: DEV_UNLOCK_ALL_ROUNDS && duelRound.status !== 'active',
         needs_craft: null,
+        needs_attendance: duelEligibility.isEligible ? null : 'MARK ATTENDANCE',
       });
       rounds.sort((a, b) => a.round_id - b.round_id);
     }
