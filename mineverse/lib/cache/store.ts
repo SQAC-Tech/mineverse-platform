@@ -21,9 +21,13 @@
  * is a liability rather than an optimisation, and the REST form needs no npm
  * dependency at all — it is `fetch` and a bearer token.
  *
- * L1 alone would still help, but only within one lambda instance; Vercel spins
- * up many, so without L2 each one warms its own copy and the hit rate falls
- * with concurrency. L2 is what makes the cache shared.
+ * L2 is **opt-in per key and off by default**, because Upstash's free plan is
+ * metered in commands per month and a hot key on a short TTL spends it fast —
+ * see `CacheOptions.shared` for the arithmetic. Two keys use it today: the
+ * attendance checkpoints and the shortlist count, both tiny values on
+ * two-minute TTLs. The rounds table and the question banks are L1-only; they
+ * are the hottest and the largest respectively, and a cold lambda paying one
+ * indexed query is cheaper than a quota that runs out mid-round.
  *
  * ## Failing open, everywhere
  *
@@ -111,6 +115,33 @@ async function redisSet(key: string, value: unknown, ttlSeconds: number): Promis
   }
 }
 
+export interface CacheOptions {
+  /**
+   * Also keep this key in Redis, shared across lambda instances.
+   *
+   * **Off by default, and that default is the important part.** Upstash's free
+   * plan is metered in commands per month, and a key is read once per L1 expiry
+   * *per lambda instance* — so a short TTL on a hot key is what actually spends
+   * the budget, not the size of the value.
+   *
+   * Worked example, at roughly fifteen instances during a round:
+   *
+   *   rounds, 10s TTL   ->  ~10,800 Redis reads an hour  ->  ~119,000 a day
+   *   questions, 60s    ->   ~1,800 an hour              ->   ~20,000 a day
+   *   checkpoints, 120s ->     ~900 an hour              ->   ~10,000 a day
+   *
+   * One event day of the first line is a quarter of a month's free quota, and
+   * running out mid-round means Redis starts erroring — which sends everything
+   * back to the database that the cache existed to protect.
+   *
+   * So the rule is: share a key only when its TTL is long enough that the
+   * command count stays small, and the value is small enough that bandwidth
+   * does too. Everything else is L1-only, which costs nothing and still spares
+   * the database every repeat read within a lambda's lifetime.
+   */
+  shared?: boolean;
+}
+
 /**
  * Read through the cache, or load and fill it.
  *
@@ -118,13 +149,19 @@ async function redisSet(key: string, value: unknown, ttlSeconds: number): Promis
  * control that matters — a round unlock reaches teams through the realtime
  * channel regardless, so the TTL governs the fallback path, not the fast one.
  */
-export async function cached<T>(key: string, ttlSeconds: number, load: () => Promise<T>): Promise<T> {
+export async function cached<T>(
+  key: string,
+  ttlSeconds: number,
+  load: () => Promise<T>,
+  options: CacheOptions = {},
+): Promise<T> {
   const now = Date.now();
+  const useRedis = options.shared === true;
 
   const hit = l1.get(key);
   if (hit && hit.expiresAt > now) return hit.value as T;
 
-  const shared = await redisGet(key);
+  const shared = useRedis ? await redisGet(key) : undefined;
   if (shared !== undefined) {
     // Half the TTL locally. The shared copy already has a deadline of its own,
     // and holding it in-process for the full window would let one lambda serve
@@ -135,7 +172,7 @@ export async function cached<T>(key: string, ttlSeconds: number, load: () => Pro
 
   const value = await load();
   l1.set(key, { value, expiresAt: now + ttlSeconds * 1000 });
-  void redisSet(key, value, ttlSeconds);
+  if (useRedis) void redisSet(key, value, ttlSeconds);
   return value;
 }
 

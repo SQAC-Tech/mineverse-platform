@@ -65,6 +65,11 @@ export interface CachedRound {
  * One entry rather than one per round on purpose: the table is six rows, and a
  * single key means a team checking round 3 also warms the lookup the dashboard
  * makes for round 6 a moment later. Callers filter in memory.
+ *
+ * **L1 only.** This is the hottest key in the app on the shortest TTL, which is
+ * exactly the combination that burns a metered Redis quota — around 119,000
+ * commands in an event day, a quarter of the free plan's month. A cold lambda
+ * paying one indexed six-row query is the cheaper side of that trade.
  */
 export async function getCachedRounds(): Promise<CachedRound[]> {
   return cached(ROUNDS_KEY, ROUNDS_TTL, async () => {
@@ -96,6 +101,8 @@ export interface CachedCheckpoint {
 }
 
 export async function getCachedCheckpoints(): Promise<CachedCheckpoint[]> {
+  // Shared: four rows, a two-minute TTL, and read on every round entry. Small
+  // value, low command count, real benefit on a cold lambda.
   return cached(CHECKPOINTS_KEY, CHECKPOINTS_TTL, async () => {
     const { data, error } = await supabaseServer
       .from('attendance_checkpoints')
@@ -104,7 +111,7 @@ export async function getCachedCheckpoints(): Promise<CachedCheckpoint[]> {
 
     if (error) throw error;
     return (data ?? []) as CachedCheckpoint[];
-  });
+  }, { shared: true });
 }
 
 /**
@@ -122,7 +129,7 @@ export async function getCachedShortlistSize(): Promise<number> {
 
     if (error) throw error;
     return count ?? 0;
-  });
+  }, { shared: true });
 }
 
 /**
@@ -147,6 +154,10 @@ const SAFE_QUESTION_COLUMNS =
  *
  * `allowedIdsForRound` runs the same query again on every submission save, and
  * is served from here too.
+ *
+ * **L1 only.** This is the largest value the cache holds — a round's prompts and
+ * content — and pushing it through a metered Redis on every cold lambda spends
+ * both commands and bandwidth for a query that is a single indexed read.
  */
 export async function getCachedRoundQuestions(roundId: number): Promise<any[]> {
   return cached(`mv:questions:round:${roundId}`, QUESTIONS_TTL, async () => {
