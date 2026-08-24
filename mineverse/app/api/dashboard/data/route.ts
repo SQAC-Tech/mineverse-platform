@@ -5,7 +5,9 @@ import { touchLoginLease } from '@/lib/auth/login-lease';
 import { isDemoTeamCode } from '@/lib/gameplay/demo-teams';
 import { DEV_UNLOCK_ALL_ROUNDS } from '@/lib/gameplay/dev-mode';
 import { CRAFT_RECIPES, requiredCraftForRound, type CraftItem } from '@/lib/gameplay/crafting/rules';
-import { ROUND_CONFIGS } from '@/lib/gameplay/round-config';
+import { ROUND_CONFIGS, PVP_ROUND_ID } from '@/lib/gameplay/round-config';
+import { pvpEntryEligibility } from '@/lib/gameplay/pvp/eligibility';
+import { pvpQueueStatus } from '@/lib/gameplay/pvp/matchmaking';
 import type { ChoiceKey } from '@/lib/gameplay/choices/service';
 import { dashboardEntitlement } from '@/lib/attendance/gates';
 
@@ -105,6 +107,24 @@ export async function GET() {
         .maybeSingle(),
     ]);
 
+  /**
+   * The duel, fetched separately because it is not in `team_round_access`.
+   *
+   * Every other round reaches this list through the team's own access row. The
+   * duel has none by design — it is open to whoever finished Round 3 with the
+   * Iron Armor — so it would simply be missing from the dashboard, and the
+   * ENTER PVP button would have nothing to read.
+   */
+  const [duelRoundResult, duelEligibility, duelQueue] = await Promise.all([
+    supabaseServer
+      .from('rounds')
+      .select('id, name, day, sequence, description, time_allotted, status, ends_at')
+      .eq('id', PVP_ROUND_ID)
+      .maybeSingle(),
+    pvpEntryEligibility(teamId),
+    pvpQueueStatus(teamId),
+  ]);
+
   // These errors used to be discarded. Selecting `teams.name`, a column that has
   // never existed, therefore produced `team: null` and a dashboard stuck on
   // "LOADING..." rather than anything that looked like a failure.
@@ -181,6 +201,32 @@ export async function GET() {
     };
   });
 
+  const duelRound = duelRoundResult.data;
+  const duelOpen = duelRound?.status === 'active';
+
+  if (duelRound && !rounds.some((row) => row.round_id === duelRound.id)) {
+    rounds.push({
+      round_id: duelRound.id,
+      name: duelRound.name ?? 'The Duel',
+      day: duelRound.day ?? 1,
+      sequence: duelRound.sequence ?? null,
+      description: duelRound.description ?? '',
+      time_allotted: duelRound.time_allotted ?? null,
+      round_status: duelRound.status ?? 'locked',
+      ends_at: duelRound.ends_at ?? null,
+      // No per-team lock exists for the duel, so nothing can be locked by one.
+      is_locked: false,
+      completed_at: null,
+      score: null,
+      can_enter: DEV_UNLOCK_ALL_ROUNDS || isDemo || (duelOpen && duelEligibility.isEligible),
+      unlocked_by_dev_mode: DEV_UNLOCK_ALL_ROUNDS && !(duelOpen && duelEligibility.isEligible),
+      // The duel's entry requirement is the same craft chain, so it reuses the
+      // field the map already knows how to render.
+      needs_craft: duelEligibility.isEligible ? null : CRAFT_RECIPES.iron_armor.label,
+    });
+    rounds.sort((a, b) => a.round_id - b.round_id);
+  }
+
   const craftedAt = new Map<string, string>(
     ((craftedResult.data ?? []) as Array<{ item: string; crafted_at: string }>).map((row) => [row.item, row.crafted_at]),
   );
@@ -246,6 +292,13 @@ export async function GET() {
      * Derived from `ROUND_CONFIGS` rather than hardcoded here, so a round whose
      * marketplace flag changes cannot leave this behind.
      */
+    duel: {
+      round_id: PVP_ROUND_ID,
+      open: duelOpen,
+      eligible: duelEligibility.isEligible,
+      reason: duelEligibility.reason,
+      queued: duelQueue.queued,
+    },
     market: {
       open: (rounds as Array<{ round_id: number; round_status: string }>).some(
         (row) =>

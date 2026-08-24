@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { startPoll } from '@/lib/client/poll';
 import { toast } from 'sonner';
-import { Flame, LogOut, Shield, ShoppingBag, Sparkles } from 'lucide-react';
+import { Flame, LogOut, Shield, ShoppingBag, Sparkles, Swords } from 'lucide-react';
 
 import { Hotbar } from '@/components/game/inventory/Hotbar';
 import { roundChrome } from '@/components/game/custom-round-ui/round-presentation';
@@ -19,7 +19,7 @@ import { MarketplaceStore } from '@/components/game/marketplace/MarketplaceStore
 import { ConsumableInventory } from '@/components/game/marketplace/ConsumableInventory';
 import { ChoicePanel } from '@/components/game/choices/ChoicePanel';
 import { loadoutFrom } from '@/features/dashboard/gear';
-import type { CraftedItem, DashboardProgress, DashboardRound, DashboardTeam, DashboardTrader } from '@/features/dashboard/types';
+import type { CraftedItem, DashboardDuel, DashboardProgress, DashboardRound, DashboardTeam, DashboardTrader } from '@/features/dashboard/types';
 import { supabaseClient } from '@/lib/supabase/client';
 
 /**
@@ -51,6 +51,8 @@ export function DashboardShell() {
 
   const [marketOpen, setMarketOpen] = useState(false);
   const [traders, setTraders] = useState<DashboardTrader[]>([]);
+  const [duel, setDuel] = useState<DashboardDuel | null>(null);
+  const [entering, setEntering] = useState(false);
 
   const [showMap, setShowMap] = useState(false);
   const [showRules, setShowRules] = useState(false);
@@ -96,6 +98,7 @@ export function DashboardShell() {
       setDevUnlock(Boolean(payload.dev_unlock));
       setMarketOpen(Boolean(payload.market?.open));
       setTraders(payload.traders ?? []);
+      setDuel(payload.duel ?? null);
     } catch {
       // Keep the last good snapshot. Rounds stay locked until a fetch succeeds.
     }
@@ -142,6 +145,43 @@ export function DashboardShell() {
     () => crafted.filter((entry) => entry.crafted).map((entry) => entry.item),
     [crafted],
   );
+
+  /**
+   * Joining the duel queue.
+   *
+   * The pairing happens server-side on this call, so the answer is either a
+   * match to walk into or a place in the queue. A team that presses twice gets
+   * the same answer both times — the queue is keyed on the team, and a team
+   * already in an unresolved match is handed that match back.
+   */
+  const enterDuel = useCallback(async () => {
+    setEntering(true);
+    try {
+      const response = await fetch('/api/team/pvp/enter', { method: 'POST' });
+      const payload = await response.json();
+
+      if (!payload.success) {
+        toast.error(payload.error?.message ?? 'Could not enter the duel.', { duration: 8000 });
+        return;
+      }
+
+      if (payload.data.state === 'matched') {
+        toast.success('Opponent found — entering the arena.');
+        router.push(`/round${duel?.round_id ?? 6}`);
+        return;
+      }
+
+      toast('Waiting for an opponent. You will be paired as soon as one enters.', {
+        icon: <Swords size={16} aria-hidden="true" />,
+        duration: 8000,
+      });
+      void load();
+    } catch {
+      toast.error('Could not reach the arena. Try again.');
+    } finally {
+      setEntering(false);
+    }
+  }, [duel?.round_id, load, router]);
 
   // The biome's own icon, from the catalog the round header draws with.
   const RoundIcon = roundChrome(activeRound?.round_id ?? 1).Icon;
@@ -248,6 +288,23 @@ export function DashboardShell() {
                 counted toward the centring and pushed ENTER WORLD about 30px
                 above the stage's middle; absolute, the button is the only thing
                 being centred and lands on the line. */}
+            {/* The duel does not live on the map — it has no biome pin and no
+                round before it to reveal it — so this is its only door. Drawn
+                only once an organiser opens the round, which is the moment it
+                becomes something a team can actually do. */}
+            {duel?.open && (
+              <button
+                type="button"
+                className="d-enter d-enter--duel"
+                disabled={!duel.eligible || entering}
+                title={duel.eligible ? 'Find an opponent and fight' : duel.reason ?? undefined}
+                onClick={() => void enterDuel()}
+              >
+                <Swords size={15} aria-hidden="true" />
+                {entering ? 'FINDING OPPONENT…' : duel.queued ? 'WAITING FOR OPPONENT' : 'ENTER PVP'}
+              </button>
+            )}
+
             <div className="dash__enter-below">
               <div className="dash__enter-sub">✧ OPEN MINEVERSE MAP ✧</div>
 

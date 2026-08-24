@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Swords, CheckCircle2, XCircle } from 'lucide-react';
 import { PvpArena } from './PvpArena';
 import { supabaseClient } from '@/lib/supabase/client';
@@ -34,11 +34,21 @@ interface PvpData {
   match?: PvpMatch | null;
 }
 
+/**
+ * `/api/team/pvp/eligibility`.
+ *
+ * Not the qualification service's `checkTeamEligibility`, which answers a
+ * different question — whether the team goes through to Day 2, which is what
+ * the duel decides.
+ */
 interface EligibilityData {
   hasIronArmor: boolean;
   hasBlazeGuardian: boolean;
-  hasPvPWin: boolean;
+  requiresBlazeGuardian: boolean;
   isEligible: boolean;
+  reason: string | null;
+  round_open: boolean;
+  queued: boolean;
 }
 
 export function PvpPanel() {
@@ -46,17 +56,18 @@ export function PvpPanel() {
   const [eligibility, setEligibility] = useState<EligibilityData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showArena, setShowArena] = useState(false);
+  const [entering, setEntering] = useState(false);
   const [teamId, setTeamId] = useState<string | null>(null);
 
-  const fetchPvp = async () => {
+  const fetchPvp = useCallback(async () => {
     try {
       const [res, eligRes] = await Promise.all([
         fetch('/api/team/pvp/current', { cache: 'no-store' }),
-        fetch('/api/team/pvp/eligibility', { cache: 'no-store' })
+        fetch('/api/team/pvp/eligibility', { cache: 'no-store' }),
       ]);
       const json = await res.json();
       const eligJson = await eligRes.json();
-      
+
       if (!json.success) {
         setError(json.error?.message ?? json.error?.code ?? 'PvP unavailable');
         return;
@@ -64,20 +75,18 @@ export function PvpPanel() {
       setData(json.data);
       // Capture team_id from the first successful response for realtime filtering
       if (json.data?.team_id) setTeamId(json.data.team_id);
-      if (eligJson.success) {
-        setEligibility(eligJson.data);
-      }
+      if (eligJson.success) setEligibility(eligJson.data);
       setError(null);
     } catch {
       setError('PvP unavailable');
     }
-  };
+  }, []);
 
   useEffect(() => {
     void fetchPvp();
     const poll = window.setInterval(fetchPvp, 5000);
     return () => window.clearInterval(poll);
-  }, []);
+  }, [fetchPvp]);
 
   // Subscribe to match_started events so the panel reacts immediately
   // without waiting for the next poll cycle.
@@ -97,59 +106,116 @@ export function PvpPanel() {
       .subscribe();
 
     return () => { void supabaseClient.removeChannel(channel); };
-  }, [teamId]);
+  }, [teamId, fetchPvp]);
+
+  /**
+   * Ask to be paired.
+   *
+   * The server does the seeding on this call and answers with either a match or
+   * a place in the queue, so there is nothing to poll for in between. Pressing
+   * it again is harmless: the queue is keyed on the team.
+   */
+  const findOpponent = useCallback(async () => {
+    setEntering(true);
+    try {
+      const response = await fetch('/api/team/pvp/enter', { method: 'POST' });
+      const payload = await response.json();
+
+      if (!payload.success) {
+        toast.error(payload.error?.message ?? 'Could not enter the duel.', { duration: 8000 });
+        return;
+      }
+
+      if (payload.data.state === 'matched') {
+        toast.success('Opponent found — the duel is live.');
+        setShowArena(true);
+      } else {
+        toast('Waiting for an opponent. You will be paired as soon as one enters.', { duration: 8000 });
+      }
+      void fetchPvp();
+    } catch {
+      toast.error('Could not reach the arena. Try again.');
+    } finally {
+      setEntering(false);
+    }
+  }, [fetchPvp]);
 
   if (!data && !error) return null;
+
+  const match = data?.match ?? null;
+  const isLive = match?.status === 'live';
+  const isResolved = match?.status === 'resolved';
+  // Nothing to enter yet, but the team is allowed to go and find someone.
+  const canSeek = !match && Boolean(eligibility?.isEligible) && Boolean(eligibility?.round_open);
 
   return (
     <>
       <div className="round-ui__tile">
         <div className="round-ui__tile-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Swords size={14} className="text-amber-500" /> PVP ELIMINATION
+          <Swords size={14} className="text-amber-500" /> THE DUEL
         </div>
-        
+
         <div className="round-ui__pvp-card">
           <div className="round-ui__pvp-status">
             {error ? (
               <span className="text-red-400">{error}</span>
             ) : !data?.available ? (
               'PvP is not available yet.'
-            ) : !data.match ? (
-              'Waiting to be paired by an organizer.'
-            ) : data.match.status === 'live' ? (
+            ) : !eligibility?.round_open ? (
+              'The Duel has not opened yet.'
+            ) : !match ? (
+              eligibility?.queued
+                ? 'In the queue — waiting for an opponent of your year and standing.'
+                : 'Press FIND OPPONENT and you will be paired automatically.'
+            ) : isLive ? (
               <strong className="text-amber-400">Match is LIVE!</strong>
-            ) : data.match.status === 'resolved' ? (
-              <strong>Match resolved. {data.match.result?.won ? 'You won!' : 'You lost.'}</strong>
+            ) : isResolved ? (
+              <strong>Match resolved. {match.result?.won ? 'You won!' : 'You lost.'}</strong>
             ) : (
-              'Match paired. Waiting for organizer to start.'
+              'Match paired. Waiting for the arena to open.'
             )}
           </div>
-          
+
           <div className="round-ui__pvp-reqs">
             <div className="round-ui__field-label" style={{ marginBottom: 0 }}>REQUIREMENTS</div>
-            <div className={`round-ui__pvp-req ${eligibility?.hasBlazeGuardian ? 'round-ui__pvp-req--met' : ''}`}>
-              {eligibility?.hasBlazeGuardian ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
-              Defeat Blaze Guardian
-            </div>
             <div className={`round-ui__pvp-req ${eligibility?.hasIronArmor ? 'round-ui__pvp-req--met' : ''}`}>
               {eligibility?.hasIronArmor ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
               Craft Iron Armor
             </div>
+            {/* Only drawn when it is actually enforced — a permanently red line
+                a team cannot clear reads as a bug, not as a requirement. */}
+            {eligibility?.requiresBlazeGuardian && (
+              <div className={`round-ui__pvp-req ${eligibility?.hasBlazeGuardian ? 'round-ui__pvp-req--met' : ''}`}>
+                {eligibility?.hasBlazeGuardian ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
+                Defeat Blaze Guardian
+              </div>
+            )}
           </div>
-          
-          <button 
-            className="n-btn n-btn-primary" 
-            disabled={!data?.match || data.match.status === 'draft' || (!eligibility?.hasBlazeGuardian || !eligibility?.hasIronArmor)}
-            onClick={() => setShowArena(true)}
-            style={{ width: '100%', justifyContent: 'center' }}
-          >
-            {data?.match?.status === 'live' ? 'ENTER ARENA' : data?.match?.status === 'resolved' ? 'VIEW RESULTS' : 'ENTER ARENA'}
-          </button>
+
+          {canSeek ? (
+            <button
+              className="n-btn n-btn-primary"
+              disabled={entering}
+              onClick={() => void findOpponent()}
+              style={{ width: '100%', justifyContent: 'center' }}
+            >
+              {entering ? 'FINDING OPPONENT…' : eligibility?.queued ? 'STILL WAITING — CHECK AGAIN' : 'FIND OPPONENT'}
+            </button>
+          ) : (
+            <button
+              className="n-btn n-btn-primary"
+              disabled={!match || match.status === 'draft' || !eligibility?.isEligible}
+              onClick={() => setShowArena(true)}
+              style={{ width: '100%', justifyContent: 'center' }}
+            >
+              {isResolved ? 'VIEW RESULTS' : 'ENTER ARENA'}
+            </button>
+          )}
         </div>
       </div>
-      
-      {showArena && data?.match && (
-        <PvpArena match={data.match} onClose={() => setShowArena(false)} onRefresh={fetchPvp} />
+
+      {showArena && match && (
+        <PvpArena match={match} onClose={() => setShowArena(false)} onRefresh={fetchPvp} />
       )}
     </>
   );

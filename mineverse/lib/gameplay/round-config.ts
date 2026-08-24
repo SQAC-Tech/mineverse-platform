@@ -1,4 +1,4 @@
-﻿import type { GuardianName } from '@/lib/gameplay/guardians/config';
+import type { GuardianName } from '@/lib/gameplay/guardians/config';
 import type { ChoiceKey } from '@/lib/gameplay/choices/service';
 import type { CraftItem } from '@/lib/gameplay/crafting/rules';
 
@@ -62,14 +62,27 @@ export const ROUND_CONFIGS: Record<number, RoundConfig> = {
     id: 3,
     name: 'Mountain Biome',
     biome: 'mountain',
-    tagline: 'Elimination round — armour up, beat the Blaze, win the duel',
+    tagline: 'Armour up — the duel comes next',
     craft: 'iron_armor',
     guardian: { name: 'blaze_guardian', mandatory: true },
     choice: 'piglin_merchant',
     marketplace: true,
+    pvp: false,
+    objective:
+      'Earn what you can, trade at the market, and craft the Iron Armor (40 Iron + 25 Gold). The Duel opens when this round closes.',
+  },
+  6: {
+    id: 6,
+    name: 'The Duel',
+    biome: 'mountain',
+    tagline: 'Head to head, seeded by standing',
+    craft: null,
+    guardian: null,
+    choice: null,
+    marketplace: false,
     pvp: true,
     objective:
-      'Defeat the Blaze Guardian, craft the Iron Armor (40 Iron + 25 Gold), then win the PvP duel. Only the top 50% advance.',
+      'Press ENTER PVP and you are paired automatically — same year, nearest rank. Beat the pack faster than your opponent and the Nether Portal materials are yours.',
   },
   4: {
     id: 4,
@@ -97,6 +110,25 @@ export const ROUND_CONFIGS: Record<number, RoundConfig> = {
       'Solve challenges, craft the Diamond Pickaxe (25 Iron + 20 Gold + 100 Diamonds + 10 Emeralds), then defeat the Final Boss.',
   },
 };
+
+/**
+ * The round the duel lives in.
+ *
+ * Derived from the `pvp` flag rather than written twice, so moving the duel is
+ * a one-line change here and nothing downstream goes stale.
+ */
+export const PVP_ROUND_ID: number =
+  Object.values(ROUND_CONFIGS).find((config) => config.pvp)?.id ?? 6;
+
+/**
+ * Where the duel's questions live.
+ *
+ * The pack has always been `questions` rows with `round_id = 3, type = 'pvp'`,
+ * and it stays there: the round question service excludes `type = 'pvp'`
+ * already, so those rows never leak into Round 3's paper, and moving five rows
+ * to satisfy a naming instinct would break every seed file that references them.
+ */
+export const PVP_PACK_ROUND_ID = 3;
 
 export function getRoundConfig(roundId: number): RoundConfig | null {
   return ROUND_CONFIGS[roundId] ?? null;

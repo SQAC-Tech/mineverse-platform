@@ -3,8 +3,32 @@ import { DEV_UNLOCK_ALL_ROUNDS, noteDevUnlockBypass } from '@/lib/gameplay/dev-m
 import { isDemoTeamId, noteDemoBypass } from '@/lib/gameplay/demo-teams';
 import { attendanceGate } from '@/lib/attendance/gates';
 import { craftGate } from '@/lib/gameplay/crafting/gate';
+import { ROUND_CONFIGS } from '@/lib/gameplay/round-config';
+import { pvpEntryEligibility } from '@/lib/gameplay/pvp/eligibility';
+
+/**
+ * The desk that admits a team to the duel.
+ *
+ * Round 3's, because there is no second scan — a team marked present after the
+ * break is present for the duel that follows it. Asked as round 3 rather than
+ * as the duel's own id on purpose: `attendanceGate` opens when no checkpoint
+ * claims a round, so asking about a round no desk covers would admit every team
+ * that never turned up.
+ */
+const PVP_ATTENDANCE_ROUND = 3;
 
 export async function verifyTeamRoundAccess(teamId: string, roundId: number): Promise<{ hasAccess: boolean; error?: string }> {
+  /**
+   * The duel is entered, not unlocked.
+   *
+   * Every other round is opened per team by a `team_round_access` row written
+   * when the previous round is signed off. The duel has none and never will:
+   * it is open to whoever finished Round 3 with the Iron Armor, and the pairing
+   * happens on the way in. So the per-team lock is skipped and the craft chain
+   * is asked directly instead.
+   */
+  const isDuel = ROUND_CONFIGS[roundId]?.pvp === true;
+
   // 1. Check if the round is active
   const { data: round, error: roundError } = await supabaseServer
     .from('rounds')
@@ -31,9 +55,16 @@ export async function verifyTeamRoundAccess(teamId: string, roundId: number): Pr
    * a demo team skipping the craft would be testing a route no real team can
    * take, and the craft loop is exactly the thing worth rehearsing.
    */
-  const craft = await craftGate(teamId, roundId);
-  if (!craft.ok) {
-    return { hasAccess: false, error: 'CRAFT_REQUIRED' };
+  if (isDuel) {
+    const eligibility = await pvpEntryEligibility(teamId);
+    if (!eligibility.isEligible) {
+      return { hasAccess: false, error: 'CRAFT_REQUIRED' };
+    }
+  } else {
+    const craft = await craftGate(teamId, roundId);
+    if (!craft.ok) {
+      return { hasAccess: false, error: 'CRAFT_REQUIRED' };
+    }
   }
 
   // Scoped to named team codes, so testing a round does not require flipping
@@ -50,15 +81,17 @@ export async function verifyTeamRoundAccess(teamId: string, roundId: number): Pr
   // 2. Check if the team has access to this round. Access is granted by the
   // presence of an unlocked team_round_access row; there is no `has_access`
   // column, and selecting one made this check fail closed for every team.
-  const { data: access, error: accessError } = await supabaseServer
-    .from('team_round_access')
-    .select('is_locked')
-    .eq('team_id', teamId)
-    .eq('round_id', roundId)
-    .single();
+  if (!isDuel) {
+    const { data: access, error: accessError } = await supabaseServer
+      .from('team_round_access')
+      .select('is_locked')
+      .eq('team_id', teamId)
+      .eq('round_id', roundId)
+      .single();
 
-  if (accessError || !access || access.is_locked) {
-    return { hasAccess: false, error: 'TEAM_NOT_AUTHORIZED_FOR_ROUND' };
+    if (accessError || !access || access.is_locked) {
+      return { hasAccess: false, error: 'TEAM_NOT_AUTHORIZED_FOR_ROUND' };
+    }
   }
 
   /**
@@ -71,7 +104,7 @@ export async function verifyTeamRoundAccess(teamId: string, roundId: number): Pr
    * Deliberately last. It is the cheapest failure to explain to a team ("go get
    * marked at the desk"), so it should not mask a harder one.
    */
-  const attendance = await attendanceGate(teamId, roundId);
+  const attendance = await attendanceGate(teamId, isDuel ? PVP_ATTENDANCE_ROUND : roundId);
   if (!attendance.ok) {
     return { hasAccess: false, error: 'ATTENDANCE_NOT_MARKED' };
   }
