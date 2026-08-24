@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requirePanelScope } from '@/lib/panel/require-admin';
-import { createPvpMatch, listPvpMatches } from '@/lib/gameplay/pvp/admin-service';
+import { createPvpMatch, listPvpMatches, listPvpQueue } from '@/lib/gameplay/pvp/admin-service';
 
 const createSchema = z.object({
   team_ids: z.array(z.string().uuid()).length(2),
@@ -50,8 +50,14 @@ export async function GET() {
   if (!guard.ok) return guard.response;
 
   try {
-    const matches = await listPvpMatches();
-    return NextResponse.json({ success: true, data: { matches, server_time: new Date().toISOString() } });
+    // Both in one call: the page draws them side by side and polls every
+    // thirty seconds, so splitting them would double the request count for a
+    // screen nobody is acting on.
+    const [matches, queue] = await Promise.all([listPvpMatches(), listPvpQueue()]);
+    return NextResponse.json({
+      success: true,
+      data: { matches, queue, server_time: new Date().toISOString() },
+    });
   } catch (error) {
     console.error('PvP Match List Error:', error);
     return NextResponse.json({ success: false, error: { code: 'SERVER_ERROR' } }, { status: 500 });

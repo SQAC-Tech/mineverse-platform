@@ -2,9 +2,32 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { toast } from 'sonner';
-import { RefreshCw, Swords, Play, Ban, Flag, Plus } from 'lucide-react';
+import { RefreshCw, Swords, Ban, Trophy, Clock } from 'lucide-react';
 import { Panel, Btn, Pill, statusTone, Table, Empty, Loading, PageTitle, apiCall, Field, Grid, StatTile } from '@/components/admin/nether-ui';
 import { startPoll } from '@/lib/client/poll';
+
+/**
+ * The duel, from the desk.
+ *
+ * This page used to be where duels were made: pick two teams from a dropdown,
+ * create a draft, press Start, press Resolve. None of that exists any more —
+ * teams pair themselves the moment two of them press ENTER PVP, the match
+ * starts in the same transaction, and the first team to submit grades both
+ * sides and pays the winner.
+ *
+ * So this is now a window rather than a control panel. The only thing an
+ * organiser can still do is void a specific match that has gone wrong, and the
+ * only thing worth watching is the queue — because a team sitting in it alone
+ * means an odd number entered and somebody has nobody to fight.
+ */
+
+type MatchTeam = {
+  team_id: string;
+  outcome: string | null;
+  correct_count: number | null;
+  elapsed_ms: number | null;
+  teams?: { team_code: string; team_name: string } | null;
+};
 
 type MatchRow = {
   id: string;
@@ -15,59 +38,81 @@ type MatchRow = {
   resolved_at: string | null;
   winner_team_id: string | null;
   created_at: string;
+  pvp_match_teams?: MatchTeam[];
 };
 
 type MatchDetail = MatchRow & {
   question_count: number;
   void_reason: string | null;
-  teams: Array<{
-    team_id: string;
-    status: string;
-    completion_at: string | null;
-    elapsed_ms: number | null;
-    outcome: string | null;
-    eligibility_snapshot: Record<string, unknown>;
-    teams?: { team_code: string; team_name: string } | null;
-  }>;
+  teams: Array<
+    MatchTeam & {
+      status: string;
+      completion_at: string | null;
+      eligibility_snapshot: Record<string, unknown>;
+    }
+  >;
 };
 
-type TeamOption = { id: string; team_code: string; team_name: string; year?: string; eligibility: { hasIronArmor: boolean; hasBlazeGuardian: boolean; hasPvPWin: boolean; isEligible: boolean } };
+type QueueRow = {
+  team_id: string;
+  year_label: string | null;
+  rank_score: number | null;
+  joined_at: string;
+  teams?: { team_code: string; team_name: string } | null;
+};
+
+function waitedFor(since: string) {
+  const seconds = Math.max(0, Math.floor((Date.now() - new Date(since).getTime()) / 1000));
+  if (seconds < 60) return `${seconds}s`;
+  return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+}
+
+/** The two sides of a duel as one cell, so the list reads without opening rows. */
+function TeamsCell({ match }: { match: MatchRow }) {
+  const teams = match.pvp_match_teams ?? [];
+  if (teams.length === 0) return <span className="n-panel-sub">—</span>;
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+      {teams.map((team, index) => {
+        const won = match.winner_team_id === team.team_id;
+        return (
+          <span key={team.team_id} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+            {index > 0 && <span className="n-panel-sub" style={{ marginRight: 3 }}>vs</span>}
+            {won && <Trophy size={11} style={{ color: 'var(--ok, #6cc244)' }} aria-label="winner" />}
+            <span className="n-mono" style={won ? { color: 'var(--ok, #6cc244)' } : undefined}>
+              {team.teams?.team_code ?? team.team_id.slice(0, 8)}
+            </span>
+            {team.correct_count != null && (
+              <span className="n-panel-sub">({team.correct_count})</span>
+            )}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
 
 export default function AdminPvpPage() {
   const [matches, setMatches] = useState<MatchRow[] | null>(null);
+  const [queue, setQueue] = useState<QueueRow[]>([]);
   const [detail, setDetail] = useState<MatchDetail | null>(null);
-  const [options, setOptions] = useState<TeamOption[]>([]);
   const [busy, setBusy] = useState(false);
-
-  const [teamA, setTeamA] = useState('');
-  const [teamB, setTeamB] = useState('');
-  const [packId, setPackId] = useState('round3-pvp-v1');
-  const [duration, setDuration] = useState('600');
 
   const [voidTarget, setVoidTarget] = useState<string | null>(null);
   const [voidReason, setVoidReason] = useState('');
 
+  // Redrawn every second so the queue's waiting times tick rather than sitting
+  // at whatever they were when the last poll landed.
+  const [, setTick] = useState(0);
+
   const load = useCallback(async () => {
-    const [m, q] = await Promise.all([
-      apiCall<{ matches: MatchRow[] }>('/api/admin/pvp/matches'),
-      apiCall<{ teams: TeamOption[] }>('/api/admin/qualification/overview'),
-    ]);
-    if (m.ok) setMatches(m.data.matches ?? []);
-    else toast.error(m.message);
-    if (q.ok) {
-      const teams = q.data.teams ?? [];
-      // Fetch year labels for eligible teams
-      const eligibleIds = teams
-        .filter((t) => t.eligibility?.hasIronArmor && t.eligibility?.hasBlazeGuardian)
-        .map((t) => t.id);
-      let yearMap: Record<string, string> = {};
-      if (eligibleIds.length > 0) {
-        const yr = await apiCall<{ years: Record<string, string> }>(
-          `/api/admin/pvp/team-years?ids=${eligibleIds.join(',')}`,
-        );
-        if (yr.ok) yearMap = yr.data.years;
-      }
-      setOptions(teams.map((t) => ({ ...t, year: yearMap[t.id] })));
+    const res = await apiCall<{ matches: MatchRow[]; queue: QueueRow[] }>('/api/admin/pvp/matches');
+    if (res.ok) {
+      setMatches(res.data.matches ?? []);
+      setQueue(res.data.queue ?? []);
+    } else {
+      toast.error(res.message);
     }
   }, []);
 
@@ -82,43 +127,19 @@ export default function AdminPvpPage() {
     return startPoll(() => void load(), 30_000);
   }, [load]);
 
+  useEffect(() => {
+    const tick = window.setInterval(() => setTick((value) => value + 1), 1_000);
+    return () => window.clearInterval(tick);
+  }, []);
+
   // A live match needs a tighter refresh than the list.
   useEffect(() => {
     if (!detail || detail.status !== 'live') return;
-    // 15s, not 5s. A match detail is watched while a duel runs, and the
-    // organiser is looking at a ten-minute clock — five seconds bought nothing
-    // and cost twelve requests a minute per open tab.
     return startPoll(() => void loadDetail(detail.id), 15_000);
   }, [detail, loadDetail]);
 
-  const create = async () => {
-    if (!teamA || !teamB) { toast.error('Select two teams'); return; }
-    if (teamA === teamB) { toast.error('Select two different teams'); return; }
-
-    setBusy(true);
-    const res = await apiCall<{ match_id: string }>('/api/admin/pvp/matches', {
-      method: 'POST',
-      body: JSON.stringify({
-        team_ids: [teamA, teamB],
-        pack_id: packId.trim(),
-        duration_seconds: Number(duration),
-      }),
-    });
-    setBusy(false);
-
-    if (res.ok) {
-      toast.success('Draft match created with a sealed question pack');
-      setTeamA(''); setTeamB('');
-      void load();
-      void loadDetail(res.data.match_id);
-    } else {
-      toast.error(res.message);
-    }
-  };
-
   const doVoid = async () => {
     if (!voidTarget || !voidReason.trim()) { toast.error('A reason is required'); return; }
-
     setBusy(true);
     const res = await apiCall(`/api/admin/pvp/matches/${voidTarget}/void`, {
       method: 'POST',
@@ -136,73 +157,69 @@ export default function AdminPvpPage() {
     }
   };
 
-  const eligible = options.filter((t) => t.eligibility?.hasIronArmor && t.eligibility?.hasBlazeGuardian);
   const resolved = (matches ?? []).filter((m) => m.status === 'resolved').length;
   const live = (matches ?? []).filter((m) => m.status === 'live').length;
-  const drafts = (matches ?? []).filter((m) => m.status === 'draft').length;
 
   return (
     <>
       <PageTitle
-        title="PvP matches"
-        subtitle="A private Round 3 duel between two organizer-selected teams. There is no queue, no auto-pairing and no bracket."
+        title="PvP duels"
+        subtitle="Teams pair themselves and finish their own matches. Nothing here starts or decides a duel — void is the only control."
         actions={<Btn onClick={load}><RefreshCw size={12} /> Refresh</Btn>}
       />
 
       <Grid min={180}>
-        <StatTile label="Eligible teams" value={eligible.length} hint="Iron Armor + Blaze Guardian" />
-        <StatTile label="Drafts" value={drafts} />
+        <StatTile label="Waiting" value={queue.length} hint="In the queue, unpaired" />
         <StatTile label="Live" value={live} />
         <StatTile label="Resolved" value={resolved} />
+        <StatTile label="Total duels" value={matches?.length ?? 0} />
       </Grid>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(330px, 1fr))', gap: 12, marginTop: 12 }}>
-        <Panel title="Create a match" subtitle="Both teams must hold Iron Armor and have beaten the Blaze Guardian">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <Field label="Team A">
-              <select className="n-select" value={teamA} onChange={(e) => setTeamA(e.target.value)}>
-                <option value="">Select…</option>
-                {eligible.map((t) => (
-                  <option key={t.id} value={t.id} disabled={t.id === teamB}>
-                    {t.team_code} — {t.team_name}{t.year ? ` · ${t.year}` : ''}
-                  </option>
+        <Panel
+          title={`Waiting to be paired (${queue.length})`}
+          subtitle="Paired automatically by year, then by standing"
+        >
+          {queue.length === 0 ? (
+            <Empty>
+              <Clock size={20} style={{ opacity: 0.5, marginBottom: 6 }} />
+              <div>Nobody is waiting</div>
+            </Empty>
+          ) : (
+            <>
+              <Table head={['Team', 'Year', 'Score', 'Waiting']}>
+                {queue.map((row) => (
+                  <tr key={row.team_id}>
+                    <td>
+                      <div className="n-mono">{row.teams?.team_code ?? row.team_id.slice(0, 8)}</div>
+                      <div className="n-panel-sub">{row.teams?.team_name ?? ''}</div>
+                    </td>
+                    <td className="n-panel-sub">{row.year_label ?? '—'}</td>
+                    <td className="n-mono">{row.rank_score ?? 0}</td>
+                    <td className="n-mono">{waitedFor(row.joined_at)}</td>
+                  </tr>
                 ))}
-              </select>
-            </Field>
-
-            <Field label="Team B">
-              <select className="n-select" value={teamB} onChange={(e) => setTeamB(e.target.value)}>
-                <option value="">Select…</option>
-                {eligible.map((t) => (
-                  <option key={t.id} value={t.id} disabled={t.id === teamA}>
-                    {t.team_code} — {t.team_name}{t.year ? ` · ${t.year}` : ''}
-                  </option>
-                ))}
-              </select>
-            </Field>
-
-            <Field label="Pack id" hint="Labels the sealed snapshot for audit">
-              <input className="n-input" value={packId} onChange={(e) => setPackId(e.target.value)} />
-            </Field>
-
-            <Field label="Duration (seconds)">
-              <input className="n-input" type="number" value={duration} onChange={(e) => setDuration(e.target.value)} />
-            </Field>
-
-            <Btn variant="primary" disabled={busy || !teamA || !teamB} onClick={create}>
-              <Plus size={12} /> Create draft
-            </Btn>
-
-            {eligible.length < 2 && (
-              <p className="n-panel-sub" style={{ color: 'var(--warn)' }}>
-                Fewer than two teams are PvP-eligible so far.
-              </p>
-            )}
-          </div>
+              </Table>
+              {/*
+                * The one thing this page is actually for.
+                *
+                * Pairing needs two, so an odd queue always leaves exactly one
+                * team with nobody to fight. They are not stuck — the next team
+                * to enter takes them — but if nobody else is coming, that is a
+                * team standing at a screen waiting for something that will
+                * never happen, and only the desk can see it.
+                */}
+              {queue.length % 2 === 1 && (
+                <p className="n-panel-sub" style={{ marginTop: 10, color: 'var(--warn)' }}>
+                  Odd number waiting — one team will stay unpaired until another enters.
+                </p>
+              )}
+            </>
+          )}
         </Panel>
 
         <Panel
-          title={detail ? 'Match detail' : 'Match detail'}
+          title="Match detail"
           subtitle={detail ? detail.id : 'Select a match below'}
           actions={
             detail && (
@@ -211,17 +228,17 @@ export default function AdminPvpPage() {
                 {/*
                   * Start and Resolve are gone, deliberately.
                   *
-                  * The duel runs itself now: teams are paired the moment two of
-                  * them press ENTER PVP, the match starts inside that same
+                  * The duel runs itself: teams are paired the moment two of them
+                  * press ENTER PVP, the match starts inside that same
                   * transaction, and the first team to press SUBMIT grades both
                   * sides and pays the winner. An organiser pressing Start on a
                   * duel that has already begun, or Resolve on one the teams are
                   * still playing, could only interfere with it.
                   *
                   * Void stays. It is not part of the flow — it is the way out
-                  * when something has gone wrong with a specific match (a team
-                  * walked out, a browser died mid-duel) and both sides need to
-                  * be freed for a replay. It costs a typed reason.
+                  * when a specific match has gone wrong (a team walked out, a
+                  * browser died mid-duel) and both sides need to be freed for a
+                  * replay. It costs a typed reason.
                   */}
                 {detail.status !== 'resolved' && detail.status !== 'voided' && (
                   <Btn small variant="danger" disabled={busy} onClick={() => setVoidTarget(detail.id)}>
@@ -244,17 +261,18 @@ export default function AdminPvpPage() {
                 {detail.deadline_at && ` · deadline ${new Date(detail.deadline_at).toLocaleTimeString()}`}
               </div>
 
-              <Table head={['Team', 'State', 'Completed', 'Elapsed', 'Outcome']}>
-                {detail.teams.map((t) => (
-                  <tr key={t.team_id}>
+              <Table head={['Team', 'Correct', 'Elapsed', 'Outcome']}>
+                {detail.teams.map((team) => (
+                  <tr key={team.team_id}>
                     <td>
-                      <div className="n-mono">{t.teams?.team_code ?? t.team_id.slice(0, 8)}</div>
-                      <div className="n-panel-sub">{t.teams?.team_name ?? ''}</div>
+                      <div className="n-mono">{team.teams?.team_code ?? team.team_id.slice(0, 8)}</div>
+                      <div className="n-panel-sub">{team.teams?.team_name ?? ''}</div>
                     </td>
-                    <td><Pill tone={statusTone(t.status)}>{t.status}</Pill></td>
-                    <td className="n-panel-sub">{t.completion_at ? new Date(t.completion_at).toLocaleTimeString() : '—'}</td>
-                    <td className="n-mono">{t.elapsed_ms != null ? `${(t.elapsed_ms / 1000).toFixed(1)}s` : '—'}</td>
-                    <td>{t.outcome ? <Pill tone={t.outcome === 'won' ? 'ok' : 'danger'}>{t.outcome}</Pill> : '—'}</td>
+                    <td className="n-mono">
+                      {team.correct_count != null ? `${team.correct_count} / ${detail.question_count}` : '—'}
+                    </td>
+                    <td className="n-mono">{team.elapsed_ms != null ? `${(team.elapsed_ms / 1000).toFixed(1)}s` : '—'}</td>
+                    <td>{team.outcome ? <Pill tone={team.outcome === 'won' ? 'ok' : 'danger'}>{team.outcome}</Pill> : '—'}</td>
                   </tr>
                 ))}
               </Table>
@@ -262,10 +280,18 @@ export default function AdminPvpPage() {
               {detail.void_reason && (
                 <p style={{ marginTop: 10, fontSize: 12.5, color: '#ff9db0' }}>Voided: {detail.void_reason}</p>
               )}
+
               {detail.status === 'live' && (
                 <p className="n-panel-sub" style={{ marginTop: 10 }}>
-                  Resolving validates both teams&apos; answers against the sealed pack and picks the winner by server-recorded
-                  elapsed time. The result is never taken from a browser.
+                  Running now. It ends when either team presses SUBMIT, or when the deadline passes —
+                  whichever comes first. Scores appear here once it does.
+                </p>
+              )}
+
+              {detail.status === 'resolved' && (
+                <p className="n-panel-sub" style={{ marginTop: 10 }}>
+                  Decided on answers first, then on the faster last correct answer. The winner has already
+                  been paid the portal materials and a Nether Core.
                 </p>
               )}
             </>
@@ -274,24 +300,23 @@ export default function AdminPvpPage() {
       </div>
 
       <div style={{ marginTop: 12 }}>
-        <Panel title={`All matches (${matches?.length ?? 0})`}>
+        <Panel title={`All duels (${matches?.length ?? 0})`}>
           {!matches ? (
-            <Loading label="Loading matches" />
+            <Loading label="Loading duels" />
           ) : (
-            <Table head={['Match', 'Pack', 'Status', 'Started', 'Resolved', '']}>
-              {matches.map((m) => (
-                <tr key={m.id}>
-                  <td className="n-mono">{m.id.slice(0, 8)}…</td>
-                  <td>{m.pack_id}</td>
-                  <td><Pill tone={statusTone(m.status)}>{m.status}</Pill></td>
-                  <td className="n-panel-sub">{m.started_at ? new Date(m.started_at).toLocaleTimeString() : '—'}</td>
-                  <td className="n-panel-sub">{m.resolved_at ? new Date(m.resolved_at).toLocaleTimeString() : '—'}</td>
+            <Table head={['Teams', 'Status', 'Started', 'Resolved', '']}>
+              {matches.map((match) => (
+                <tr key={match.id}>
+                  <td><TeamsCell match={match} /></td>
+                  <td><Pill tone={statusTone(match.status)}>{match.status}</Pill></td>
+                  <td className="n-panel-sub">{match.started_at ? new Date(match.started_at).toLocaleTimeString() : '—'}</td>
+                  <td className="n-panel-sub">{match.resolved_at ? new Date(match.resolved_at).toLocaleTimeString() : '—'}</td>
                   <td style={{ textAlign: 'right' }}>
-                    <Btn small onClick={() => loadDetail(m.id)}>Open</Btn>
+                    <Btn small onClick={() => loadDetail(match.id)}>Open</Btn>
                   </td>
                 </tr>
               ))}
-              {matches.length === 0 && <Empty colSpan={6}>No matches created yet</Empty>}
+              {matches.length === 0 && <Empty colSpan={5}>No duels yet</Empty>}
             </Table>
           )}
         </Panel>
