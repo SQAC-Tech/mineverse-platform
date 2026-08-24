@@ -33,7 +33,10 @@ export default function AdminOverviewPage() {
 
   const load = useCallback(async () => {
     const [t, r, e, m, s] = await Promise.all([
-      apiCall<TeamRow[]>('/api/admin/teams'),
+      // Summary: this page renders a count, a verified count and a participant
+      // total. It has no use for the members or attendance rows the full shape
+      // embeds, and polls every thirty seconds.
+      apiCall<TeamRow[]>('/api/admin/teams?view=summary'),
       apiCall<RoundRow[]>('/api/admin/rounds'),
       apiCall<{ events: EventRow[] }>('/api/admin/events'),
       apiCall<{ matches: MatchRow[] }>('/api/admin/pvp/matches'),

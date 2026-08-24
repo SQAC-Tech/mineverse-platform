@@ -30,13 +30,6 @@ export interface DashboardRound {
   unlocked_by_dev_mode: boolean;
   /** The tool this biome needs, when the team has not crafted it yet. */
   needs_craft: string | null;
-  /**
-   * Why the duel is shut, when it is shut for want of a scan.
-   *
-   * The duel has no craft to name, so `needs_craft` cannot carry its reason —
-   * and a locked pin with no reason reads as a platform fault.
-   */
-  needs_attendance?: string | null;
 }
 
 export interface CraftedItem {
@@ -80,6 +73,24 @@ export interface LedgerEntry {
   actor_type: string | null;
   reason: string | null;
   created_at: string;
+}
+
+/**
+ * The duel, which is not an ordinary round on the dashboard.
+ *
+ * It has no `team_round_access` row, so it cannot arrive through the rounds
+ * list the way the others do — the server synthesises it and reports its state
+ * here as well, which is what the ENTER PVP button reads.
+ */
+export interface DashboardDuel {
+  round_id: number;
+  /** The duel round is `active` — teams may enter. */
+  open: boolean;
+  eligible: boolean;
+  /** Why not, in words, when `eligible` is false. */
+  reason: string | null;
+  /** Already sitting in the queue, waiting to be paired. */
+  queued: boolean;
 }
 
 /** Which traders have arrived. Decided server-side from the rounds' status. */

@@ -1,16 +1,35 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase/server';
 import { requirePanelScope } from '@/lib/panel/require-admin';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+/**
+ * The full row, with every member and every attendance record embedded. The
+ * teams page needs all of it; nothing else does.
+ */
+const FULL = '*, members(*), attendance_records(checkpoint_id, members_present)';
+
+/**
+ * What the admin console's header actually reads: a count, how many are
+ * payment-verified, and the sum of team sizes. Three numbers.
+ *
+ * It was fetching `FULL` on a thirty-second poll to render them — 96 teams with
+ * every member's name, email and phone number embedded, per open admin tab, to
+ * display three integers. That is a large payload and a join scan for nothing,
+ * and it is participant PII crossing the wire far more often than it needs to.
+ */
+const SUMMARY = 'id, team_code, team_name, team_size, is_payment_verified, created_at';
+
+export async function GET(req: NextRequest) {
   const guard = await requirePanelScope('admin');
   if (!guard.ok) return guard.response;
 
+  const columns = req.nextUrl.searchParams.get('view') === 'summary' ? SUMMARY : FULL;
+
   const { data: teams, error } = await supabaseServer
     .from('teams')
-    .select('*, members(*), attendance_records(checkpoint_id, members_present)')
+    .select(columns)
     .order('created_at', { ascending: false });
 
   if (error) {

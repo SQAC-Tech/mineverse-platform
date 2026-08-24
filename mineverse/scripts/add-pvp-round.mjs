@@ -1,21 +1,25 @@
 #!/usr/bin/env node
 /**
- * Creates the duel as a round of its own, and admits Round 3's teams to it.
+ * Sets up the running order for day 1: Round 3, then the duel.
  *
- * Two writes:
+ * Three writes, all idempotent:
  *
- *   1. `rounds` gains id 6, "The Duel", day 1, sequence 4. Six rather than four
+ *   1. Round 3 is given 90 minutes and stops being the PvP round — the duel is
+ *      its own round now, so Round 3 is earn, trade and craft, nothing else.
+ *   2. `rounds` gains id 6, "The Duel", day 1, sequence 4. Six rather than four
  *      so the Day 2 rounds keep their ids — `DAY_TWO_ROUNDS`, the attendance
  *      checkpoints and every `covers_rounds` array are written in terms of them.
- *   2. The Round 3 checkpoint (`DAY1_R3`) gains 6 in `covers_rounds`, so the
+ *   3. The Round 3 checkpoint (`DAY1_R3`) gains 6 in `covers_rounds`, so the
  *      scan a team already had at that desk admits it to the duel as well.
  *      There is no second desk and no second scan.
  *
  * No `team_round_access` rows are created, on purpose. The duel carries no
- * unlock: `verifyTeamRoundAccess` skips the per-team check for it and asks only
- * whether the round is running and the team was marked present.
+ * unlock: `verifyTeamRoundAccess` skips the per-team check for it and asks
+ * instead whether the round is running, whether the team has the Iron Armor,
+ * and whether it was marked present for Round 3.
  *
- * Safe to re-run — both writes check first.
+ * It is created `locked`. An organiser starts it from the admin panel when
+ * Round 3 closes, and that is the moment ENTER PVP appears on every dashboard.
  *
  *   node scripts/add-pvp-round.mjs [--dry-run]
  */
@@ -63,18 +67,38 @@ async function rest(path, init = {}) {
 }
 
 const DUEL_ROUND_ID = 6;
+const ROUND_3_MINUTES = 90;
 
 const DUEL = {
   id: DUEL_ROUND_ID,
   name: 'The Duel',
   day: 1,
   sequence: 4,
-  description: 'Head-to-head PvP. Open to every team marked present for Round 3.',
-  time_allotted: 30,
-  // Locked until an organiser starts it from the admin panel, like every other
-  // round. Creating it `active` would open it the moment this script ran.
+  description:
+    'Head-to-head PvP. Automatic pairing by academic year and standing. Winners take the Nether Portal materials.',
+  // The clock on one duel, not on the phase. Mirrors `PVP_DURATION_SECONDS`.
+  time_allotted: 10,
   status: 'locked',
 };
+
+const [round3] = await rest('rounds?id=eq.3&select=id,time_allotted');
+if (!round3) {
+  console.error('rounds: no Round 3 found — nothing to schedule the duel after.');
+  process.exit(1);
+}
+
+if (round3.time_allotted === ROUND_3_MINUTES) {
+  console.log(`rounds: Round 3 already set to ${ROUND_3_MINUTES} minutes, left alone.`);
+} else if (DRY_RUN) {
+  console.log(`rounds: would set Round 3 time_allotted ${round3.time_allotted} -> ${ROUND_3_MINUTES}`);
+} else {
+  await rest('rounds?id=eq.3', {
+    method: 'PATCH',
+    body: JSON.stringify({ time_allotted: ROUND_3_MINUTES }),
+    headers: { Prefer: 'return=minimal' },
+  });
+  console.log(`rounds: Round 3 time_allotted ${round3.time_allotted} -> ${ROUND_3_MINUTES}`);
+}
 
 const existing = await rest(`rounds?id=eq.${DUEL_ROUND_ID}&select=id,name,status`);
 if (existing.length > 0) {
@@ -108,6 +132,9 @@ if (checkpoint.covers_rounds?.includes(DUEL_ROUND_ID)) {
   }
 }
 
-const marked = await rest('attendance_records?checkpoint_id=eq.' + checkpoint.id + '&select=team_id');
-console.log(`\n${marked.length} team(s) marked at ${checkpoint.code} are now eligible for the duel.`);
+const marked = await rest(`attendance_records?checkpoint_id=eq.${checkpoint.id}&select=team_id`);
+const armored = await rest('crafting_log?item=eq.iron_armor&select=team_id');
+
+console.log(`\n${marked.length} team(s) marked at ${checkpoint.code}.`);
+console.log(`${armored.length} team(s) hold the Iron Armor — those are the ones who can enter the duel.`);
 if (DRY_RUN) console.log('Dry run — nothing was written.');

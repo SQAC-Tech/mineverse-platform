@@ -62,14 +62,27 @@ export const ROUND_CONFIGS: Record<number, RoundConfig> = {
     id: 3,
     name: 'Mountain Biome',
     biome: 'mountain',
-    tagline: 'Elimination round — armour up, beat the Blaze, win the duel',
+    tagline: 'Armour up — the duel comes next',
     craft: 'iron_armor',
     guardian: { name: 'blaze_guardian', mandatory: true },
     choice: 'piglin_merchant',
     marketplace: true,
     pvp: false,
     objective:
-      'Defeat the Blaze Guardian and craft the Iron Armor (40 Iron + 25 Gold). Only the top 50% advance.',
+      'Earn what you can, trade at the market, and craft the Iron Armor (40 Iron + 25 Gold). The Duel opens when this round closes.',
+  },
+  6: {
+    id: 6,
+    name: 'The Duel',
+    biome: 'mountain',
+    tagline: 'Head to head, seeded by standing',
+    craft: null,
+    guardian: null,
+    choice: null,
+    marketplace: false,
+    pvp: true,
+    objective:
+      'Press ENTER PVP and you are paired automatically — same year, nearest rank. Beat the pack faster than your opponent and the Nether Portal materials are yours.',
   },
   4: {
     id: 4,
@@ -82,31 +95,6 @@ export const ROUND_CONFIGS: Record<number, RoundConfig> = {
     marketplace: false,
     pvp: false,
     objective: 'Day 2 content is delivered in Phase 3.',
-  },
-  /**
-   * The duel, as a round of its own.
-   *
-   * It used to be a panel inside Round 3, which made it inherit Round 3's
-   * gates: craft the Iron Armor, beat the Blaze Guardian, and only then duel.
-   * On the day that meant a team held up by a craft could not duel at all, and
-   * the duel is the part of the evening everyone came for.
-   *
-   * So it moved out and dropped its prerequisites. The only question asked is
-   * whether the team is in the room — see `lib/gameplay/pvp/eligibility.ts`.
-   * Numbered 6 rather than 4 so the Day 2 rounds keep their ids, which the
-   * attendance checkpoints and `DAY_TWO_ROUNDS` are both written in terms of.
-   */
-  6: {
-    id: 6,
-    name: 'The Duel',
-    biome: 'mountain',
-    tagline: 'Head to head — no armour required',
-    craft: null,
-    guardian: null,
-    choice: null,
-    marketplace: false,
-    pvp: true,
-    objective: 'Face another team head to head. Every team marked present for Round 3 can enter.',
   },
   5: {
     id: 5,
@@ -124,14 +112,23 @@ export const ROUND_CONFIGS: Record<number, RoundConfig> = {
 };
 
 /**
- * The duel's round id, derived rather than written down twice.
+ * The round the duel lives in.
  *
- * The dashboard needs it to draw the ENTER PVP button and the access check
- * needs it to waive the per-team unlock; reading it off the `pvp` flag means
- * moving the duel again is a one-line change here.
+ * Derived from the `pvp` flag rather than written twice, so moving the duel is
+ * a one-line change here and nothing downstream goes stale.
  */
 export const PVP_ROUND_ID: number =
   Object.values(ROUND_CONFIGS).find((config) => config.pvp)?.id ?? 6;
+
+/**
+ * Where the duel's questions live.
+ *
+ * The pack has always been `questions` rows with `round_id = 3, type = 'pvp'`,
+ * and it stays there: the round question service excludes `type = 'pvp'`
+ * already, so those rows never leak into Round 3's paper, and moving five rows
+ * to satisfy a naming instinct would break every seed file that references them.
+ */
+export const PVP_PACK_ROUND_ID = 3;
 
 export function getRoundConfig(roundId: number): RoundConfig | null {
   return ROUND_CONFIGS[roundId] ?? null;

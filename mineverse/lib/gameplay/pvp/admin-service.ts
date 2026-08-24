@@ -1,10 +1,9 @@
 import { supabaseServer } from '@/lib/supabase/server';
 import { buildEligibilitySnapshot } from '@/lib/gameplay/qualification/service';
 import { checkDeterministicAnswer } from '@/lib/gameplay/grading/deterministic';
+import { PVP_ROUND_ID, PVP_PACK_ROUND_ID } from '@/lib/gameplay/round-config';
 
 const db = supabaseServer as any;
-
-export const PVP_ROUND_ID = 3;
 
 export interface CreatePvpMatchParams {
   teamIds: [string, string];
@@ -15,9 +14,13 @@ export interface CreatePvpMatchParams {
 }
 
 /**
- * Creates a private Round 3 duel between two organizer-selected teams and seals a
- * question-pack snapshot onto the match. This is a durable match record, not a
- * bracket node: there is no queue, no auto-pairing, and no public join route.
+ * Creates a duel between two organizer-selected teams and seals a question-pack
+ * snapshot onto the match.
+ *
+ * The hand-drafted path, kept for the organiser who needs to stage a specific
+ * pairing or replay a voided one. The normal route into a duel is now
+ * `pvp_matchmake`, which seeds automatically from the queue — see
+ * `lib/gameplay/pvp/matchmaking.ts`.
  */
 export async function createPvpMatch(params: CreatePvpMatchParams) {
   const [teamA, teamB] = params.teamIds;
@@ -33,15 +36,17 @@ export async function createPvpMatch(params: CreatePvpMatchParams) {
     .single();
 
   if (roundError || !round) {
-    return { ok: false as const, status: 404, code: 'ROUND_NOT_FOUND', message: 'Round 3 not found.' };
+    return { ok: false as const, status: 404, code: 'ROUND_NOT_FOUND', message: 'The Duel round does not exist.' };
   }
 
   if (round.status !== 'active') {
-    return { ok: false as const, status: 409, code: 'ROUND_NOT_ACTIVE', message: 'Round 3 is not active.' };
+    return { ok: false as const, status: 409, code: 'ROUND_NOT_ACTIVE', message: 'The Duel is not active.' };
   }
 
-  // Iron Armor + the mandatory Blaze Guardian gate PvP entry. The PvP-win part of
-  // the eligibility snapshot is not required here — that is what this match decides.
+  // The hand-drafted path keeps the stricter check on purpose: an organiser
+  // staging a specific duel should be told when a team is not actually kitted
+  // out. Automatic seeding uses `pvpEntryEligibility`, which asks only for the
+  // craft chain.
   const eligibility = await buildEligibilitySnapshot(params.teamIds, { lenient: true });
 
   for (const teamId of params.teamIds) {
@@ -70,7 +75,7 @@ export async function createPvpMatch(params: CreatePvpMatchParams) {
   const { data: pack, error: packError } = await db
     .from('questions')
     .select('id, type, prompt, content, language_options, time_limit_seconds, expected_answer, order_index')
-    .eq('round_id', PVP_ROUND_ID)
+    .eq('round_id', PVP_PACK_ROUND_ID)
     .eq('type', 'pvp')
     .order('order_index', { ascending: true });
 

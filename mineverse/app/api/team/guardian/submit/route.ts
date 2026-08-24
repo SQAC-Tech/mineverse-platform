@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth/session';
 import { resolveGuardianBattle, GuardianName } from '@/lib/gameplay/guardians/service';
 import { verifyTeamRoundAccess } from '@/lib/gameplay/utils/access';
+import { roundWindowGate } from '@/lib/gameplay/utils/round-window';
 import { z } from 'zod';
 import { broadcastPvpEligible } from '@/lib/gameplay/pvp/notify';
 
@@ -39,6 +40,28 @@ export async function POST(req: NextRequest) {
     const access = await verifyTeamRoundAccess(session.team_id, round_id);
     if (!access.hasAccess) {
       return NextResponse.json({ success: false, error: { code: access.error } }, { status: 403 });
+    }
+
+    /**
+     * The clock, checked here and not only in the shell.
+     *
+     * The guardian pays out the moment it is beaten, so the round's timer has
+     * to be enforced somewhere a locked screen cannot be worked around. Between
+     * the clock hitting zero and an organiser marking the round `completed`,
+     * `verifyTeamRoundAccess` still says yes — this is the check that does not.
+     */
+    const window = await roundWindowGate(round_id);
+    if (!window.ok) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: 'ROUND_TIME_UP',
+            message: 'The round timer has run out — the Guardian awards nothing now.',
+          },
+        },
+        { status: 403 },
+      );
     }
 
     const res = await resolveGuardianBattle(session.team_id, guardian_name as GuardianName, idempotency_key, answers);

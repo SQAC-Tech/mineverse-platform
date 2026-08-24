@@ -1984,60 +1984,66 @@
   image-rendering: pixelated;
 }
 
-/* ── The duel ─────────────────────────────────────────────────────────────
-   A second call to action under ENTER WORLD, in crimson so it reads as a
-   different kind of thing from the portal into the map.
-
-   Declared at the end of the file on purpose: it shares specificity with
-   `.d-enter`, so `width: 100%` there would win if this came first — the same
-   reason `.d-enter--rules` sits below the base rule.
-
-   Cleared above the rules button by a bottom margin. That button is absolutely
-   positioned at the bottom of the wrapper, so a new grid row at the end of the
-   flow would sit underneath it without this. */
+/*
+ * ENTER PVP, built like the rulebook but in crimson.
+ *
+ * Same silhouette as its two neighbours so the three read as one set of doors,
+ * a different material because it is a different kind of act — the map and the
+ * rulebook can be opened and closed, this one puts the team in a fight.
+ *
+ * Declared after `.d-enter` on purpose: equal specificity, so `width: 100%`
+ * there would otherwise win and stretch it across the full CTA.
+ */
 .d-enter--duel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
   width: auto;
   max-width: calc(var(--cta) * 0.66);
-  margin-top: clamp(10px, 1.4vh, 18px);
+  /* Reserves the row the rulebook occupies. That button is absolute at
+     `bottom: 0` of this wrapper, so without the margin it would be drawn
+     directly on top of this one. */
   margin-bottom: clamp(48px, 6.5vh, 76px);
-  padding: clamp(9px, 1.5vh, 16px) clamp(18px, 2vw, 32px);
-  font-size: clamp(11px, 1.2vw, 17px);
-  border-color: #ff9d9d;
-  border-bottom-color: #7a1f1f;
-  border-right-color: #7a1f1f;
-  background: linear-gradient(180deg, #d63c3c 0%, #a01f1f 55%, #6d1212 100%);
+  padding: clamp(10px, 1.6vh, 17px) clamp(18px, 2.1vw, 34px);
+  font-size: clamp(11px, 1.25vw, 17px);
+  border-color: #ff9b8f;
+  border-bottom-color: #7a1d16;
+  border-right-color: #7a1d16;
+  background: linear-gradient(180deg, #d0342a 0%, #9c1f18 55%, #6d120d 100%);
   box-shadow:
-    inset 0 0 30px rgba(255, 160, 160, 0.32),
-    0 0 34px rgba(200, 60, 60, 0.42),
-    0 9px 0 #4a0d0d,
+    inset 0 0 30px rgba(255, 170, 150, 0.3),
+    0 0 34px rgba(210, 70, 55, 0.42),
+    0 9px 0 #4a0b07,
     0 18px 34px rgba(0, 0, 0, 0.65);
+  /* Only ENTER WORLD pulses. Three glowing buttons and none of them leads. */
   animation: none;
 }
 
 .d-enter--duel:hover:not(:disabled) {
-  border-color: #ffcaca;
-  background: linear-gradient(180deg, #ea5252 0%, #b62828 55%, #7d1818 100%);
+  border-color: #ffc4bb;
+  background: linear-gradient(180deg, #e64335 0%, #b3271e 55%, #7f1610 100%);
 }
 
 .d-enter--duel:active:not(:disabled) {
-  transform: translateY(4px);
+  transform: translateY(5px);
   box-shadow:
-    inset 0 0 30px rgba(255, 160, 160, 0.32),
-    0 0 34px rgba(200, 60, 60, 0.42),
-    0 4px 0 #4a0d0d;
+    inset 0 0 30px rgba(255, 170, 150, 0.3),
+    0 0 34px rgba(210, 70, 55, 0.42),
+    0 4px 0 #4a0b07;
 }
 
-/* Still on screen when the team has not been scanned, because "go and get
-   marked" is more use than a control that silently is not there. */
+/* Shown, not hidden, when the team is not kitted out yet: the point is to tell
+   them the duel exists and what it is waiting on. The `title` carries the why. */
 .d-enter--duel:disabled {
+  border-color: #8a6f6b;
+  border-bottom-color: #3d302e;
+  border-right-color: #3d302e;
+  background: linear-gradient(180deg, #6b5652 0%, #4b3b38 55%, #332726 100%);
+  color: #cbbdba;
   cursor: not-allowed;
-  border-color: #8d8d8d;
-  border-bottom-color: #3a3a3a;
-  border-right-color: #3a3a3a;
-  background: linear-gradient(180deg, #6b6b6b 0%, #4c4c4c 55%, #343434 100%);
-  color: #d8d8d8;
   box-shadow:
-    inset 0 0 22px rgba(0, 0, 0, 0.35),
-    0 6px 0 #262626,
-    0 12px 22px rgba(0, 0, 0, 0.55);
+    inset 0 0 24px rgba(0, 0, 0, 0.35),
+    0 9px 0 #241b1a,
+    0 18px 34px rgba(0, 0, 0, 0.55);
 }

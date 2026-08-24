@@ -1,45 +1,84 @@
-import { attendanceGate } from '@/lib/attendance/gates';
+import { supabaseServer } from '@/lib/supabase/server';
+
+const db = supabaseServer as any;
 
 /**
- * Who may duel.
+ * Who may enter the duel.
  *
- * One question: was the team marked present at the Round 3 desk. Nothing else —
- * not the Iron Armor, not the Blaze Guardian, not a prior win.
+ * The gate is the craft chain, and only the craft chain: a team that has the
+ * Iron Armor has necessarily crafted the Stone Pickaxe and the Wooden Pickaxe
+ * before it, because `craft_team_item` enforces the order. So one lookup
+ * answers the whole progression question.
  *
- * The old rule required all three, and it was the wrong rule for a live hall.
- * A team stuck behind a craft it could not afford was locked out of the duel
- * entirely, which is the one part of the evening that is worth watching. The
- * duel is now its own round and asks only whether the team is here.
- *
- * `PVP_ATTENDANCE_ROUND` is 3 rather than 6 deliberately: the desk that admits
- * teams to the duel is the Round 3 desk, and there is no second scan. Adding 6
- * to that checkpoint's `covers_rounds` makes `attendanceGate(team, 6)` resolve
- * to the same desk, so both spellings agree — but this constant means the rule
- * holds even if that row has not been updated yet.
+ * `checkTeamEligibility` in the qualification service looks similar and is not
+ * interchangeable: its `isEligible` also demands `hasPvPWin`, because it
+ * answers "may this team go through to Day 2", which is decided *by* the duel.
+ * Asking it at the door would mean only past winners could fight.
  */
-export const PVP_ATTENDANCE_ROUND = 3;
 
-export interface PvpEligibility {
-  /** Marked present at the Round 3 desk — the only requirement. */
-  attendanceMarked: boolean;
+/**
+ * Whether beating the Blaze Guardian is also required to enter.
+ *
+ * On. Round 3's guardian is `mandatory: true` in `ROUND_CONFIGS`, and the duel
+ * is what that mandate is for — a team that skipped the Blaze does not walk
+ * into the arena on the strength of its crafting alone.
+ *
+ * The panel reads this same flag, so the checklist follows it: turn it off and
+ * the Blaze line stops being drawn as well as stops being enforced.
+ */
+export const PVP_REQUIRES_BLAZE_GUARDIAN = true;
+
+export interface PvpEntryEligibility {
+  hasIronArmor: boolean;
+  hasBlazeGuardian: boolean;
+  requiresBlazeGuardian: boolean;
   isEligible: boolean;
   /** Sentence for the participant when they cannot enter. */
   reason: string | null;
 }
 
-export async function pvpEligibility(teamId: string): Promise<PvpEligibility> {
-  const attendance = await attendanceGate(teamId, PVP_ATTENDANCE_ROUND);
+/**
+ * The two facts this needs, when the caller already has them.
+ *
+ * `/api/dashboard/data` reads both as part of `dashboard_snapshot`, so passing
+ * them here saves two round trips on every dashboard tick.
+ */
+export interface PvpEligibilityInputs {
+  hasIronArmor: boolean;
+  hasBlazeGuardian: boolean;
+}
 
-  // A missing checkpoint opens the gate rather than closing it, matching
-  // `attendanceGate`: if nobody configured the desk, that is our failure, and
-  // locking the whole hall out of the duel is the worse of the two mistakes.
-  if (attendance.ok) {
-    return { attendanceMarked: true, isEligible: true, reason: null };
+export function pvpEligibilityFrom(inputs: PvpEligibilityInputs): PvpEntryEligibility {
+  const { hasIronArmor, hasBlazeGuardian } = inputs;
+
+  const isEligible = hasIronArmor && (!PVP_REQUIRES_BLAZE_GUARDIAN || hasBlazeGuardian);
+
+  let reason: string | null = null;
+  if (!hasIronArmor) {
+    reason = 'Craft the Iron Armor (40 Iron + 25 Gold) to enter the duel.';
+  } else if (PVP_REQUIRES_BLAZE_GUARDIAN && !hasBlazeGuardian) {
+    reason = 'Defeat the Blaze Guardian to enter the duel.';
   }
 
-  return {
-    attendanceMarked: false,
-    isEligible: false,
-    reason: 'Get your team marked present at the Round 3 desk to enter the duel.',
-  };
+  return { hasIronArmor, hasBlazeGuardian, requiresBlazeGuardian: PVP_REQUIRES_BLAZE_GUARDIAN, isEligible, reason };
 }
+
+export async function pvpEntryEligibility(teamId: string): Promise<PvpEntryEligibility> {
+  const [armorResult, blazeResult] = await Promise.all([
+    db.from('crafting_log').select('item').eq('team_id', teamId).eq('item', 'iron_armor').maybeSingle(),
+    db
+      .from('guardian_battles')
+      .select('id')
+      .eq('team_id', teamId)
+      .eq('guardian_name', 'blaze_guardian')
+      .eq('status', 'won')
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  return pvpEligibilityFrom({
+    hasIronArmor: Boolean(armorResult.data),
+    hasBlazeGuardian: Boolean(blazeResult.data),
+  });
+}
+

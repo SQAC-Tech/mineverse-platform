@@ -5,10 +5,11 @@ import { touchLoginLease } from '@/lib/auth/login-lease';
 import { isDemoTeamCode } from '@/lib/gameplay/demo-teams';
 import { DEV_UNLOCK_ALL_ROUNDS } from '@/lib/gameplay/dev-mode';
 import { CRAFT_RECIPES, requiredCraftForRound, type CraftItem } from '@/lib/gameplay/crafting/rules';
-import { ROUND_CONFIGS } from '@/lib/gameplay/round-config';
+import { ROUND_CONFIGS, PVP_ROUND_ID } from '@/lib/gameplay/round-config';
+import { pvpEligibilityFrom } from '@/lib/gameplay/pvp/eligibility';
+import { getCachedRound } from '@/lib/cache/reads';
 import type { ChoiceKey } from '@/lib/gameplay/choices/service';
 import { dashboardEntitlement } from '@/lib/attendance/gates';
-import { pvpEligibility } from '@/lib/gameplay/pvp/eligibility';
 
 export const dynamic = 'force-dynamic';
 
@@ -58,6 +59,46 @@ export async function GET() {
   }
 
   /**
+   * Everything this route reads, in one round trip.
+   *
+   * This used to be eleven separate PostgREST requests — the team, its round
+   * access, resources, the crafting log, game state, both portal tables, the
+   * End Merchant probe, the shortlist row behind the entitlement check, the
+   * Blaze Guardian lookup behind PvP eligibility and the duel queue. On event
+   * day this route was the top ten paths in the edge log on its own, and the
+   * instance cannot be given more compute, so the round trips had to go.
+   *
+   * `dashboard_snapshot` returns the same raw rows under the same names, with
+   * `rounds` nested inside each access row exactly as the PostgREST embed did.
+   * None of the derivation below changed.
+   */
+  // `as any`: `types/supabase.ts` predates this function, and regenerating the
+  // whole file hours before the event is a bigger change than this route wants.
+  // The shape is asserted immediately below instead.
+  const { data: snapshot, error: snapshotError } = await (supabaseServer as any).rpc('dashboard_snapshot', {
+    p_team_id: teamId,
+  });
+
+  if (snapshotError || !snapshot) {
+    console.error('Dashboard snapshot failed:', snapshotError);
+    return NextResponse.json({ success: false, error: 'SNAPSHOT_FAILED' }, { status: 503 });
+  }
+
+  const snap = snapshot as unknown as {
+    team: { id: string; team_name: string; team_code: string } | null;
+    access: Array<Record<string, any>>;
+    resources: Record<string, number> | null;
+    crafted: Array<{ item: string; crafted_at: string }>;
+    state: { nether_core_count: number; armor_crafted: boolean; qualified_for_day2: boolean; elimination_reason: string | null } | null;
+    has_fragment: boolean;
+    portal_repair: { repaired_at: string } | null;
+    end_merchant: { reason: string | null; created_at: string } | null;
+    shortlist: { result: string | null; rsvp_confirmed_at: string | null } | null;
+    blaze_guardian_won: boolean;
+    pvp_queued: boolean;
+  };
+
+  /**
    * The dashboard opens on the RSVP, not on attendance.
    *
    * A team needs to see its inventory, its rounds and its team code the night
@@ -65,8 +106,10 @@ export async function GET() {
    * themselves are gated separately, on being in the room. What this does stop
    * is a team that did not qualify, or never replied, seeing a dashboard that
    * implies it is playing.
+   *
+   * The shortlist row comes from the snapshot, so this costs no extra query.
    */
-  const entitled = await dashboardEntitlement(teamId);
+  const entitled = await dashboardEntitlement(teamId, snap.shortlist);
   if (!entitled.ok) {
     return NextResponse.json(
       { success: false, error: entitled.reason, message: entitled.message },
@@ -74,61 +117,9 @@ export async function GET() {
     );
   }
 
-  const [teamResult, accessResult, resourcesResult, craftedResult, stateResult, fragmentResult, repairResult, merchantResult] =
-    await Promise.all([
-      supabaseServer.from('teams').select('id, team_name, team_code').eq('id', teamId).single(),
-      supabaseServer
-        .from('team_round_access')
-        .select('*, rounds(id, name, day, sequence, description, time_allotted, status, ends_at)')
-        .eq('team_id', teamId)
-        .order('round_id', { ascending: true }),
-      supabaseServer
-        .from('resources')
-        .select('wood, stone, iron, gold, diamond, emerald, obsidian')
-        .eq('team_id', teamId)
-        .maybeSingle(),
-      supabaseServer.from('crafting_log').select('item, crafted_at').eq('team_id', teamId),
-      supabaseServer
-        .from('team_game_state')
-        .select('nether_core_count, armor_crafted, qualified_for_day2, elimination_reason')
-        .eq('team_id', teamId)
-        .maybeSingle(),
-      supabaseServer.from('day2_portal_fragments').select('team_id').eq('team_id', teamId).maybeSingle(),
-      supabaseServer.from('day2_portal_repair').select('repaired_at').eq('team_id', teamId).maybeSingle(),
-      // The End Merchant writes to the ledger, not to `choice_decisions` like the
-      // Day 1 choices do, so the ledger is where "already traded" actually lives.
-      supabaseServer
-        .from('resource_ledger')
-        .select('reason, created_at')
-        .eq('team_id', teamId)
-        .eq('source_type', 'end_merchant_choice')
-        .limit(1)
-        .maybeSingle(),
-    ]);
-
-  // These errors used to be discarded. Selecting `teams.name`, a column that has
-  // never existed, therefore produced `team: null` and a dashboard stuck on
-  // "LOADING..." rather than anything that looked like a failure.
-  for (const [label, result] of [
-    ['team', teamResult],
-    ['round access', accessResult],
-    ['resources', resourcesResult],
-    ['crafting log', craftedResult],
-    ['game state', stateResult],
-    ['portal fragment', fragmentResult],
-    ['portal repair', repairResult],
-    ['end merchant', merchantResult],
-  ] as const) {
-    // 42P01 is "table does not exist" — a Phase 3 table on a Phase 2 database is
-    // an absence, not a fault, and the dashboard renders fine without it.
-    if (result.error && result.error.code !== '42P01') {
-      console.error(`Dashboard ${label} query failed:`, result.error);
-    }
-  }
-
-  const { data: team } = teamResult;
-  const { data: access } = accessResult;
-  const { data: resources } = resourcesResult;
+  const team = snap.team;
+  const access = snap.access;
+  const resources = snap.resources;
 
   /**
    * A demo team can open a round the moment it exists.
@@ -150,9 +141,7 @@ export async function GET() {
    * button that the round route immediately refuses — the same mismatch that
    * once greyed out every round for demo teams, in the other direction.
    */
-  const craftedItems = new Set(
-    ((craftedResult.data ?? []) as Array<{ item: string }>).map((row) => row.item),
-  );
+  const craftedItems = new Set((snap.crafted ?? []).map((row) => row.item));
 
   const rounds = (access ?? []).map((row: any) => {
     const round = row.rounds ?? {};
@@ -179,62 +168,48 @@ export async function GET() {
       // Names the missing tool so the map can say what to do rather than only
       // that the biome is shut.
       needs_craft: craftMissing && requiredCraft ? CRAFT_RECIPES[requiredCraft].label : null,
-      // Only the duel ever fills this in; declared here so the array's inferred
-      // type carries it and the duel can be pushed onto the same list.
-      needs_attendance: null as string | null,
     };
   });
 
   /**
-   * The duel, added to the map even though no team has an access row for it.
+   * The duel, which is not an ordinary round here.
    *
-   * Every other round appears because `team_round_access` has a row for it.
-   * The duel was split out of Round 3 during the event and has no rows at all,
-   * so without this it would be invisible on the map — a round nobody could
-   * find, which is the same as one that does not exist. It carries no unlock,
-   * `can_enter` asks the same two questions the door asks — is the round
-   * running, and was the team marked present at the Round 3 desk. Deriving it
-   * from round status alone would show ACCESS to a team that never turned up
-   * and then refuse them, which is the mismatch this file already warns about
-   * in the other direction for demo teams.
+   * It has no `team_round_access` row and never will — it is open to whoever
+   * finished Round 3 with the Iron Armor — so it cannot arrive through the list
+   * above. The round itself is cached; eligibility and the queue come out of
+   * the snapshot, so none of this costs a round trip.
    */
-  const duel = Object.values(ROUND_CONFIGS).find((config) => config.pvp);
-  if (duel && !rounds.some((row) => row.round_id === duel.id)) {
-    const { data: duelRound } = await supabaseServer
-      .from('rounds')
-      .select('id, name, day, sequence, description, time_allotted, status, ends_at')
-      .eq('id', duel.id)
-      .maybeSingle();
+  const duelRound = await getCachedRound(PVP_ROUND_ID);
+  const duelEligibility = pvpEligibilityFrom({
+    hasIronArmor: craftedItems.has('iron_armor'),
+    hasBlazeGuardian: snap.blaze_guardian_won,
+  });
+  const duelOpen = duelRound?.status === 'active';
 
-    // Only once the round actually exists in the database — otherwise the map
-    // would offer a door that opens onto nothing.
-    if (duelRound) {
-      const duelEligibility = await pvpEligibility(teamId);
-
-      rounds.push({
-        round_id: duel.id,
-        name: duelRound.name ?? duel.name,
-        day: duelRound.day ?? 1,
-        sequence: duelRound.sequence ?? null,
-        description: duelRound.description ?? duel.tagline,
-        time_allotted: duelRound.time_allotted ?? null,
-        round_status: duelRound.status ?? 'locked',
-        ends_at: duelRound.ends_at ?? null,
-        is_locked: false,
-        completed_at: null,
-        score: null,
-        can_enter: DEV_UNLOCK_ALL_ROUNDS || isDemo || (duelRound.status === 'active' && duelEligibility.isEligible),
-        unlocked_by_dev_mode: DEV_UNLOCK_ALL_ROUNDS && duelRound.status !== 'active',
-        needs_craft: null,
-        needs_attendance: duelEligibility.isEligible ? null : 'MARK ATTENDANCE',
-      });
-      rounds.sort((a, b) => a.round_id - b.round_id);
-    }
+  if (duelRound && !rounds.some((row) => row.round_id === duelRound.id)) {
+    rounds.push({
+      round_id: duelRound.id,
+      name: duelRound.name ?? 'The Duel',
+      day: duelRound.day ?? 1,
+      sequence: duelRound.sequence ?? null,
+      description: duelRound.description ?? '',
+      time_allotted: duelRound.time_allotted ?? null,
+      round_status: duelRound.status ?? 'locked',
+      ends_at: duelRound.ends_at ?? null,
+      // No per-team lock exists for the duel, so nothing can be locked by one.
+      is_locked: false,
+      completed_at: null,
+      score: null,
+      can_enter: DEV_UNLOCK_ALL_ROUNDS || isDemo || (duelOpen && duelEligibility.isEligible),
+      unlocked_by_dev_mode: DEV_UNLOCK_ALL_ROUNDS && !(duelOpen && duelEligibility.isEligible),
+      // The duel's entry requirement is the same craft chain, so it reuses the
+      // field the map already knows how to render.
+      needs_craft: duelEligibility.isEligible ? null : CRAFT_RECIPES.iron_armor.label,
+    });
+    rounds.sort((a, b) => a.round_id - b.round_id);
   }
 
-  const craftedAt = new Map<string, string>(
-    ((craftedResult.data ?? []) as Array<{ item: string; crafted_at: string }>).map((row) => [row.item, row.crafted_at]),
-  );
+  const craftedAt = new Map<string, string>((snap.crafted ?? []).map((row) => [row.item, row.crafted_at]));
 
   // The catalog is the source of truth for what exists, so an uncrafted item is
   // still listed — a dashboard that hides what you have not earned tells a team
@@ -247,10 +222,10 @@ export async function GET() {
     crafted_at: craftedAt.get(item) ?? null,
   }));
 
-  const state = stateResult.data ?? null;
+  const state = snap.state ?? null;
   const netherCores = state?.nether_core_count ?? 0;
-  const hasFragment = Boolean(fragmentResult.data);
-  const isRepaired = Boolean(repairResult.data);
+  const hasFragment = snap.has_fragment;
+  const isRepaired = Boolean(snap.portal_repair);
   const diamonds = resources?.diamond ?? 0;
 
   const missingForPortal = [
@@ -271,8 +246,8 @@ export async function GET() {
       pvp_eligible: Boolean(state?.armor_crafted),
       nether_core_count: netherCores,
       end_merchant: {
-        traded: Boolean(merchantResult.data),
-        reason: merchantResult.data?.reason ?? null,
+        traded: Boolean(snap.end_merchant),
+        reason: snap.end_merchant?.reason ?? null,
       },
       portal: {
         // `repaired` | `ready` | `collecting` — the missing list carries the detail,
@@ -297,6 +272,13 @@ export async function GET() {
      * Derived from `ROUND_CONFIGS` rather than hardcoded here, so a round whose
      * marketplace flag changes cannot leave this behind.
      */
+    duel: {
+      round_id: PVP_ROUND_ID,
+      open: duelOpen,
+      eligible: duelEligibility.isEligible,
+      reason: duelEligibility.reason,
+      queued: snap.pvp_queued,
+    },
     market: {
       open: (rounds as Array<{ round_id: number; round_status: string }>).some(
         (row) =>

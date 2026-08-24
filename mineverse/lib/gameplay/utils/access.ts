@@ -4,17 +4,50 @@ import { isDemoTeamId, noteDemoBypass } from '@/lib/gameplay/demo-teams';
 import { attendanceGate } from '@/lib/attendance/gates';
 import { craftGate } from '@/lib/gameplay/crafting/gate';
 import { ROUND_CONFIGS } from '@/lib/gameplay/round-config';
-import { PVP_ATTENDANCE_ROUND } from '@/lib/gameplay/pvp/eligibility';
+import { pvpEntryEligibility } from '@/lib/gameplay/pvp/eligibility';
+import { getCachedRound } from '@/lib/cache/reads';
+
+/**
+ * The desk that admits a team to the duel.
+ *
+ * Round 3's, because there is no second scan — a team marked present after the
+ * break is present for the duel that follows it. Asked as round 3 rather than
+ * as the duel's own id on purpose: `attendanceGate` opens when no checkpoint
+ * claims a round, so asking about a round no desk covers would admit every team
+ * that never turned up.
+ */
+const PVP_ATTENDANCE_ROUND = 3;
 
 export async function verifyTeamRoundAccess(teamId: string, roundId: number): Promise<{ hasAccess: boolean; error?: string }> {
-  // 1. Check if the round is active
-  const { data: round, error: roundError } = await supabaseServer
-    .from('rounds')
-    .select('status')
-    .eq('id', roundId)
-    .single();
+  /**
+   * The duel is entered, not unlocked.
+   *
+   * Every other round is opened per team by a `team_round_access` row written
+   * when the previous round is signed off. The duel has none and never will:
+   * it is open to whoever finished Round 3 with the Iron Armor, and the pairing
+   * happens on the way in. So the per-team lock is skipped and the craft chain
+   * is asked directly instead.
+   */
+  const isDuel = ROUND_CONFIGS[roundId]?.pvp === true;
 
-  if (roundError || !round) {
+  // 1. Check if the round is active.
+  //
+  // Cached: this is the hottest read in the app — every team, every gate, every
+  // tick — against a six-row table. See `lib/cache/reads.ts`.
+  //
+  // The try/catch keeps the contract this function has always had. The cached
+  // reader throws on a database error rather than caching a failure, but every
+  // caller here expects a verdict, not an exception, and a thrown error on the
+  // way into a live round is a 500 where a refusal used to be.
+  let round: Awaited<ReturnType<typeof getCachedRound>> = null;
+  try {
+    round = await getCachedRound(roundId);
+  } catch (error) {
+    console.error(`[rounds] status lookup failed for round ${roundId}:`, error);
+    return { hasAccess: false, error: 'ROUND_NOT_FOUND' };
+  }
+
+  if (!round) {
     return { hasAccess: false, error: 'ROUND_NOT_FOUND' };
   }
 
@@ -33,9 +66,16 @@ export async function verifyTeamRoundAccess(teamId: string, roundId: number): Pr
    * a demo team skipping the craft would be testing a route no real team can
    * take, and the craft loop is exactly the thing worth rehearsing.
    */
-  const craft = await craftGate(teamId, roundId);
-  if (!craft.ok) {
-    return { hasAccess: false, error: 'CRAFT_REQUIRED' };
+  if (isDuel) {
+    const eligibility = await pvpEntryEligibility(teamId);
+    if (!eligibility.isEligible) {
+      return { hasAccess: false, error: 'CRAFT_REQUIRED' };
+    }
+  } else {
+    const craft = await craftGate(teamId, roundId);
+    if (!craft.ok) {
+      return { hasAccess: false, error: 'CRAFT_REQUIRED' };
+    }
   }
 
   // Scoped to named team codes, so testing a round does not require flipping
@@ -48,17 +88,6 @@ export async function verifyTeamRoundAccess(teamId: string, roundId: number): Pr
   if (round.status !== 'active') {
     return { hasAccess: false, error: 'ROUND_NOT_ACTIVE' };
   }
-
-  /**
-   * The duel is open to everyone who turned up.
-   *
-   * It carries no progression requirement and no per-team unlock, so the
-   * `team_round_access` check below is skipped for it — most teams have no row
-   * for a round that was only just split out, and requiring one would lock out
-   * exactly the teams the change was meant to let in. Attendance still applies,
-   * and is checked immediately after.
-   */
-  const isDuel = ROUND_CONFIGS[roundId]?.pvp === true;
 
   // 2. Check if the team has access to this round. Access is granted by the
   // presence of an unlocked team_round_access row; there is no `has_access`
@@ -86,10 +115,6 @@ export async function verifyTeamRoundAccess(teamId: string, roundId: number): Pr
    * Deliberately last. It is the cheapest failure to explain to a team ("go get
    * marked at the desk"), so it should not mask a harder one.
    */
-  // The duel has no desk of its own — teams are admitted on the Round 3 scan.
-  // Asking for round 6 here would find no checkpoint, and `attendanceGate`
-  // opens the gate when no desk claims a round, which would let in the teams
-  // that never turned up.
   const attendance = await attendanceGate(teamId, isDuel ? PVP_ATTENDANCE_ROUND : roundId);
   if (!attendance.ok) {
     return { hasAccess: false, error: 'ATTENDANCE_NOT_MARKED' };
