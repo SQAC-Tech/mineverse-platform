@@ -1,5 +1,6 @@
 import { supabaseServer } from '@/lib/supabase/server';
 import { isDemoTeamId, noteDemoBypass } from '@/lib/gameplay/demo-teams';
+import { getCachedCheckpoints, getCachedShortlistSize } from '@/lib/cache/reads';
 
 /**
  * The typed client, not the `as any` escape hatch the older gameplay modules
@@ -51,15 +52,21 @@ export interface Checkpoint {
  * 2. Round 3 has its own desk after the break, and each day-2 round has one.
  */
 export async function checkpointForRound(roundId: number): Promise<Checkpoint | null> {
-  const { data } = await db
-    .from('attendance_checkpoints')
-    .select('id, code, label, day, covers_rounds')
-    .contains('covers_rounds', [roundId])
-    .order('sequence', { ascending: true })
-    .limit(1)
-    .maybeSingle();
-
-  return (data as Checkpoint | null) ?? null;
+  // Cached and filtered in memory. Four rows, configured before the desks open
+  // and not touched again, asked for on every round entry by every team.
+  //
+  // A failed lookup returns null, which `attendanceGate` reads as "no desk
+  // claims this round" and opens. That is the documented behaviour and the
+  // reason this does not rethrow.
+  let checkpoints: Awaited<ReturnType<typeof getCachedCheckpoints>>;
+  try {
+    checkpoints = await getCachedCheckpoints();
+  } catch (error) {
+    console.error(`[gates] checkpoint lookup failed for round ${roundId}:`, error);
+    return null;
+  }
+  const match = checkpoints.find((checkpoint) => checkpoint.covers_rounds?.includes(roundId));
+  return match ? { id: match.id, code: match.code, label: match.label, day: match.day, covers_rounds: match.covers_rounds } : null;
 }
 
 export interface AttendanceGate {
@@ -142,10 +149,20 @@ export async function markingEntitlement(teamId: string, day: number): Promise<E
 
   // No frozen shortlist at all means the screening is not in play — a rehearsal,
   // or an event run without one. Refusing every team then would be wrong.
-  const { count: shortlistSize } = await db
-    .from('screening_shortlist')
-    .select('team_id', { count: 'exact', head: true });
-  if ((shortlistSize ?? 0) === 0) return OK;
+  // One integer, the same for every team, previously fetched on every
+  // dashboard tick — 34,207 HEAD requests in two hours on event day.
+  //
+  // A failed lookup is treated as "no cut has been made", which opens the
+  // dashboard. The rounds themselves are gated separately, so the worst case is
+  // a team seeing its own inventory during a database wobble.
+  let shortlistSize = 0;
+  try {
+    shortlistSize = await getCachedShortlistSize();
+  } catch (error) {
+    console.error('[gates] shortlist size lookup failed:', error);
+    return OK;
+  }
+  if (shortlistSize === 0) return OK;
 
   if (!row || row.result !== 'shortlisted') {
     return { ok: false, reason: 'NOT_SHORTLISTED', message: 'This team is not on the shortlist.' };

@@ -5,6 +5,7 @@ import { attendanceGate } from '@/lib/attendance/gates';
 import { craftGate } from '@/lib/gameplay/crafting/gate';
 import { ROUND_CONFIGS } from '@/lib/gameplay/round-config';
 import { pvpEntryEligibility } from '@/lib/gameplay/pvp/eligibility';
+import { getCachedRound } from '@/lib/cache/reads';
 
 /**
  * The desk that admits a team to the duel.
@@ -29,14 +30,24 @@ export async function verifyTeamRoundAccess(teamId: string, roundId: number): Pr
    */
   const isDuel = ROUND_CONFIGS[roundId]?.pvp === true;
 
-  // 1. Check if the round is active
-  const { data: round, error: roundError } = await supabaseServer
-    .from('rounds')
-    .select('status')
-    .eq('id', roundId)
-    .single();
+  // 1. Check if the round is active.
+  //
+  // Cached: this is the hottest read in the app — every team, every gate, every
+  // tick — against a six-row table. See `lib/cache/reads.ts`.
+  //
+  // The try/catch keeps the contract this function has always had. The cached
+  // reader throws on a database error rather than caching a failure, but every
+  // caller here expects a verdict, not an exception, and a thrown error on the
+  // way into a live round is a 500 where a refusal used to be.
+  let round: Awaited<ReturnType<typeof getCachedRound>> = null;
+  try {
+    round = await getCachedRound(roundId);
+  } catch (error) {
+    console.error(`[rounds] status lookup failed for round ${roundId}:`, error);
+    return { hasAccess: false, error: 'ROUND_NOT_FOUND' };
+  }
 
-  if (roundError || !round) {
+  if (!round) {
     return { hasAccess: false, error: 'ROUND_NOT_FOUND' };
   }
 

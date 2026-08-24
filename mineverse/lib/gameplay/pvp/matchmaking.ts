@@ -2,6 +2,7 @@ import { supabaseServer } from '@/lib/supabase/server';
 import { PVP_ROUND_ID, PVP_PACK_ROUND_ID } from '@/lib/gameplay/round-config';
 import { getTeamYear } from '@/lib/gameplay/pvp/year-detection';
 import { pvpEntryEligibility } from '@/lib/gameplay/pvp/eligibility';
+import { getCachedRound } from '@/lib/cache/reads';
 
 const db = supabaseServer as any;
 
@@ -68,13 +69,9 @@ export type EnterResult =
  * two teams pressing at the same instant cannot both be paired to a third.
  */
 export async function enterPvpQueue(teamId: string): Promise<EnterResult> {
-  const { data: round, error: roundError } = await db
-    .from('rounds')
-    .select('id, status')
-    .eq('id', PVP_ROUND_ID)
-    .single();
+  const round = await getCachedRound(PVP_ROUND_ID);
 
-  if (roundError || !round) {
+  if (!round) {
     return { ok: false, status: 404, code: 'ROUND_NOT_FOUND', message: 'The Duel has not been set up yet.' };
   }
 

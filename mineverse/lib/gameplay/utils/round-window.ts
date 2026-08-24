@@ -1,4 +1,4 @@
-import { supabaseServer } from '@/lib/supabase/server';
+import { getCachedRound } from '@/lib/cache/reads';
 
 /**
  * Whether a round's clock is still running.
@@ -25,12 +25,6 @@ export interface RoundWindow {
 }
 
 export async function roundWindowGate(roundId: number): Promise<RoundWindow> {
-  const { data, error } = await supabaseServer
-    .from('rounds')
-    .select('ends_at')
-    .eq('id', roundId)
-    .maybeSingle();
-
   /**
    * A failed lookup opens the gate rather than closing it.
    *
@@ -39,12 +33,14 @@ export async function roundWindowGate(roundId: number): Promise<RoundWindow> {
    * letting a late submission through and refusing every team's guardian. Only
    * one of those is recoverable while the clock is running.
    */
-  if (error) {
+  let endsAt: string | null = null;
+  try {
+    endsAt = (await getCachedRound(roundId))?.ends_at ?? null;
+  } catch (error) {
     console.error(`[rounds] window lookup failed for round ${roundId}:`, error);
     return { ok: true, ends_at: null };
   }
 
-  const endsAt = data?.ends_at ?? null;
   if (!endsAt) return { ok: true, ends_at: null };
 
   if (new Date(endsAt).getTime() <= Date.now()) {

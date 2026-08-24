@@ -3,11 +3,9 @@ import { getSession } from '@/lib/auth/session';
 import { pvpEntryEligibility } from '@/lib/gameplay/pvp/eligibility';
 import { pvpQueueStatus } from '@/lib/gameplay/pvp/matchmaking';
 import { PVP_ROUND_ID } from '@/lib/gameplay/round-config';
-import { supabaseServer } from '@/lib/supabase/server';
+import { getCachedRound } from '@/lib/cache/reads';
 
 export const dynamic = 'force-dynamic';
-
-const db = supabaseServer as any;
 
 /**
  * What the duel panel needs to draw itself: whether the round is open, whether
@@ -21,17 +19,17 @@ export async function GET() {
   if (!session) return NextResponse.json({ success: false, error: { code: 'UNAUTHORIZED' } }, { status: 401 });
 
   try {
-    const [eligibility, queue, roundResult] = await Promise.all([
+    const [eligibility, queue, duelRound] = await Promise.all([
       pvpEntryEligibility(session.team_id),
       pvpQueueStatus(session.team_id),
-      db.from('rounds').select('status').eq('id', PVP_ROUND_ID).maybeSingle(),
+      getCachedRound(PVP_ROUND_ID),
     ]);
 
     return NextResponse.json({
       success: true,
       data: {
         ...eligibility,
-        round_open: roundResult.data?.status === 'active',
+        round_open: duelRound?.status === 'active',
         queued: queue.queued,
         queued_at: queue.joined_at,
       },

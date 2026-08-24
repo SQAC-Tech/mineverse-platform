@@ -8,6 +8,7 @@ import { CRAFT_RECIPES, requiredCraftForRound, type CraftItem } from '@/lib/game
 import { ROUND_CONFIGS, PVP_ROUND_ID } from '@/lib/gameplay/round-config';
 import { pvpEntryEligibility } from '@/lib/gameplay/pvp/eligibility';
 import { pvpQueueStatus } from '@/lib/gameplay/pvp/matchmaking';
+import { getCachedRound } from '@/lib/cache/reads';
 import type { ChoiceKey } from '@/lib/gameplay/choices/service';
 import { dashboardEntitlement } from '@/lib/attendance/gates';
 
@@ -115,12 +116,8 @@ export async function GET() {
    * Iron Armor — so it would simply be missing from the dashboard, and the
    * ENTER PVP button would have nothing to read.
    */
-  const [duelRoundResult, duelEligibility, duelQueue] = await Promise.all([
-    supabaseServer
-      .from('rounds')
-      .select('id, name, day, sequence, description, time_allotted, status, ends_at')
-      .eq('id', PVP_ROUND_ID)
-      .maybeSingle(),
+  const [duelRound, duelEligibility, duelQueue] = await Promise.all([
+    getCachedRound(PVP_ROUND_ID),
     pvpEntryEligibility(teamId),
     pvpQueueStatus(teamId),
   ]);
@@ -201,7 +198,6 @@ export async function GET() {
     };
   });
 
-  const duelRound = duelRoundResult.data;
   const duelOpen = duelRound?.status === 'active';
 
   if (duelRound && !rounds.some((row) => row.round_id === duelRound.id)) {

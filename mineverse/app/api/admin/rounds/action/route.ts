@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase/server';
 import { supabaseClient } from '@/lib/supabase/client'; // For broadcasting
 import { requirePanelScope } from '@/lib/panel/require-admin';
+import { invalidateRounds } from '@/lib/cache/reads';
 
 export async function POST(req: Request) {
   const guard = await requirePanelScope('admin');
@@ -24,6 +25,10 @@ export async function POST(req: Request) {
       starts_at: startsAt,
       ends_at: endsAt
     }).eq('id', round_id);
+
+    // Before the unlock broadcast below, so a screen that reacts to it does not
+    // race back to a stale status.
+    await invalidateRounds();
 
     /**
      * If making active, unlock for the teams entitled to play it.
