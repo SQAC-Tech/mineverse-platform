@@ -304,7 +304,7 @@ export async function getPvpMatchForAdmin(matchId: string) {
 
   const { data: teams, error: teamsError } = await db
     .from('pvp_match_teams')
-    .select('team_id, status, completion_at, elapsed_ms, outcome, eligibility_snapshot, teams(team_code, team_name)')
+    .select('team_id, status, completion_at, elapsed_ms, outcome, correct_count, eligibility_snapshot, teams(team_code, team_name)')
     .eq('match_id', matchId);
 
   if (teamsError) throw teamsError;
@@ -330,9 +330,36 @@ export async function getPvpMatchForAdmin(matchId: string) {
 export async function listPvpMatches() {
   const { data, error } = await db
     .from('pvp_matches')
-    .select('id, status, pack_id, started_at, deadline_at, resolved_at, winner_team_id, created_at')
+    // The embed is what makes the list readable. Without it every row was a
+    // truncated uuid and a status, and finding a particular duel meant opening
+    // them one at a time — which is the only thing an organiser does on this
+    // page now that the flow runs itself.
+    .select(
+      'id, status, pack_id, started_at, deadline_at, resolved_at, winner_team_id, created_at, ' +
+        'pvp_match_teams(team_id, outcome, correct_count, elapsed_ms, teams(team_code, team_name))',
+    )
     .order('created_at', { ascending: false })
     .limit(50);
+
+  if (error) throw error;
+  return data ?? [];
+}
+
+/**
+ * Who is standing in the queue right now, unpaired.
+ *
+ * The one thing on this page an organiser can still act on, and it did not
+ * exist before because there was no queue — matches were built by hand from a
+ * dropdown. Now the pairing is automatic and the only question worth asking
+ * from the desk is "is anybody stuck waiting?", which happens when an odd
+ * number of teams has entered.
+ */
+export async function listPvpQueue() {
+  const { data, error } = await db
+    .from('pvp_queue')
+    .select('team_id, year_label, rank_score, tie_break, joined_at, teams(team_code, team_name)')
+    .is('match_id', null)
+    .order('joined_at', { ascending: true });
 
   if (error) throw error;
   return data ?? [];
