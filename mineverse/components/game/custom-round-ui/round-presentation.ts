@@ -1,6 +1,6 @@
 import {
   BookOpen, Brain, Bug, Code2, Flame, Moon, Mountain, Pickaxe, Puzzle,
-  ScrollText, Sparkles, Terminal, TreePine, type LucideIcon,
+  ScrollText, Sparkles, Swords, Terminal, TreePine, type LucideIcon,
 } from 'lucide-react';
 import { ROUND_CONFIGS } from '@/lib/gameplay/round-config';
 import { GUARDIANS, type GuardianName } from '@/lib/gameplay/guardians/config';
@@ -393,6 +393,15 @@ const CHROME: Record<number, Omit<RoundChrome, 'name'>> = {
     eyebrow: 'ROUND 5', day: 'Day 2', mode: 'Final', Icon: Sparkles, themeClass: 'round-ui--end',
     guardianArt: null, eventArt: null,
     eventIdleText: 'The End is silent. Organizers announce world events.',
+  },
+  // The duel. Without an entry here `roundChrome` falls through to CHROME[1],
+  // so the PvP round was drawing Round 1's forest — green palette, pine icon,
+  // "ROUND 1" over the biome name. It sits on the mountain with Round 3
+  // because that is the paper it is fought over.
+  6: {
+    eyebrow: 'THE DUEL', day: 'Day 1', mode: 'Head to head', Icon: Swords, themeClass: 'round-ui--mountain',
+    guardianArt: null, eventArt: null,
+    eventIdleText: 'The arena is open. Winners take the Nether Portal materials.',
   },
 };
 

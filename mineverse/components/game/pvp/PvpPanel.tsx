@@ -144,7 +144,34 @@ export function PvpPanel() {
     }
   }, [fetchPvp]);
 
-  if (!data && !error) return null;
+  /**
+   * The duel tile, before either request has answered.
+   *
+   * This returned `null`, so the whole PvP panel simply was not on the page
+   * until the first fetch came back — and it fetches two endpoints, so it was
+   * the slowest tile in the rail. On the duel round that is the one thing the
+   * team came to the screen for, and its absence is indistinguishable from it
+   * being locked. Drawing the frame with its contents pending says "this is
+   * yours, it is coming" instead.
+   */
+  if (!data && !error) {
+    return (
+      <div className="round-ui__tile">
+        <div className="round-ui__tile-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Swords size={14} className="text-amber-500" /> THE DUEL
+        </div>
+        <div className="round-ui__pvp-card round-ui__skel-region" role="status" aria-label="Loading the duel">
+          <div className="round-ui__skel round-ui__skel--text" style={{ width: '82%' }} aria-hidden="true" />
+          <div className="round-ui__pvp-reqs" aria-hidden="true">
+            <div className="round-ui__field-label" style={{ marginBottom: 0 }}>REQUIREMENTS</div>
+            <div className="round-ui__skel round-ui__skel--line" style={{ width: '58%' }} />
+            <div className="round-ui__skel round-ui__skel--line" style={{ width: '68%' }} />
+          </div>
+          <div className="round-ui__skel" style={{ height: 34, width: '100%' }} aria-hidden="true" />
+        </div>
+      </div>
+    );
+  }
 
   const match = data?.match ?? null;
   const isLive = match?.status === 'live';
