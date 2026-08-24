@@ -34,16 +34,11 @@ interface PvpData {
   match?: PvpMatch | null;
 }
 
-/**
- * The duel asks one question now: is the team in the room.
- *
- * It used to require the Iron Armor and the Blaze Guardian, which locked teams
- * held up by a craft out of the part of the evening they came for.
- */
 interface EligibilityData {
-  attendanceMarked: boolean;
+  hasIronArmor: boolean;
+  hasBlazeGuardian: boolean;
+  hasPvPWin: boolean;
   isEligible: boolean;
-  reason: string | null;
 }
 
 export function PvpPanel() {
@@ -132,18 +127,19 @@ export function PvpPanel() {
           
           <div className="round-ui__pvp-reqs">
             <div className="round-ui__field-label" style={{ marginBottom: 0 }}>REQUIREMENTS</div>
-            <div className={`round-ui__pvp-req ${eligibility?.attendanceMarked ? 'round-ui__pvp-req--met' : ''}`}>
-              {eligibility?.attendanceMarked ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
-              Marked present at the Round 3 desk
+            <div className={`round-ui__pvp-req ${eligibility?.hasBlazeGuardian ? 'round-ui__pvp-req--met' : ''}`}>
+              {eligibility?.hasBlazeGuardian ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
+              Defeat Blaze Guardian
             </div>
-            {eligibility && !eligibility.isEligible && eligibility.reason ? (
-              <div className="round-ui__pvp-req">{eligibility.reason}</div>
-            ) : null}
+            <div className={`round-ui__pvp-req ${eligibility?.hasIronArmor ? 'round-ui__pvp-req--met' : ''}`}>
+              {eligibility?.hasIronArmor ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
+              Craft Iron Armor
+            </div>
           </div>
           
           <button 
             className="n-btn n-btn-primary" 
-            disabled={!data?.match || data.match.status === 'draft' || !eligibility?.isEligible}
+            disabled={!data?.match || data.match.status === 'draft' || (!eligibility?.hasBlazeGuardian || !eligibility?.hasIronArmor)}
             onClick={() => setShowArena(true)}
             style={{ width: '100%', justifyContent: 'center' }}
           >

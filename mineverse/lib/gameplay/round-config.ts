@@ -1,4 +1,4 @@
-import type { GuardianName } from '@/lib/gameplay/guardians/config';
+﻿import type { GuardianName } from '@/lib/gameplay/guardians/config';
 import type { ChoiceKey } from '@/lib/gameplay/choices/service';
 import type { CraftItem } from '@/lib/gameplay/crafting/rules';
 
@@ -67,9 +67,9 @@ export const ROUND_CONFIGS: Record<number, RoundConfig> = {
     guardian: { name: 'blaze_guardian', mandatory: true },
     choice: 'piglin_merchant',
     marketplace: true,
-    pvp: false,
+    pvp: true,
     objective:
-      'Defeat the Blaze Guardian and craft the Iron Armor (40 Iron + 25 Gold). Only the top 50% advance.',
+      'Defeat the Blaze Guardian, craft the Iron Armor (40 Iron + 25 Gold), then win the PvP duel. Only the top 50% advance.',
   },
   4: {
     id: 4,
@@ -82,31 +82,6 @@ export const ROUND_CONFIGS: Record<number, RoundConfig> = {
     marketplace: false,
     pvp: false,
     objective: 'Day 2 content is delivered in Phase 3.',
-  },
-  /**
-   * The duel, as a round of its own.
-   *
-   * It used to be a panel inside Round 3, which made it inherit Round 3's
-   * gates: craft the Iron Armor, beat the Blaze Guardian, and only then duel.
-   * On the day that meant a team held up by a craft could not duel at all, and
-   * the duel is the part of the evening everyone came for.
-   *
-   * So it moved out and dropped its prerequisites. The only question asked is
-   * whether the team is in the room — see `lib/gameplay/pvp/eligibility.ts`.
-   * Numbered 6 rather than 4 so the Day 2 rounds keep their ids, which the
-   * attendance checkpoints and `DAY_TWO_ROUNDS` are both written in terms of.
-   */
-  6: {
-    id: 6,
-    name: 'The Duel',
-    biome: 'mountain',
-    tagline: 'Head to head — no armour required',
-    craft: null,
-    guardian: null,
-    choice: null,
-    marketplace: false,
-    pvp: true,
-    objective: 'Face another team head to head. Every team marked present for Round 3 can enter.',
   },
   5: {
     id: 5,
@@ -122,16 +97,6 @@ export const ROUND_CONFIGS: Record<number, RoundConfig> = {
       'Solve challenges, craft the Diamond Pickaxe (25 Iron + 20 Gold + 100 Diamonds + 10 Emeralds), then defeat the Final Boss.',
   },
 };
-
-/**
- * The duel's round id, derived rather than written down twice.
- *
- * The dashboard needs it to draw the ENTER PVP button and the access check
- * needs it to waive the per-team unlock; reading it off the `pvp` flag means
- * moving the duel again is a one-line change here.
- */
-export const PVP_ROUND_ID: number =
-  Object.values(ROUND_CONFIGS).find((config) => config.pvp)?.id ?? 6;
 
 export function getRoundConfig(roundId: number): RoundConfig | null {
   return ROUND_CONFIGS[roundId] ?? null;

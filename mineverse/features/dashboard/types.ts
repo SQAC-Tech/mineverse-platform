@@ -30,13 +30,6 @@ export interface DashboardRound {
   unlocked_by_dev_mode: boolean;
   /** The tool this biome needs, when the team has not crafted it yet. */
   needs_craft: string | null;
-  /**
-   * Why the duel is shut, when it is shut for want of a scan.
-   *
-   * The duel has no craft to name, so `needs_craft` cannot carry its reason —
-   * and a locked pin with no reason reads as a platform fault.
-   */
-  needs_attendance?: string | null;
 }
 
 export interface CraftedItem {

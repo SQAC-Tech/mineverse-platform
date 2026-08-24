@@ -8,7 +8,6 @@ import { CRAFT_RECIPES, requiredCraftForRound, type CraftItem } from '@/lib/game
 import { ROUND_CONFIGS } from '@/lib/gameplay/round-config';
 import type { ChoiceKey } from '@/lib/gameplay/choices/service';
 import { dashboardEntitlement } from '@/lib/attendance/gates';
-import { pvpEligibility } from '@/lib/gameplay/pvp/eligibility';
 
 export const dynamic = 'force-dynamic';
 
@@ -179,58 +178,8 @@ export async function GET() {
       // Names the missing tool so the map can say what to do rather than only
       // that the biome is shut.
       needs_craft: craftMissing && requiredCraft ? CRAFT_RECIPES[requiredCraft].label : null,
-      // Only the duel ever fills this in; declared here so the array's inferred
-      // type carries it and the duel can be pushed onto the same list.
-      needs_attendance: null as string | null,
     };
   });
-
-  /**
-   * The duel, added to the map even though no team has an access row for it.
-   *
-   * Every other round appears because `team_round_access` has a row for it.
-   * The duel was split out of Round 3 during the event and has no rows at all,
-   * so without this it would be invisible on the map — a round nobody could
-   * find, which is the same as one that does not exist. It carries no unlock,
-   * `can_enter` asks the same two questions the door asks — is the round
-   * running, and was the team marked present at the Round 3 desk. Deriving it
-   * from round status alone would show ACCESS to a team that never turned up
-   * and then refuse them, which is the mismatch this file already warns about
-   * in the other direction for demo teams.
-   */
-  const duel = Object.values(ROUND_CONFIGS).find((config) => config.pvp);
-  if (duel && !rounds.some((row) => row.round_id === duel.id)) {
-    const { data: duelRound } = await supabaseServer
-      .from('rounds')
-      .select('id, name, day, sequence, description, time_allotted, status, ends_at')
-      .eq('id', duel.id)
-      .maybeSingle();
-
-    // Only once the round actually exists in the database — otherwise the map
-    // would offer a door that opens onto nothing.
-    if (duelRound) {
-      const duelEligibility = await pvpEligibility(teamId);
-
-      rounds.push({
-        round_id: duel.id,
-        name: duelRound.name ?? duel.name,
-        day: duelRound.day ?? 1,
-        sequence: duelRound.sequence ?? null,
-        description: duelRound.description ?? duel.tagline,
-        time_allotted: duelRound.time_allotted ?? null,
-        round_status: duelRound.status ?? 'locked',
-        ends_at: duelRound.ends_at ?? null,
-        is_locked: false,
-        completed_at: null,
-        score: null,
-        can_enter: DEV_UNLOCK_ALL_ROUNDS || isDemo || (duelRound.status === 'active' && duelEligibility.isEligible),
-        unlocked_by_dev_mode: DEV_UNLOCK_ALL_ROUNDS && duelRound.status !== 'active',
-        needs_craft: null,
-        needs_attendance: duelEligibility.isEligible ? null : 'MARK ATTENDANCE',
-      });
-      rounds.sort((a, b) => a.round_id - b.round_id);
-    }
-  }
 
   const craftedAt = new Map<string, string>(
     ((craftedResult.data ?? []) as Array<{ item: string; crafted_at: string }>).map((row) => [row.item, row.crafted_at]),

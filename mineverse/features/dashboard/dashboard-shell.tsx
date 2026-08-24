@@ -12,7 +12,6 @@ import { Hotbar } from '@/components/game/inventory/Hotbar';
 import { roundChrome } from '@/components/game/custom-round-ui/round-presentation';
 import { Rulebook } from '@/features/dashboard/rulebook';
 import { WorldMap } from '@/features/dashboard/world-map';
-import { PVP_ROUND_ID } from '@/lib/gameplay/round-config';
 import { SteveAvatar } from '@/features/dashboard/steve-avatar';
 import { CraftingTable } from '@/features/dashboard/crafting-table';
 import { DashOverlay } from '@/features/dashboard/dash-overlay';
@@ -227,18 +226,6 @@ export function DashboardShell() {
           <div className="dash__enter-wrap">
             <button type="button" className="d-enter" onClick={() => setShowMap(true)}>
               ENTER WORLD
-            </button>
-
-            {/* Always drawn. It used to wait for `round_status === 'active'`,
-                which meant it was invisible for the whole event until an
-                organiser started the round — and invisible is indistinguishable
-                from missing. The server still decides who gets in. */}
-            <button
-              type="button"
-              className="d-enter d-enter--duel"
-              onClick={() => router.push(`/round${PVP_ROUND_ID}`)}
-            >
-              ENTER PVP
             </button>
             {/* Decorative portal motes. */}
             {[
