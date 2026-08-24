@@ -115,17 +115,36 @@ export function proctorRules(roundId: number): ProctorRules {
   return { ...DEFAULT_RULES, ...(ROUND_RULES[roundId] ?? {}) };
 }
 
-/** How often the browser tells the server it is still there. */
-export const HEARTBEAT_INTERVAL_MS = 30_000;
+/**
+ * How often the browser tells the server it is still there.
+ *
+ * 60s rather than 30s: the heartbeat is what makes a session look alive, and
+ * `STALE_AFTER_MS` below is sized off it, so halving the rate halves a
+ * per-team cost that every team pays for the whole event.
+ */
+export const HEARTBEAT_INTERVAL_MS = 60_000;
 
-/** How long the queue waits before shipping a batch of events. */
-export const FLUSH_INTERVAL_MS = 3_000;
+/**
+ * How long the queue waits before shipping a batch of events.
+ *
+ * Raised from 3s once the shortcut rules started recording far more: every
+ * blocked key, selection and drag attempt is an event now, so a three-second
+ * window turned a team typing normally into a steady stream of requests. The
+ * queue batches up to `MAX_EVENTS_PER_BATCH`, so a longer window ships the
+ * same evidence in fewer requests rather than less of it.
+ *
+ * Nothing is lost on the way out either: `beforeunload` and `pagehide` both
+ * flush with `sendBeacon` regardless of where the timer had got to.
+ */
+export const FLUSH_INTERVAL_MS = 10_000;
 
 /**
  * A session with no heartbeat for this long is shown as "dark" on the console.
  * Two missed heartbeats plus slack, so one dropped request is not an alarm.
+ * Tracks HEARTBEAT_INTERVAL_MS — raising that without this would light the
+ * whole console up as stale.
  */
-export const STALE_AFTER_MS = 75_000;
+export const STALE_AFTER_MS = 150_000;
 
 /** Largest batch the ingest route will accept in one request. */
 export const MAX_EVENTS_PER_BATCH = 50;

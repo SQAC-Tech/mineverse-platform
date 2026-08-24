@@ -21,6 +21,7 @@ import {
 import { toast } from 'sonner';
 import { useProctorSession } from '@/components/game/proctor/ProctorProvider';
 import { supabaseClient } from '@/lib/supabase/client';
+import { startPoll } from '@/lib/client/poll';
 import { GuardianArena } from './GuardianArena';
 import { NotificationTray, type LedgerEntry } from './NotificationTray';
 import { gradingMessage } from './grading-toast';
@@ -196,12 +197,22 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
   const [stale, setStale] = useState(false);
 
   const refresh = useCallback(async () => {
-    const [roundResult, resourcesResult, teamResult, historyResult] = await Promise.allSettled([
-      fetch(`/api/rounds/${roundId}/questions`, { cache: 'no-store' }).then((res) => res.json()),
-      fetch('/api/team/resources', { cache: 'no-store' }).then((res) => res.json()),
+    /* One request now carries the round, the balance and the ledger feed; only
+       the dashboard snapshot stays separate, because it also writes the
+       one-device login lease and folding that in would either duplicate the
+       write or drop it. Four requests per tick per team was the largest single
+       source of load on the platform. */
+    const [snapResult, teamResult] = await Promise.allSettled([
+      fetch(`/api/rounds/${roundId}/snapshot?limit=12`, { cache: 'no-store' }).then((res) => res.json()),
       fetch('/api/dashboard/data', { cache: 'no-store' }).then((res) => res.json()),
-      fetch('/api/team/resources/history?limit=12', { cache: 'no-store' }).then((res) => res.json()),
     ]);
+
+    // Null unless the round itself came back cleanly. The balance and the feed
+    // are optional inside it, so a missing one keeps the last good value.
+    const snap = snapResult.status === 'fulfilled' && snapResult.value?.success ? snapResult.value.data : null;
+    const roundResult = snapResult.status === 'fulfilled'
+      ? { status: 'fulfilled' as const, value: snap ? { success: true, data: snap.round } : snapResult.value }
+      : { status: 'rejected' as const, value: null as never };
 
     let failed = false;
     if (roundResult.status === 'fulfilled' && roundResult.value.success) {
@@ -221,26 +232,24 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
       }
       failed = true;
     }
-    if (resourcesResult.status === 'fulfilled' && resourcesResult.value.success) {
-      setResources(resourcesResult.value.data);
-    } else {
-      failed = true;
-    }
+    if (snap?.resources) setResources(snap.resources);
+    else failed = true;
     if (teamResult.status === 'fulfilled' && teamResult.value.success) {
       setTeam(teamResult.value.team ?? null);
       setProgress(teamResult.value.progress ?? null);
       setCrafted(teamResult.value.crafted ?? []);
     }
-    if (historyResult.status === 'fulfilled' && historyResult.value.success) {
-      setHistory(historyResult.value.data.entries ?? []);
-    }
+    if (snap?.history) setHistory(snap.history.entries ?? []);
     setStale(failed);
   }, [roundId]);
 
   useEffect(() => {
     void refresh();
-    const poll = window.setInterval(() => void refresh(), 10_000);
-    return () => window.clearInterval(poll);
+    // 25s, not 10s. Four requests every ten seconds per team was the single
+    // largest source of load on the platform; an admin unlocking a round or
+    // firing a world event still lands instantly through the realtime
+    // channel below, and every action refreshes on its own completion.
+    return startPoll(() => void refresh(), 25_000);
   }, [refresh]);
 
   /**

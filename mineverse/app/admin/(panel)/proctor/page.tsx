@@ -94,7 +94,7 @@ export default function ProctorPage() {
 
   useEffect(() => {
     void load();
-    const poll = window.setInterval(() => void load(), 10_000);
+    const poll = window.setInterval(() => void load(), 30_000);
     return () => window.clearInterval(poll);
   }, [load]);
 
