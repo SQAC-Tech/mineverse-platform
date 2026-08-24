@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import { RefreshCw, Swords, Play, Ban, Flag, Plus } from 'lucide-react';
 import { Panel, Btn, Pill, statusTone, Table, Empty, Loading, PageTitle, apiCall, Field, Grid, StatTile } from '@/components/admin/nether-ui';
+import { startPoll } from '@/lib/client/poll';
 
 type MatchRow = {
   id: string;
@@ -78,8 +79,7 @@ export default function AdminPvpPage() {
 
   useEffect(() => {
     void load();
-    const poll = window.setInterval(load, 30000);
-    return () => window.clearInterval(poll);
+    return startPoll(() => void load(), 30_000);
   }, [load]);
 
   // A live match needs a tighter refresh than the list.
@@ -88,8 +88,7 @@ export default function AdminPvpPage() {
     // 15s, not 5s. A match detail is watched while a duel runs, and the
     // organiser is looking at a ten-minute clock — five seconds bought nothing
     // and cost twelve requests a minute per open tab.
-    const poll = window.setInterval(() => void loadDetail(detail.id), 15_000);
-    return () => window.clearInterval(poll);
+    return startPoll(() => void loadDetail(detail.id), 15_000);
   }, [detail, loadDetail]);
 
   const create = async () => {

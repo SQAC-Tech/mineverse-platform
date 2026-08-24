@@ -160,15 +160,32 @@ async function recountSession(
   roundId: number,
   currentStatus: string,
 ): Promise<ServiceResult<{ warning_count: number; key_violation_count: number; status: string }>> {
-  const [warnings, violations] = await Promise.all([
-    db.from('proctor_events').select('id', { count: 'exact', head: true })
-      .eq('session_id', sessionId).eq('severity', 'warning'),
-    db.from('proctor_events').select('id', { count: 'exact', head: true })
-      .eq('session_id', sessionId).eq('severity', 'key_violation'),
-  ]);
+  /**
+   * One read of the two severities, not one read each.
+   *
+   * These were two `count: 'exact', head: true` queries, and this function runs
+   * on every batch of proctor events a team's browser posts — which is what put
+   * 18,132 HEAD requests against `proctor_events` in a day next to 9,838 writes.
+   * Two counts per write, exactly.
+   *
+   * Fetching the severities and tallying them here is one request instead of
+   * two, and it is not the trade it looks like: the rows are filtered on the
+   * indexed `session_id`, a session holds tens of events rather than thousands,
+   * and the column is a short string. We were already paying to visit the same
+   * rows twice to have Postgres count them.
+   */
+  const { data: severities } = await db
+    .from('proctor_events')
+    .select('severity')
+    .eq('session_id', sessionId)
+    .in('severity', ['warning', 'key_violation']);
 
-  const warning_count = warnings.count ?? 0;
-  const key_violation_count = violations.count ?? 0;
+  let warning_count = 0;
+  let key_violation_count = 0;
+  for (const row of (severities ?? []) as Array<{ severity: string }>) {
+    if (row.severity === 'warning') warning_count += 1;
+    else if (row.severity === 'key_violation') key_violation_count += 1;
+  }
   const rules = proctorRules(roundId);
 
   const flagged = isFlagged({ warning_count, key_violation_count }, rules);

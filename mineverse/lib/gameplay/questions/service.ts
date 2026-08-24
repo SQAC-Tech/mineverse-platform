@@ -3,7 +3,7 @@ import { supabaseServer } from '@/lib/supabase/server';
 import { verifyDev4RoundAccess } from './access';
 import { allowedQuestionIds, pickVariants } from './variants';
 import { gradeSubmissionsNow, sweepRoundGrading } from '@/lib/gameplay/grading/instant';
-import { getCachedRoundQuestions } from '@/lib/cache/reads';
+import { getCachedRoundQuestions, getCachedTeamCode } from '@/lib/cache/reads';
 
 const db = supabaseServer as any;
 
@@ -45,12 +45,15 @@ export async function getSafeQuestionsForRound(teamId: string, roundId: number) 
   // The team's own code, so the client can namespace its local answer drafts —
   // shared lab machines otherwise hand the next team the previous team's typing
   // — and so the paper can be picked for this team specifically.
-  const { data: team } = await db.from('teams').select('team_code').eq('id', teamId).maybeSingle();
+  //
+  // Cached, because this ran on every poll of every round screen and the value
+  // it fetches was fixed at registration. See `getCachedTeamCode`.
+  const teamCode = await getCachedTeamCode(teamId);
 
   // One variant per slot. The alternates are dropped here rather than filtered
   // in the UI: a question that never leaves the server cannot be read out of a
   // network tab by the team sitting next to the one it was written for.
-  const questions = pickVariants<QuestionRow>((allQuestions ?? []) as QuestionRow[], team?.team_code, roundId);
+  const questions = pickVariants<QuestionRow>((allQuestions ?? []) as QuestionRow[], teamCode ?? undefined, roundId);
 
   const questionIds = questions.map((question: QuestionRow) => question.id);
   const submissionsByQuestion = new Map<string, SubmissionRow>();
@@ -71,7 +74,7 @@ export async function getSafeQuestionsForRound(teamId: string, roundId: number) 
     data: {
       round_id: roundId,
       round_name: access.round.name,
-      team_code: team?.team_code ?? null,
+      team_code: teamCode,
       ends_at: access.round.ends_at,
       status: access.round.status,
       guardian_unlocked: access.round.guardian_unlocked,
@@ -92,12 +95,12 @@ export async function getSafeQuestionsForRound(teamId: string, roundId: number) 
 async function allowedIdsForRound(teamId: string, roundId: number): Promise<Set<string>> {
   // The same cached bank the paper is built from. This runs on every save, so
   // it was the second copy of the round's question query per team per round.
-  const [rows, { data: team }] = await Promise.all([
+  const [rows, teamCode] = await Promise.all([
     getCachedRoundQuestions(roundId),
-    db.from('teams').select('team_code').eq('id', teamId).maybeSingle(),
+    getCachedTeamCode(teamId),
   ]);
 
-  return allowedQuestionIds(rows ?? [], team?.team_code, roundId);
+  return allowedQuestionIds(rows ?? [], teamCode ?? undefined, roundId);
 }
 
 export async function upsertTeamSubmission(teamId: string, payload: z.infer<typeof submissionPayloadSchema>) {

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { toast } from 'sonner';
 import { Users, CheckCircle2, Clock, Coins, Zap, Swords, AlertTriangle, DoorOpen, DoorClosed, KeyRound, Lock } from 'lucide-react';
 import { Panel, StatTile, Pill, statusTone, Grid, Loading, PageTitle, apiCall, Empty, Btn } from '@/components/admin/nether-ui';
+import { startPoll } from '@/lib/client/poll';
 
 type TeamRow = { id: string; team_size: number; is_payment_verified: boolean; status: string };
 type RoundRow = { id: number; name: string; day: number; sequence: number; status: string; ends_at: string | null };
@@ -56,8 +57,7 @@ export default function AdminOverviewPage() {
   useEffect(() => {
     void load();
     // Event day moves fast; keep the console close to live without hammering.
-    const poll = window.setInterval(load, 30000);
-    return () => window.clearInterval(poll);
+    return startPoll(() => void load(), 30_000);
   }, [load]);
 
   const setRegistrationOpen = async (open: boolean) => {

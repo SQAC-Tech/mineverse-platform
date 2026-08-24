@@ -15,6 +15,7 @@ import '@/app/theme-kit.css';
 import '@/app/(game)/biome.css';
 import '@/components/game/custom-round-ui/round-ui.css';
 import './portal-repair.css';
+import { startPoll } from '@/lib/client/poll';
 
 interface Day2Status {
   portal: {
@@ -121,9 +122,16 @@ export function PortalRepairUI() {
 
   useEffect(() => {
     void fetchStatus();
-    // Organizer grants land out of band, so the materials have to keep up.
-    const interval = window.setInterval(fetchStatus, 5000);
-    return () => window.clearInterval(interval);
+    /**
+     * Organizer grants land out of band, so the materials have to keep up —
+     * but five seconds was paying for that four times over. The endpoint now
+     * answers from one query instead of five, and `startPoll` refetches the
+     * moment the tab comes back, so a team switching to the trade sheet and
+     * back sees fresh materials immediately rather than up to fifteen seconds
+     * late. The interval is the floor on how stale it can get while they are
+     * actually staring at it.
+     */
+    return startPoll(() => void fetchStatus(), 15_000);
   }, [fetchStatus]);
 
   useEffect(
