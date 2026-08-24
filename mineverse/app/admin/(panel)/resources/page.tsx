@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 import { RefreshCw, Coins, Save } from 'lucide-react';
 import { Panel, Btn, Table, Empty, Loading, PageTitle, apiCall, Field, Grid, uuid } from '@/components/admin/nether-ui';
@@ -30,9 +30,7 @@ type ResourceView = {
 
 export default function AdminResourcesPage() {
   const [teams, setTeams] = useState<TeamRow[]>([]);
-  const [teamId, setTeamId] = useState('');
-  const [view, setView] = useState<ResourceView | null>(null);
-  const [loading, setLoading] = useState(false);
+
   const [busy, setBusy] = useState(false);
 
   const [delta, setDelta] = useState<Delta>({});
@@ -45,6 +43,15 @@ export default function AdminResourcesPage() {
    * organiser is already on when they need it.
    */
   const [mode, setMode] = useState<'single' | 'bulk'>('single');
+  /**
+   * The code as typed, which is what an organiser reads off a badge.
+   *
+   * A ninety-entry dropdown is the wrong control at a desk with a queue: it
+   * needs a scroll and a careful click, and MNV-431 and MNV-441 sit next to
+   * each other in it. `teamId` is derived from this rather than stored, so the
+   * field and the selection cannot disagree.
+   */
+  const [codeInput, setCodeInput] = useState('');
 
   useEffect(() => {
     void (async () => {
@@ -53,16 +60,69 @@ export default function AdminResourcesPage() {
     })();
   }, []);
 
-  const loadTeam = useCallback(async (id: string) => {
-    if (!id) { setView(null); return; }
-    setLoading(true);
-    const res = await apiCall<ResourceView>(`/api/admin/resources/${id}`);
-    setLoading(false);
-    if (res.ok) setView(res.data);
-    else toast.error(res.message);
-  }, []);
+  /**
+   * Bumped to re-read the same team's balance after a grant.
+   *
+   * The fetch itself lives in the effect below rather than in a callback the
+   * effect calls: React 19 rejects reaching setState from an effect body even
+   * through an awaited helper, and the cancellation flag it lets us keep is
+   * what stops a slow reply for one team landing after the code was retyped
+   * for another.
+   */
+  const [reloads, setReloads] = useState(0);
+  const loadTeam = useCallback(() => setReloads((n) => n + 1), []);
 
-  useEffect(() => { void loadTeam(teamId); }, [teamId, loadTeam]);
+  /**
+   * The team the typed code refers to.
+   *
+   * Forgiving about shape on purpose: a code is read aloud, copied off a badge,
+   * or scanned, so "431", "mnv431" and " MNV-431 " all have to land on the same
+   * team. Digits are compared on their own so a missing prefix or dash cannot
+   * make a valid code look wrong.
+   */
+  const matchedTeam = useMemo(() => {
+    const typed = codeInput.trim().toUpperCase();
+    if (!typed) return null;
+
+    const exact = teams.find((t) => t.team_code.toUpperCase() === typed);
+    if (exact) return exact;
+
+    const digits = typed.replace(/\D/g, '');
+    if (!digits) return null;
+    // Anchored on the whole numeric part, never a prefix: matching loosely here
+    // would resolve "43" to MNV-431 and grant resources to the wrong team.
+    const byDigits = teams.filter((t) => t.team_code.replace(/\D/g, '') === digits);
+    return byDigits.length === 1 ? byDigits[0] : null;
+  }, [codeInput, teams]);
+
+  const teamId = matchedTeam?.id ?? '';
+
+  // Declared after `teamId` because it depends on it.
+  /**
+   * The balance, tagged with the team it describes.
+   *
+   * Derived rather than cleared-then-set, so nothing in the effect body touches
+   * state: anything held for another team simply reads as "still loading" for
+   * this one, which is also what stops a stale reply being shown against a code
+   * that has since been retyped.
+   */
+  const [loaded, setLoaded] = useState<{ teamId: string; view: ResourceView } | null>(null);
+  const view = loaded && loaded.teamId === teamId ? loaded.view : null;
+  const loading = Boolean(teamId) && !view;
+
+  useEffect(() => {
+    if (!teamId) return;
+    let cancelled = false;
+
+    void (async () => {
+      const res = await apiCall<ResourceView>(`/api/admin/resources/${teamId}`);
+      if (cancelled) return;
+      if (res.ok) setLoaded({ teamId, view: res.data });
+      else toast.error(res.message);
+    })();
+
+    return () => { cancelled = true; };
+  }, [teamId, reloads]);
 
   const entries = Object.entries(delta).filter(([, v]) => Number(v) !== 0);
 
@@ -91,7 +151,7 @@ export default function AdminResourcesPage() {
       setReason('');
       setPortalFragment(false);
       setNetherCore(false);
-      void loadTeam(teamId);
+      loadTeam();
     } else {
       toast.error(res.message);
     }
@@ -102,7 +162,7 @@ export default function AdminResourcesPage() {
       <PageTitle
         title="Grant resources"
         subtitle="The one place resources are handed out by hand — offline game wins, corrections, anything organizers decide off the platform. It moves resources only; it cannot change qualification."
-        actions={teamId ? <Btn onClick={() => loadTeam(teamId)}><RefreshCw size={12} /> Refresh</Btn> : undefined}
+        actions={teamId ? <Btn onClick={loadTeam}><RefreshCw size={12} /> Refresh</Btn> : undefined}
       />
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
@@ -114,15 +174,55 @@ export default function AdminResourcesPage() {
 
       {mode === 'single' && (
       <Panel title="Team">
-        <div style={{ maxWidth: 360 }}>
-          <Field label="Select a team">
-            <select className="n-select" value={teamId} onChange={(e) => setTeamId(e.target.value)}>
-              <option value="">Select…</option>
-              {teams.map((t) => (
-                <option key={t.id} value={t.id}>{t.team_code} — {t.team_name}</option>
-              ))}
-            </select>
+        <div style={{ maxWidth: 420 }}>
+          <Field
+            label="Team code"
+            hint={
+              codeInput.trim() === ''
+                ? 'Type the code from the team’s QR or badge — 431, mnv-431 and MNV431 all work.'
+                : matchedTeam
+                  ? undefined
+                  : 'No verified team with that code.'
+            }
+          >
+            <input
+              className="n-input"
+              value={codeInput}
+              placeholder="MNV-431"
+              autoComplete="off"
+              spellCheck={false}
+              onChange={(e) => setCodeInput(e.target.value)}
+            />
           </Field>
+
+          {matchedTeam && (
+            <p className="n-panel-sub" style={{ marginTop: 6 }}>
+              <span className="n-mono">{matchedTeam.team_code}</span> — {matchedTeam.team_name}
+            </p>
+          )}
+
+          {/* The list stays as the way out of a code that will not resolve — a
+              misprinted badge at the desk should not stop the grant. */}
+          <details style={{ marginTop: 10 }}>
+            <summary className="n-panel-sub" style={{ cursor: 'pointer' }}>or pick from the list</summary>
+            <div style={{ marginTop: 8 }}>
+              <select
+                className="n-select"
+                value={teamId}
+                onChange={(e) => {
+                  const picked = teams.find((t) => t.id === e.target.value);
+                  // Writes the code back so the two controls always agree about
+                  // which team is selected.
+                  setCodeInput(picked?.team_code ?? '');
+                }}
+              >
+                <option value="">Select…</option>
+                {teams.map((t) => (
+                  <option key={t.id} value={t.id}>{t.team_code} — {t.team_name}</option>
+                ))}
+              </select>
+            </div>
+          </details>
         </div>
       </Panel>
       )}
