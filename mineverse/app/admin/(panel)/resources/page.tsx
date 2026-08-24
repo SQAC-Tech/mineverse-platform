@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import { RefreshCw, Coins, Save } from 'lucide-react';
 import { Panel, Btn, Table, Empty, Loading, PageTitle, apiCall, Field, Grid, uuid } from '@/components/admin/nether-ui';
+import { BulkResourceGrant } from '@/components/admin/BulkResourceGrant';
 
 const RESOURCES = ['wood', 'stone', 'iron', 'gold', 'diamond', 'emerald', 'obsidian'] as const;
 type ResourceKey = (typeof RESOURCES)[number];
@@ -38,6 +39,12 @@ export default function AdminResourcesPage() {
   const [reason, setReason] = useState('');
   const [portalFragment, setPortalFragment] = useState(false);
   const [netherCore, setNetherCore] = useState(false);
+  /**
+   * The offline rounds credit the whole hall at once, so bulk is a first-class
+   * mode rather than a link somewhere else -- it is reached from the screen an
+   * organiser is already on when they need it.
+   */
+  const [mode, setMode] = useState<'single' | 'bulk'>('single');
 
   useEffect(() => {
     void (async () => {
@@ -98,6 +105,14 @@ export default function AdminResourcesPage() {
         actions={teamId ? <Btn onClick={() => loadTeam(teamId)}><RefreshCw size={12} /> Refresh</Btn> : undefined}
       />
 
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+        <Btn variant={mode === 'single' ? 'primary' : 'ghost'} onClick={() => setMode('single')}>One team</Btn>
+        <Btn variant={mode === 'bulk' ? 'primary' : 'ghost'} onClick={() => setMode('bulk')}>Many teams</Btn>
+      </div>
+
+      {mode === 'bulk' && <BulkResourceGrant teams={teams} />}
+
+      {mode === 'single' && (
       <Panel title="Team">
         <div style={{ maxWidth: 360 }}>
           <Field label="Select a team">
@@ -110,10 +125,11 @@ export default function AdminResourcesPage() {
           </Field>
         </div>
       </Panel>
+      )}
 
-      {loading && <div style={{ marginTop: 12 }}><Panel><Loading label="Loading balance" /></Panel></div>}
+      {mode === 'single' && loading && <div style={{ marginTop: 12 }}><Panel><Loading label="Loading balance" /></Panel></div>}
 
-      {view && !loading && (
+      {mode === 'single' && view && !loading && (
         <>
           <div style={{ marginTop: 12 }}>
             <Panel title="Balance" subtitle={`Ledger version ${view.version}`}>

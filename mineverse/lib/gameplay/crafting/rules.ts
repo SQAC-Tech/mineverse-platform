@@ -137,3 +137,21 @@ export function craftAvailability(item: CraftItem, context: CraftContext): Craft
     canCraft: !crafted && blockedBy.length === 0 && shortfall.length === 0,
   };
 }
+
+/**
+ * The item a team must already hold to enter a round.
+ *
+ * The reverse of `unlock_round_id`, which every recipe already declares — so
+ * the progression is stated once, in the recipe, rather than duplicated as a
+ * second table that can drift from it.
+ *
+ * Only Rounds 2 and 3 are gated this way today: Iron Armor and the Diamond
+ * Pickaxe unlock capabilities rather than biomes, so they open no round and
+ * appear here as null.
+ */
+export function requiredCraftForRound(roundId: number): CraftItem | null {
+  for (const item of CRAFT_ORDER) {
+    if (CRAFT_RECIPES[item].unlock_round_id === roundId) return item;
+  }
+  return null;
+}

@@ -2,6 +2,7 @@ import { supabaseServer } from '@/lib/supabase/server';
 import { DEV_UNLOCK_ALL_ROUNDS, noteDevUnlockBypass } from '@/lib/gameplay/dev-mode';
 import { isDemoTeamId, noteDemoBypass } from '@/lib/gameplay/demo-teams';
 import { attendanceGate } from '@/lib/attendance/gates';
+import { craftGate } from '@/lib/gameplay/crafting/gate';
 
 export type Dev4RoundAccess =
   | { ok: true; round: { id: number; name: string; status: string; starts_at: string | null; ends_at: string | null; time_allotted: number; guardian_unlocked: boolean } }
@@ -32,6 +33,21 @@ export async function verifyDev4RoundAccess(teamId: string, roundId: number): Pr
   // walked without flipping `rounds.status`, which is global. The progression
   // gates below are not waived: a demo team still has to qualify for Day 2 and
   // repair the portal, because those are the thing worth testing.
+  /**
+   * The biome is opened by the tool that reaches it, demo teams included.
+   *
+   * Checked before the demo bypass for the same reason Round 5 checks portal
+   * repair after it: that bypass waives SCHEDULING, and progression gates are
+   * the thing worth testing. This is the second door into the same rounds --
+   * the question routes come through here and never touch
+   * `verifyTeamRoundAccess` -- and a gate enforced on one of two doors is not
+   * a gate.
+   */
+  const craft = await craftGate(teamId, roundId);
+  if (!craft.ok) {
+    return { ok: false, status: 403, code: 'CRAFT_REQUIRED', message: craft.message };
+  }
+
   const isDemo = await isDemoTeamId(teamId);
   if (isDemo) noteDemoBypass(`team ${teamId} round ${roundId}`);
 

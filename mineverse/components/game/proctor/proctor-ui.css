@@ -334,3 +334,44 @@
 .pbadge svg { color: var(--rd-accent, #7ad64e); }
 .pbadge--hot { border-color: var(--rd-bad, #e05b4b); }
 .pbadge--hot svg { color: var(--rd-bad, #e05b4b); }
+
+/* ------------------------------------------------------------------ lockdown
+
+   Added to <body> for the life of a proctored session (see useProctor).
+
+   The `selectstart` and `dragstart` listeners cover mouse and keyboard, but a
+   long-press selection on a touch device never fires `selectstart`, and an
+   image dragged with the native handle can beat a JS listener. CSS closes both
+   natively, so the two layers together leave no ordinary route to lifting the
+   question text off the screen.
+*/
+body.proctor-locked {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  user-select: none;
+  /* Suppresses the iOS/Android long-press callout that offers Copy / Look Up. */
+  -webkit-touch-callout: none;
+}
+
+/* Anything a team types into stays fully selectable — they have to be able to
+   select what they wrote in order to fix it. Monaco manages its own
+   contenteditable, so it is named explicitly rather than inferred. */
+body.proctor-locked input,
+body.proctor-locked textarea,
+body.proctor-locked [contenteditable='true'],
+body.proctor-locked .monaco-editor,
+body.proctor-locked .monaco-editor * {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
+/* Images drag out as files and SVGs as markup. `pointer-events` is deliberately
+   untouched: several of these are buttons. */
+body.proctor-locked img,
+body.proctor-locked svg,
+body.proctor-locked canvas {
+  -webkit-user-drag: none;
+  user-drag: none;
+}

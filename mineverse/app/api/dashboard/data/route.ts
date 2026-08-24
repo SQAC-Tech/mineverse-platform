@@ -4,7 +4,7 @@ import { ensureDeviceId, getSession } from '@/lib/auth/session';
 import { touchLoginLease } from '@/lib/auth/login-lease';
 import { isDemoTeamCode } from '@/lib/gameplay/demo-teams';
 import { DEV_UNLOCK_ALL_ROUNDS } from '@/lib/gameplay/dev-mode';
-import { CRAFT_RECIPES, type CraftItem } from '@/lib/gameplay/crafting/rules';
+import { CRAFT_RECIPES, requiredCraftForRound, type CraftItem } from '@/lib/gameplay/crafting/rules';
 import { ROUND_CONFIGS } from '@/lib/gameplay/round-config';
 import type { ChoiceKey } from '@/lib/gameplay/choices/service';
 import { dashboardEntitlement } from '@/lib/attendance/gates';
@@ -141,9 +141,25 @@ export async function GET() {
    */
   const isDemo = isDemoTeamCode(session.team_code);
 
+  /**
+   * What the team has crafted, read before the round list needs it.
+   *
+   * A biome is opened by the tool that reaches it, and the server enforces that
+   * at the door. If this list did not know, the map would offer an ACCESS
+   * button that the round route immediately refuses — the same mismatch that
+   * once greyed out every round for demo teams, in the other direction.
+   */
+  const craftedItems = new Set(
+    ((craftedResult.data ?? []) as Array<{ item: string }>).map((row) => row.item),
+  );
+
   const rounds = (access ?? []).map((row: any) => {
     const round = row.rounds ?? {};
-    const unlockedForTeam = isDemo || (!row.is_locked && round.status === 'active');
+    const requiredCraft = requiredCraftForRound(row.round_id);
+    const craftMissing = Boolean(requiredCraft) && !craftedItems.has(requiredCraft as string);
+    // Progression is not scheduling: the demo bypass waives round status and the
+    // per-team lock, never this.
+    const unlockedForTeam = !craftMissing && (isDemo || (!row.is_locked && round.status === 'active'));
 
     return {
       round_id: row.round_id,
@@ -159,6 +175,9 @@ export async function GET() {
       score: row.score,
       can_enter: DEV_UNLOCK_ALL_ROUNDS || unlockedForTeam,
       unlocked_by_dev_mode: DEV_UNLOCK_ALL_ROUNDS && !unlockedForTeam,
+      // Names the missing tool so the map can say what to do rather than only
+      // that the biome is shut.
+      needs_craft: craftMissing && requiredCraft ? CRAFT_RECIPES[requiredCraft].label : null,
     };
   });
 

@@ -110,6 +110,9 @@ export function WorldMap({ rounds, onClose, onEnter }: WorldMapProps) {
                   {!enterable && ' LOCKED'}
                 </span>
               </span>
+              {/* Names the tool rather than only refusing: a locked biome with no
+                  reason reads as a platform fault, and the fix is one craft away. */}
+              {round?.needs_craft && <span className="wm__pin-dev">CRAFT {String(round.needs_craft).toUpperCase()}</span>}
               {round?.unlocked_by_dev_mode && <span className="wm__pin-dev">DEV UNLOCKED</span>}
             </button>
           );

@@ -17,7 +17,7 @@ import {
   reenterFullscreen,
   unlockKeys,
 } from '@/lib/proctor/fullscreen';
-import { classifyShortcut } from '@/lib/proctor/shortcuts';
+import { classifyShortcut, isEditableTarget } from '@/lib/proctor/shortcuts';
 import { ProctorQueue, type QueuedEvent } from '@/lib/proctor/queue';
 
 const DEVICE_KEY = 'mineverse:proctor:device';
@@ -78,6 +78,7 @@ const MESSAGES: Partial<Record<ProctorEventKind, string>> = {
   paste: 'Pasting is disabled during a round.',
   context_menu: 'Right-click is disabled during a round.',
   blocked_key: 'That shortcut is blocked during a round.',
+  text_selection: 'Selecting the question text is disabled during a round.',
   reload_attempt: 'Reloading was recorded. Your saved answers are kept.',
 };
 
@@ -255,12 +256,12 @@ export function useProctor(roundId: number, options: { enabled?: boolean } = {})
     const onClipboard = (event: Event) => {
       const kind = event.type === 'copy' ? 'copy' : 'paste';
       if (rules.blockClipboard) event.preventDefault();
-      record(kind, {}, 'key_violation');
+      record(kind);
     };
 
     const onContextMenu = (event: Event) => {
       if (rules.blockClipboard) event.preventDefault();
-      record('context_menu', {}, 'key_violation');
+      record('context_menu');
     };
 
     const onKeyDown = (event: KeyboardEvent) => {
@@ -277,8 +278,45 @@ export function useProctor(roundId: number, options: { enabled?: boolean } = {})
 
     const onKeyUp = (event: KeyboardEvent) => {
       if (event.key.toLowerCase() === 'printscreen') {
-        record('blocked_key', { key: 'printscreen', reason: 'screenshot' }, 'key_violation');
+        record('blocked_key', { key: 'printscreen', reason: 'screenshot' });
       }
+    };
+
+    /**
+     * Selecting the question text.
+     *
+     * Highlighting is the first move in getting a prompt off the screen and
+     * into something else — a phone camera has to be aimed, but a selection can
+     * be dragged into any other window. Editable targets are exempt: a team has
+     * to be able to select what they typed in order to fix it.
+     *
+     * Throttled through `selectionNoted` because `selectstart` fires on every
+     * drag movement, and one attempt should be one line in the log.
+     */
+    let selectionNoted = 0;
+    const onSelectStart = (event: Event) => {
+      if (isEditableTarget(event.target)) return;
+      event.preventDefault();
+      const now = Date.now();
+      if (now - selectionNoted < 5_000) return;
+      selectionNoted = now;
+      record('text_selection');
+    };
+
+    /**
+     * Dragging anything out of the page.
+     *
+     * Images drag to the desktop or into another tab as files, and selected
+     * text drags as text, so this closes the same hole from the other side.
+     * Nothing in a round is meant to be draggable.
+     */
+    let dragNoted = 0;
+    const onDragStart = (event: DragEvent) => {
+      event.preventDefault();
+      const now = Date.now();
+      if (now - dragNoted < 5_000) return;
+      dragNoted = now;
+      record('drag_attempt', { tag: (event.target as HTMLElement | null)?.tagName ?? 'unknown' });
     };
 
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -299,6 +337,12 @@ export function useProctor(roundId: number, options: { enabled?: boolean } = {})
     document.addEventListener('copy', onClipboard);
     document.addEventListener('paste', onClipboard);
     document.addEventListener('contextmenu', onContextMenu);
+    document.addEventListener('selectstart', onSelectStart);
+    document.addEventListener('dragstart', onDragStart);
+    // Marks the document so the stylesheet can turn selection and image
+    // dragging off natively. CSS catches what a listener cannot: a long-press
+    // selection on a touch device never fires `selectstart`.
+    document.body.classList.add('proctor-locked');
     // Capture phase, so a blocked shortcut never reaches the round UI's own
     // keyboard handlers (the hotbar listener in CustomRoundShell, for one).
     document.addEventListener('keydown', onKeyDown, true);
@@ -312,6 +356,9 @@ export function useProctor(roundId: number, options: { enabled?: boolean } = {})
       document.removeEventListener('copy', onClipboard);
       document.removeEventListener('paste', onClipboard);
       document.removeEventListener('contextmenu', onContextMenu);
+      document.removeEventListener('selectstart', onSelectStart);
+      document.removeEventListener('dragstart', onDragStart);
+      document.body.classList.remove('proctor-locked');
       document.removeEventListener('keydown', onKeyDown, true);
       document.removeEventListener('keyup', onKeyUp, true);
       window.removeEventListener('beforeunload', onBeforeUnload);

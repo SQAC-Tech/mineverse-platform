@@ -17,6 +17,8 @@ export type ProctorEventKind =
   | 'paste'
   | 'context_menu'
   | 'blocked_key'
+  | 'text_selection'
+  | 'drag_attempt'
   | 'reload_attempt'
   | 'heartbeat'
   | 'session_end';
@@ -35,10 +37,23 @@ export const EVENT_SEVERITY: Record<ProctorEventKind, ProctorSeverity> = {
   window_blur: 'info',
   fullscreen_exit: 'warning',
   fullscreen_restored: 'info',
-  copy: 'key_violation',
-  paste: 'key_violation',
-  context_menu: 'key_violation',
-  blocked_key: 'key_violation',
+  // Recorded, never charged.
+  //
+  // These are all things the proctor successfully PREVENTED: the keystroke was
+  // swallowed, the clipboard write never happened, the menu never opened. A
+  // blocked action did not help the team, so spending their budget on it
+  // punishes muscle memory -- Ctrl+S in a code editor is a reflex. The console
+  // still sees every one of them, which is what an organiser judging a
+  // suspicious team actually needs.
+  //
+  // What still escalates is leaving the screen, below: tab switches and
+  // fullscreen exits are the one thing this layer cannot prevent.
+  copy: 'info',
+  paste: 'info',
+  context_menu: 'info',
+  blocked_key: 'info',
+  text_selection: 'info',
+  drag_attempt: 'info',
   reload_attempt: 'warning',
   heartbeat: 'info',
   session_end: 'info',

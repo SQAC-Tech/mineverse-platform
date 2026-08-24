@@ -76,7 +76,7 @@ export function RoundCraftPrompt({
             <h2 className="rcp__title">Craft the {craft.label}</h2>
             <p className="rcp__body">
               {craft.unlockRoundId
-                ? `You need it to enter the next biome. It costs ${craft.costText}.`
+                ? `You cannot enter the next biome without it. It costs ${craft.costText}.`
                 : `It costs ${craft.costText}.`}
             </p>
 
@@ -92,8 +92,8 @@ export function RoundCraftPrompt({
 
             {!canCraft && craftShortfall.length > 0 && (
               <p className="rcp__short">
-                Short by {craftShortfall.map((entry) => `${entry.short} ${entry.key}`).join(', ')}. You can craft it
-                later from the dashboard.
+                Short by {craftShortfall.map((entry) => `${entry.short} ${entry.key}`).join(', ')}. Earn the rest and
+                craft it from the dashboard bench -- the next biome stays shut until you do.
               </p>
             )}
           </>
@@ -101,7 +101,7 @@ export function RoundCraftPrompt({
 
         <div className="round-ui__confirm-actions">
           <button type="button" className="round-ui__btn round-ui__btn--go" onClick={onContinue}>
-            {crafted ? 'Back to dashboard' : 'Skip for now'} <ArrowRight size={14} aria-hidden="true" />
+            {crafted ? 'Back to dashboard' : 'Craft later on the dashboard'} <ArrowRight size={14} aria-hidden="true" />
           </button>
         </div>
       </div>

@@ -2,6 +2,7 @@ import { supabaseServer } from '@/lib/supabase/server';
 import { DEV_UNLOCK_ALL_ROUNDS, noteDevUnlockBypass } from '@/lib/gameplay/dev-mode';
 import { isDemoTeamId, noteDemoBypass } from '@/lib/gameplay/demo-teams';
 import { attendanceGate } from '@/lib/attendance/gates';
+import { craftGate } from '@/lib/gameplay/crafting/gate';
 
 export async function verifyTeamRoundAccess(teamId: string, roundId: number): Promise<{ hasAccess: boolean; error?: string }> {
   // 1. Check if the round is active
@@ -19,6 +20,20 @@ export async function verifyTeamRoundAccess(teamId: string, roundId: number): Pr
   if (DEV_UNLOCK_ALL_ROUNDS) {
     noteDevUnlockBypass(`team ${teamId} round ${roundId}`);
     return { hasAccess: true };
+  }
+
+  /**
+   * The biome is opened by the tool that reaches it.
+   *
+   * Above the demo bypass on purpose. That bypass waives the SCHEDULING gates --
+   * round status and the per-team lock -- so a round can be walked without
+   * flipping `rounds.status` for the whole hall. Progression is not scheduling:
+   * a demo team skipping the craft would be testing a route no real team can
+   * take, and the craft loop is exactly the thing worth rehearsing.
+   */
+  const craft = await craftGate(teamId, roundId);
+  if (!craft.ok) {
+    return { hasAccess: false, error: 'CRAFT_REQUIRED' };
   }
 
   // Scoped to named team codes, so testing a round does not require flipping
