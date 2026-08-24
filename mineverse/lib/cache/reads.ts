@@ -31,6 +31,15 @@ const SHORTLIST_SIZE_KEY = 'mv:screening:shortlist_size';
  */
 const ROUNDS_TTL = 10;
 
+/**
+ * A round's paper is fixed once the round is seeded.
+ *
+ * Sixty seconds rather than the rounds' ten: nothing edits questions during an
+ * event — they arrive from the seed scripts — so this is about surviving an
+ * edit made between rounds, not one made mid-round.
+ */
+const QUESTIONS_TTL = 60;
+
 /** The desks are configured before the event and not touched again. */
 const CHECKPOINTS_TTL = 120;
 
@@ -114,6 +123,49 @@ export async function getCachedShortlistSize(): Promise<number> {
     if (error) throw error;
     return count ?? 0;
   });
+}
+
+/**
+ * Exactly the columns `serializeSafeQuestion` already sends to the browser.
+ *
+ * That is the whole safety argument, and it is why this list is written out
+ * rather than `*`: `expected_answer` and `hidden_test_cases` are not here, so
+ * nothing that decides a score can reach Upstash. If a column is safe to put in
+ * a network tab it is safe to put in the cache; anything else stays in Postgres.
+ */
+const SAFE_QUESTION_COLUMNS =
+  'id, round_id, type, prompt, content, order_index, variant_group, language_options, sample_test_cases, runtime_meta, time_limit_seconds, reward';
+
+/**
+ * A round's question bank, as the database returns it — before variants are picked.
+ *
+ * Worth caching even though every team sits a different paper, because the
+ * *query* is the same for all of them. `getSafeQuestionsForRound` fetches the
+ * whole bank and then calls `pickVariants(rows, team_code, roundId)`, a pure
+ * function that chooses one variant per slot in memory. Ninety-six different
+ * papers come out of one fetched array.
+ *
+ * `allowedIdsForRound` runs the same query again on every submission save, and
+ * is served from here too.
+ */
+export async function getCachedRoundQuestions(roundId: number): Promise<any[]> {
+  return cached(`mv:questions:round:${roundId}`, QUESTIONS_TTL, async () => {
+    const { data, error } = await supabaseServer
+      .from('questions')
+      .select(SAFE_QUESTION_COLUMNS)
+      .eq('round_id', roundId)
+      .is('guardian_name', null)
+      .neq('type', 'pvp')
+      .order('order_index', { ascending: true });
+
+    if (error) throw error;
+    return (data ?? []) as any[];
+  });
+}
+
+/** Called when a round's questions are edited or re-seeded. */
+export async function invalidateRoundQuestions(roundId: number): Promise<void> {
+  await invalidate(`mv:questions:round:${roundId}`);
 }
 
 /** Called when an organiser starts, closes or re-times a round. */

@@ -3,6 +3,7 @@ import { supabaseServer } from '@/lib/supabase/server';
 import { verifyDev4RoundAccess } from './access';
 import { allowedQuestionIds, pickVariants } from './variants';
 import { gradeSubmissionsNow, sweepRoundGrading } from '@/lib/gameplay/grading/instant';
+import { getCachedRoundQuestions } from '@/lib/cache/reads';
 
 const db = supabaseServer as any;
 
@@ -35,15 +36,11 @@ export async function getSafeQuestionsForRound(teamId: string, roundId: number) 
   // PvP pack is sealed the same way — it is revealed by `POST /api/admin/pvp/
   // matches/[id]/start`, so listing it here would hand every team the duel
   // questions before the duel.
-  const { data: allQuestions, error: questionsError } = await db
-    .from('questions')
-    .select('id, round_id, type, prompt, content, order_index, variant_group, language_options, sample_test_cases, runtime_meta, time_limit_seconds, reward')
-    .eq('round_id', roundId)
-    .is('guardian_name', null)
-    .neq('type', 'pvp')
-    .order('order_index', { ascending: true });
-
-  if (questionsError) throw questionsError;
+  //
+  // Cached per round. Every team sits a different paper, but this query is
+  // identical for all of them — the difference is made by `pickVariants` below,
+  // in memory. See `getCachedRoundQuestions`.
+  const allQuestions = await getCachedRoundQuestions(roundId);
 
   // The team's own code, so the client can namespace its local answer drafts —
   // shared lab machines otherwise hand the next team the previous team's typing
@@ -93,17 +90,13 @@ export async function getSafeQuestionsForRound(teamId: string, roundId: number) 
  * write paths run through this.
  */
 async function allowedIdsForRound(teamId: string, roundId: number): Promise<Set<string>> {
-  const [{ data: rows, error }, { data: team }] = await Promise.all([
-    db
-      .from('questions')
-      .select('id, order_index, variant_group')
-      .eq('round_id', roundId)
-      .is('guardian_name', null)
-      .neq('type', 'pvp'),
+  // The same cached bank the paper is built from. This runs on every save, so
+  // it was the second copy of the round's question query per team per round.
+  const [rows, { data: team }] = await Promise.all([
+    getCachedRoundQuestions(roundId),
     db.from('teams').select('team_code').eq('id', teamId).maybeSingle(),
   ]);
 
-  if (error) throw error;
   return allowedQuestionIds(rows ?? [], team?.team_code, roundId);
 }
 
