@@ -66,10 +66,39 @@ const OUT = outFlag !== -1 && process.argv[outFlag + 1]
   ? resolve(process.argv[outFlag + 1])
   : resolve(process.cwd(), '..', '..', `mineverse-db-backup-${stamp}`);
 
-async function get(path) {
-  const res = await fetch(`${BASE}/rest/v1/${path}`, { headers });
-  if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
-  return res.json();
+/** Cloudflare/PostgREST codes that mean "the database is having a moment", not "you asked wrong". */
+const RETRYABLE = new Set([429, 500, 502, 503, 504, 520, 521, 522, 523, 524]);
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * One page, retried through a wobbly upstream.
+ *
+ * The backup this script exists to take is most valuable precisely when the
+ * database is unwell, and Supabase spent this event flapping between 200 and
+ * 522 on consecutive requests. Without a retry a single blip writes an empty
+ * `teams.json` and records the failure in the manifest, which looks like a
+ * backup right up until someone needs it.
+ *
+ * A 4xx other than 429 is not retried: a bad column name will not fix itself,
+ * and hammering it only slows the tables that could still succeed.
+ */
+async function get(path, attempts = 5) {
+  let lastError;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      const res = await fetch(`${BASE}/rest/v1/${path}`, { headers, signal: AbortSignal.timeout(60_000) });
+      if (res.ok) return res.json();
+      const body = await res.text();
+      lastError = new Error(`${res.status} ${body.slice(0, 200)}`);
+      if (!RETRYABLE.has(res.status)) throw lastError;
+    } catch (error) {
+      if (error === lastError) throw error;
+      lastError = error;
+    }
+    if (attempt < attempts) await sleep(Math.min(2 ** attempt * 1000, 15_000));
+  }
+  throw lastError;
 }
 
 /**
