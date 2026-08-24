@@ -3114,3 +3114,112 @@
   font-size: 10px;
   letter-spacing: 0.5px;
 }
+
+
+/* ── Loading skeletons ───────────────────────────────────────── */
+
+/* Drawn while the first fetch is in flight, in place of the values it will
+   bring back.
+ *
+ * The round screen used to render itself fully the moment it mounted, with
+ * every data-driven slot empty: no team name, a 00:00:00 clock, a zeroed
+ * inventory, and — worst of the lot — the "No questions in this round" notice,
+ * which is a real state for Round 4 and a lie everywhere else. A team walking
+ * into Round 3 read it as an empty paper before the questions arrived.
+ *
+ * So these are not decoration. They are what stops the screen from asserting
+ * something false for the second before it knows anything.
+ *
+ * The sweep is deliberately slow and low-contrast. A round screen is a place
+ * people have to read carefully for ninety minutes, and a bright pulse in the
+ * corner of the eye is the wrong thing to put next to a question. */
+
+.round-ui__skel {
+  position: relative;
+  overflow: hidden;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+/* On the board — a light, papery surface — the tint has to go the other way or
+   the block disappears into it. */
+.round-ui__board .round-ui__skel,
+.round-ui__tile .round-ui__skel {
+  background: rgba(44, 30, 10, 0.11);
+}
+
+.round-ui__skel::after {
+  position: absolute;
+  animation: rd-skel-sweep 1.5s ease-in-out infinite;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.13) 50%,
+    transparent 100%
+  );
+  content: '';
+  inset: 0;
+  transform: translateX(-100%);
+}
+
+@keyframes rd-skel-sweep {
+  to { transform: translateX(100%); }
+}
+
+/* Height presets, so a caller states what it is standing in for rather than
+   carrying inline pixel values around. */
+.round-ui__skel--line { height: 9px; }
+.round-ui__skel--text { height: 13px; }
+.round-ui__skel--title { height: 17px; }
+.round-ui__skel--block { height: 100%; min-height: 60px; }
+
+.round-ui__skel--crest {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border: 2px solid rgba(255, 255, 255, 0.13);
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.round-ui__skel--digit {
+  display: inline-block;
+  width: 22px;
+  height: 20px;
+  vertical-align: middle;
+}
+
+/* A stack of lines standing in for a paragraph. The last one is short, because
+   a block of identical bars reads as a table rather than as prose. */
+.round-ui__skel-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.round-ui__skel-lines > .round-ui__skel:last-child { width: 62%; }
+
+.round-ui__skel-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 8px;
+  border-bottom: 1px solid var(--rd-board-line, rgba(0, 0, 0, 0.12));
+}
+
+.round-ui__skel-row > .round-ui__skel:first-child {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+
+.round-ui__skel-row > .round-ui__skel:last-child { flex: 1 1 auto; }
+
+/* Announced once, not per block — a dozen "loading" nodes in the tree is a
+   dozen announcements to a screen reader for one state. */
+.round-ui__skel-region { position: relative; }
+
+/* The sweep is the only moving part, so it is the only thing to switch off.
+   The blocks stay: they are the layout, not the animation. */
+@media (prefers-reduced-motion: reduce) {
+  .round-ui__skel::after { animation: none; }
+}

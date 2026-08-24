@@ -1,0 +1,400 @@
+/* ── The duel arena ──────────────────────────────────────────────
+ *
+ * Every colour, border and button here is declared in this file.
+ *
+ * That is the fix for the bug this screen shipped with: the arena used the
+ * `.n-btn` classes, which live in `theme-kit.css` and are pulled in by a
+ * round's `layout.tsx`. The duel round had no layout, so the stylesheet never
+ * loaded and every button rendered as bare text on the board — SUBMIT ANSWER
+ * and NEXT were just words with nothing behind them.
+ *
+ * The layout now exists, but depending on it would leave the same trap set for
+ * the next route that forgets one. A screen a team is timed on should not be
+ * able to lose its buttons because of an import somewhere else.
+ */
+
+.pvpa {
+  position: fixed;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  padding: 16px clamp(12px, 3vw, 40px) clamp(16px, 3vh, 32px);
+  background: #0c0f0a;
+  color: #f2f0e6;
+  font-family: ui-sans-serif, system-ui, 'Segoe UI', Roboto, sans-serif;
+  inset: 0;
+  overflow: hidden;
+}
+
+.pvpa__backdrop {
+  position: absolute;
+  background:
+    linear-gradient(180deg, rgba(8, 12, 8, 0.82), rgba(6, 10, 6, 0.94)),
+    url('/round3/round 3 bg image.webp') center / cover no-repeat;
+  inset: 0;
+}
+
+/* ── Top bar ─────────────────────────────────────────────────── */
+
+.pvpa__bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 10px 16px;
+  border: 2px solid #4a3f2a;
+  border-radius: 2px;
+  background: rgba(18, 20, 16, 0.82);
+  backdrop-filter: blur(6px);
+}
+
+.pvpa__brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  color: #f2c14e;
+}
+
+.pvpa__brand-name {
+  margin: 0;
+  color: #f2c14e;
+  font-family: var(--font-minecraft), ui-monospace, monospace;
+  font-size: 14px;
+  letter-spacing: 1px;
+}
+
+.pvpa__brand-tag {
+  margin: 3px 0 0;
+  color: #a9b1a6;
+  font-size: 11px;
+}
+
+/* Progress through the pack. Doubles as the record of what has reached the
+   server, which is the thing that decides the match if the opponent submits
+   first — so a saved question is ticked, not merely visited. */
+.pvpa__pips {
+  display: flex;
+  gap: 7px;
+}
+
+.pvpa__pip {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 2px solid #4a3f2a;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.4);
+  color: #8a8f86;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+
+.pvpa__pip--saved {
+  border-color: #2f6c22;
+  background: #2f6c22;
+  color: #f2f0e6;
+}
+
+.pvpa__pip--active {
+  border-color: #f2c14e;
+  color: #f2c14e;
+}
+
+.pvpa__pip--saved.pvpa__pip--active {
+  border-color: #f2c14e;
+  color: #f2f0e6;
+}
+
+.pvpa__clock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.pvpa__clock-label {
+  color: #a9b1a6;
+  font-size: 9px;
+  letter-spacing: 1px;
+}
+
+.pvpa__clock b {
+  color: #f2f0e6;
+  font-family: var(--font-minecraft), ui-monospace, monospace;
+  font-size: 20px;
+  letter-spacing: 1px;
+}
+
+/* ── The board ───────────────────────────────────────────────── */
+
+.pvpa__board {
+  position: relative;
+  display: flex;
+  width: min(920px, 100%);
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  margin: clamp(12px, 2.4vh, 26px) auto 0;
+  padding: clamp(16px, 2.4vw, 30px);
+  border: 2px solid #6b5a3a;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #f0ddb1 0%, #e4c996 55%, #d7b87e 100%);
+  color: #2c1e0a;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+  overflow-y: auto;
+}
+
+.pvpa__qhead h1 {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  margin: 0 0 14px;
+  color: #2c1e0a;
+  font-family: var(--font-minecraft), ui-monospace, monospace;
+  font-size: clamp(15px, 2vw, 20px);
+  letter-spacing: 1px;
+}
+
+.pvpa__qhead span {
+  color: #5e4820;
+  font-size: 12px;
+  letter-spacing: 0;
+}
+
+.pvpa__prompt {
+  flex: 1;
+  min-height: 0;
+  font-size: clamp(14px, 1.5vw, 16px);
+  line-height: 1.65;
+}
+
+.pvpa__prompt p {
+  margin: 0 0 12px;
+}
+
+.pvpa__code {
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border: 1px solid #b99e6d;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.42);
+  color: #2c1e0a;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 14px;
+  letter-spacing: 2px;
+  /* A long cipher must scroll inside its own box rather than widening the
+     board and pushing the answer field off the screen. */
+  overflow-x: auto;
+}
+
+/* ── Answer ──────────────────────────────────────────────────── */
+
+.pvpa__answer {
+  display: block;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 2px solid #b99e6d;
+}
+
+.pvpa__answer-label {
+  display: block;
+  margin-bottom: 7px;
+  color: #5e4820;
+  font-family: var(--font-minecraft), ui-monospace, monospace;
+  font-size: 10px;
+  letter-spacing: 1px;
+}
+
+.pvpa__answer textarea {
+  display: block;
+  width: 100%;
+  padding: 11px 13px;
+  border: 2px solid #b99e6d;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.55);
+  color: #2c1e0a;
+  font-family: inherit;
+  font-size: 15px;
+  resize: vertical;
+}
+
+.pvpa__answer textarea:focus {
+  border-color: #7a6027;
+  outline: 2px solid rgba(122, 96, 39, 0.35);
+  outline-offset: 1px;
+}
+
+/* ── Buttons ─────────────────────────────────────────────────── */
+
+.pvpa__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.pvpa__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border: 2px solid #b99e6d;
+  border-bottom-color: #8a7247;
+  border-right-color: #8a7247;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #efe0bd 0%, #ddc79b 100%);
+  color: #2c1e0a;
+  cursor: pointer;
+  font-family: var(--font-minecraft), ui-monospace, monospace;
+  font-size: 12px;
+  letter-spacing: 1px;
+  box-shadow: 0 3px 0 #8a7247;
+}
+
+.pvpa__btn:hover:not(:disabled) {
+  background: linear-gradient(180deg, #f6ead0 0%, #e6d3ab 100%);
+}
+
+.pvpa__btn:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: 0 0 0 #8a7247;
+}
+
+.pvpa__btn:disabled {
+  border-color: #c4b899;
+  background: #ded4bd;
+  color: #8d836f;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.pvpa__btn--primary {
+  margin-left: auto;
+  border-color: #6cc244;
+  border-bottom-color: #2f6c22;
+  border-right-color: #2f6c22;
+  background: linear-gradient(180deg, #6cc244 0%, #3f8c2a 100%);
+  color: #0d1a08;
+  box-shadow: 0 3px 0 #24571a;
+}
+
+.pvpa__btn--primary:hover:not(:disabled) {
+  background: linear-gradient(180deg, #7ad64e 0%, #4a9c31 100%);
+}
+
+/* The one irreversible control on the screen, coloured like it. */
+.pvpa__btn--submit {
+  margin-left: auto;
+  border-color: #ff9b8f;
+  border-bottom-color: #7a1d16;
+  border-right-color: #7a1d16;
+  background: linear-gradient(180deg, #d2392b 0%, #a01f18 100%);
+  color: #fff6f4;
+  box-shadow: 0 3px 0 #4a0b07;
+}
+
+.pvpa__btn--submit:hover:not(:disabled) {
+  background: linear-gradient(180deg, #e64335 0%, #b3271e 100%);
+}
+
+/* ── Confirm ─────────────────────────────────────────────────── */
+
+.pvpa__confirm {
+  position: fixed;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(6, 8, 6, 0.8);
+  inset: 0;
+}
+
+.pvpa__confirm-card {
+  width: min(430px, 100%);
+  padding: 26px;
+  border: 2px solid #4a3f2a;
+  border-radius: 3px;
+  background: linear-gradient(165deg, #1b1a17 0%, #0f0e0c 100%);
+  text-align: center;
+}
+
+.pvpa__confirm-card h2 {
+  margin: 0 0 12px;
+  color: #f2c14e;
+  font-family: var(--font-minecraft), ui-monospace, monospace;
+  font-size: 14px;
+  letter-spacing: 1px;
+}
+
+.pvpa__confirm-card p {
+  margin: 0;
+  color: #a9b1a6;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.pvpa__confirm-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.pvpa__confirm-actions .pvpa__btn {
+  margin-left: 0;
+}
+
+/* ── Result ──────────────────────────────────────────────────── */
+
+.pvpa--result {
+  display: grid;
+  place-items: center;
+}
+
+.pvpa__resultcard {
+  position: relative;
+  display: flex;
+  width: min(460px, 100%);
+  flex-direction: column;
+  align-items: center;
+  padding: 40px 30px 30px;
+  border: 2px solid #4a3f2a;
+  border-radius: 3px;
+  background: linear-gradient(165deg, #1b1a17 0%, #0f0e0c 100%);
+  color: #a9b1a6;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.7);
+  text-align: center;
+}
+
+.pvpa__resultcard h1 {
+  margin: 16px 0 10px;
+  color: #f2f0e6;
+  font-family: var(--font-minecraft), ui-monospace, monospace;
+  font-size: 18px;
+  letter-spacing: 1.5px;
+}
+
+.pvpa__resultcard p {
+  margin: 0 0 22px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.pvpa__resultcard--won { border-color: #2f6c22; color: #cfe4c4; }
+.pvpa__resultcard--won h1 { color: #7ad64e; }
+.pvpa__resultcard--won svg { color: #f2c14e; }
+
+.pvpa__resultcard--lost { border-color: #6b2a24; }
+.pvpa__resultcard--lost h1 { color: #e05b4b; }
+.pvpa__resultcard--lost svg { color: #8a5f58; }
+
+@media (max-width: 640px) {
+  .pvpa__bar { justify-content: center; }
+  .pvpa__clock { align-items: center; }
+  .pvpa__actions { flex-wrap: wrap; }
+  .pvpa__btn { flex: 1 1 auto; }
+}

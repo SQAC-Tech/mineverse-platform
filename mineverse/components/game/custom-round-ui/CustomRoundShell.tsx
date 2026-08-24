@@ -26,7 +26,6 @@ import { GuardianArena } from './GuardianArena';
 import { NotificationTray, type LedgerEntry } from './NotificationTray';
 import { gradingMessage } from './grading-toast';
 import { WorldEvent, EVENT_FX } from './WorldEvent';
-import { PvpPanel } from '../pvp/PvpPanel';
 import { EndRail } from '@/components/day2/end-round/EndRail';
 import { CodeWorkspace } from '@/components/game/code/CodeWorkspace';
 import { InspectorCard, usesInspector } from '@/components/game/code/InspectorCard';
@@ -35,7 +34,7 @@ import { starterFor, type FnContract, type LanguageId } from '@/lib/gameplay/cod
 import type { CodingEvaluation } from '@/components/game/code/CodeWorkspace';
 import { useAnswerAutosave } from '@/hooks/useAnswerAutosave';
 import type { CraftedItem, DashboardProgress } from '@/features/dashboard/types';
-import { RESOURCE_META, buildQuestionTabs, languagePrompts, offersLanguageChoice, payoutList, promptBlocks, questionTypeLabel, roundChoice, roundChrome, roundCraft, roundGuardian, roundObjective, roundPvp, type ResourceKey, type ShellQuestion } from './round-presentation';
+import { RESOURCE_META, buildQuestionTabs, languagePrompts, offersLanguageChoice, payoutList, promptBlocks, questionTypeLabel, roundChoice, roundChrome, roundCraft, roundGuardian, roundObjective, type ResourceKey, type ShellQuestion } from './round-presentation';
 import './round-ui.css';
 import { Hotbar } from '@/components/game/inventory/Hotbar';
 import { RoundCraftPrompt } from './RoundCraftPrompt';
@@ -195,6 +194,17 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
   const [activeSlot, setActiveSlot] = useState(1);
   const [now, setNow] = useState(() => Date.now());
   const [stale, setStale] = useState(false);
+  /**
+   * False until the first refresh has come back, whatever it came back with.
+   *
+   * Not `questions.length > 0`: Round 4 legitimately has no questions, and a
+   * team that has answered everything still has an empty active tab. Both would
+   * sit under a skeleton forever. What the screen is actually waiting for is one
+   * completed round trip, so that is what this records — and it flips even on a
+   * failed fetch, because `stale` is the banner for that and a skeleton that
+   * never resolves is worse than a screen that admits it is out of date.
+   */
+  const [loaded, setLoaded] = useState(false);
 
   const refresh = useCallback(async () => {
     /* One request now carries the round, the balance and the ledger feed; only
@@ -241,6 +251,7 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
     }
     if (snap?.history) setHistory(snap.history.entries ?? []);
     setStale(failed);
+    setLoaded(true);
   }, [roundId]);
 
   useEffect(() => {
@@ -399,7 +410,6 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
   const objective = roundObjective(roundId);
   const guardian = roundGuardian(roundId);
   const craft = roundCraft(roundId);
-  const isPvp = roundPvp(roundId);
   const choice = roundChoice(roundId);
 
   // The tab set only exists once questions load, so the selection follows it.
@@ -776,11 +786,26 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
           </div>
 
           <div className="round-ui__panel round-ui__panel--glass round-ui__team">
-            <span className="round-ui__team-crest" aria-hidden="true">{initials(team?.team_name)}</span>
-            <div className="round-ui__team-text">
-              <p className="round-ui__team-name">{team?.team_name ?? 'Your team'}</p>
-              <p className="round-ui__team-code">{team?.team_code ?? '—'}</p>
-            </div>
+            {loaded ? (
+              <>
+                <span className="round-ui__team-crest" aria-hidden="true">{initials(team?.team_name)}</span>
+                <div className="round-ui__team-text">
+                  <p className="round-ui__team-name">{team?.team_name ?? 'Your team'}</p>
+                  <p className="round-ui__team-code">{team?.team_code ?? '—'}</p>
+                </div>
+              </>
+            ) : (
+              /* "Your team" and an em dash are what this drew before the fetch
+                 landed, which looks like a team whose name failed to load
+                 rather than one that has not arrived yet. */
+              <>
+                <span className="round-ui__skel round-ui__skel--crest" aria-hidden="true" />
+                <div className="round-ui__team-text" style={{ flex: 1 }}>
+                  <div className="round-ui__skel round-ui__skel--text" style={{ width: '80%' }} />
+                  <div className="round-ui__skel round-ui__skel--line" style={{ width: '52%', marginTop: 5 }} />
+                </div>
+              </>
+            )}
           </div>
 
           <div className="round-ui__panel round-ui__panel--glass round-ui__timer" aria-live="polite">
@@ -788,11 +813,26 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
             <div>
               <p className="round-ui__timer-label">ROUND ENDS IN</p>
               <div className="round-ui__clock">
-                <span className="round-ui__clock-unit"><b>{timer.hours}</b><small>HR</small></span>
-                <span className="round-ui__clock-sep">:</span>
-                <span className="round-ui__clock-unit"><b>{timer.minutes}</b><small>MIN</small></span>
-                <span className="round-ui__clock-sep">:</span>
-                <span className="round-ui__clock-unit"><b>{timer.seconds}</b><small>SEC</small></span>
+                {loaded ? (
+                  <>
+                    <span className="round-ui__clock-unit"><b>{timer.hours}</b><small>HR</small></span>
+                    <span className="round-ui__clock-sep">:</span>
+                    <span className="round-ui__clock-unit"><b>{timer.minutes}</b><small>MIN</small></span>
+                    <span className="round-ui__clock-sep">:</span>
+                    <span className="round-ui__clock-unit"><b>{timer.seconds}</b><small>SEC</small></span>
+                  </>
+                ) : (
+                  /* A real 00:00:00 is how this round ends. Showing it before
+                     `ends_at` has arrived tells a team their time is up at the
+                     exact moment they walk in. */
+                  <>
+                    <span className="round-ui__clock-unit"><span className="round-ui__skel round-ui__skel--digit" /><small>HR</small></span>
+                    <span className="round-ui__clock-sep">:</span>
+                    <span className="round-ui__clock-unit"><span className="round-ui__skel round-ui__skel--digit" /><small>MIN</small></span>
+                    <span className="round-ui__clock-sep">:</span>
+                    <span className="round-ui__clock-unit"><span className="round-ui__skel round-ui__skel--digit" /><small>SEC</small></span>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -868,7 +908,13 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
             {/* Round 4 has no platform questions at all — its hour is the portal
                 repair plus games run by volunteers in the hall. Saying so beats
                 three empty tabs and a blank board. */}
-            {tabs.length === 0 && (
+            {/* `loaded &&`, because this notice is a claim about the round and
+                not about the request. Round 4 really does have no questions, so
+                the message has to exist — but until one fetch has come back the
+                shell cannot tell that case from "they have not arrived yet",
+                and it was asserting the first for every round including this
+                one. A team entering Round 3 was told there were no questions. */}
+            {loaded && tabs.length === 0 && (
               <div className="round-ui__tile round-ui__notice">
                 <p className="round-ui__tile-title">No questions in this round</p>
                 <p className="round-ui__notice-text">
@@ -882,7 +928,16 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
             <div className="round-ui__board-grid">
               <aside className="round-ui__tile round-ui__qlist" aria-label="Questions in this category">
                 <p className="round-ui__tile-title">Questions</p>
-                {activeQuestions.length === 0 ? (
+                {!loaded ? (
+                  <div className="round-ui__skel-region" role="status" aria-label="Loading questions">
+                    {[0, 1, 2, 3, 4].map((row) => (
+                      <div key={row} className="round-ui__skel-row" aria-hidden="true">
+                        <span className="round-ui__skel" />
+                        <span className="round-ui__skel round-ui__skel--text" />
+                      </div>
+                    ))}
+                  </div>
+                ) : activeQuestions.length === 0 ? (
                   <p className="round-ui__empty">Questions appear here when they are released.</p>
                 ) : activeQuestions.map((question, index) => {
                   const selected = index === currentIndex;
@@ -1051,6 +1106,19 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
                       </div>
                     )}
                   </>
+                ) : !loaded ? (
+                  /* Stands in for the question card: a title, a prompt and the
+                     answer field under it. Roughly the right shape, so the real
+                     card does not shove the page around when it lands. */
+                  <div className="round-ui__skel-region" role="status" aria-label="Loading this question">
+                    <div className="round-ui__skel round-ui__skel--title" style={{ width: '46%' }} aria-hidden="true" />
+                    <div className="round-ui__skel-lines" style={{ marginTop: 16 }} aria-hidden="true">
+                      <div className="round-ui__skel round-ui__skel--text" />
+                      <div className="round-ui__skel round-ui__skel--text" />
+                      <div className="round-ui__skel round-ui__skel--text" />
+                    </div>
+                    <div className="round-ui__skel" style={{ height: 96, marginTop: 20 }} aria-hidden="true" />
+                  </div>
                 ) : (
                   <p className="round-ui__empty">No questions are currently available in this category.</p>
                 )}
@@ -1067,6 +1135,11 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
                         <span>{label}</span>
                       </div>
                     ))}
+                  </div>
+                ) : !loaded ? (
+                  <div className="round-ui__skel-lines" aria-hidden="true">
+                    <div className="round-ui__skel round-ui__skel--text" />
+                    <div className="round-ui__skel round-ui__skel--text" />
                   </div>
                 ) : <p className="round-ui__empty">Question rewards appear here.</p>}
                 <p className="round-ui__reward-note">Awarded by the server once your answer is graded.</p>
@@ -1137,8 +1210,6 @@ export function CustomRoundShell({ roundId }: CustomRoundShellProps) {
                 </button>
               </section>
               )}
-
-              {isPvp && <PvpPanel />}
 
               {/* The End is the only round with a merchant and a boss. Both are
                   driven off the round catalog rather than a hardcoded id. */}

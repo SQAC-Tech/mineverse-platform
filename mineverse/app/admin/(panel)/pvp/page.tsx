@@ -116,15 +116,6 @@ export default function AdminPvpPage() {
     }
   };
 
-  const act = async (id: string, action: 'start' | 'resolve', label: string) => {
-    setBusy(true);
-    const res = await apiCall(`/api/admin/pvp/matches/${id}/${action}`, { method: 'POST' });
-    setBusy(false);
-
-    if (res.ok) { toast.success(label); void load(); void loadDetail(id); }
-    else toast.error(res.message);
-  };
-
   const doVoid = async () => {
     if (!voidTarget || !voidReason.trim()) { toast.error('A reason is required'); return; }
 
@@ -217,16 +208,21 @@ export default function AdminPvpPage() {
             detail && (
               <>
                 <Pill tone={statusTone(detail.status)}>{detail.status}</Pill>
-                {detail.status === 'draft' && (
-                  <Btn small variant="primary" disabled={busy} onClick={() => act(detail.id, 'start', 'Match is live — timer started')}>
-                    <Play size={11} /> Start PvP
-                  </Btn>
-                )}
-                {detail.status === 'live' && (
-                  <Btn small variant="primary" disabled={busy} onClick={() => act(detail.id, 'resolve', 'Match resolved')}>
-                    <Flag size={11} /> Resolve
-                  </Btn>
-                )}
+                {/*
+                  * Start and Resolve are gone, deliberately.
+                  *
+                  * The duel runs itself now: teams are paired the moment two of
+                  * them press ENTER PVP, the match starts inside that same
+                  * transaction, and the first team to press SUBMIT grades both
+                  * sides and pays the winner. An organiser pressing Start on a
+                  * duel that has already begun, or Resolve on one the teams are
+                  * still playing, could only interfere with it.
+                  *
+                  * Void stays. It is not part of the flow — it is the way out
+                  * when something has gone wrong with a specific match (a team
+                  * walked out, a browser died mid-duel) and both sides need to
+                  * be freed for a replay. It costs a typed reason.
+                  */}
                 {detail.status !== 'resolved' && detail.status !== 'voided' && (
                   <Btn small variant="danger" disabled={busy} onClick={() => setVoidTarget(detail.id)}>
                     <Ban size={11} /> Void

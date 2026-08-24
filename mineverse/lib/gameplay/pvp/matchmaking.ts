@@ -157,14 +157,101 @@ export async function enterPvpQueue(teamId: string): Promise<EnterResult> {
   };
 }
 
-/** Whether the team is sitting in the queue unpaired, for the panel's status line. */
-export async function pvpQueueStatus(teamId: string) {
-  const { data } = await db
+/**
+ * Where this team stands with the duel right now, in one read.
+ *
+ * The searching screen lives on the dashboard and needs to answer three
+ * questions at once — am I in the queue, have I been paired, and is that match
+ * still running — so it gets all three rather than polling for each. The queue
+ * row alone is not enough: a team whose duel has been resolved still has a
+ * queue row carrying the old `match_id`, and reading only that would send them
+ * back into a finished arena.
+ */
+export interface PvpQueueStatus {
+  /** In the queue and not yet paired. */
+  queued: boolean;
+  joined_at: string | null;
+  /** The duel to walk into, or null when there is nothing to enter. */
+  match_id: string | null;
+  match_status: string | null;
+}
+
+export async function pvpQueueStatus(teamId: string): Promise<PvpQueueStatus> {
+  const [{ data: queueRow }, { data: activeRows }] = await Promise.all([
+    db
+      .from('pvp_queue')
+      .select('joined_at, match_id')
+      .eq('team_id', teamId)
+      .eq('round_id', PVP_ROUND_ID)
+      .maybeSingle(),
+    db
+      .from('pvp_match_teams')
+      .select('match_id, created_at')
+      .eq('team_id', teamId)
+      .order('created_at', { ascending: false })
+      .limit(1),
+  ]);
+
+  const matchId = activeRows?.[0]?.match_id ?? null;
+  let matchStatus: string | null = null;
+
+  if (matchId) {
+    const { data: match } = await db
+      .from('pvp_matches')
+      .select('status')
+      .eq('id', matchId)
+      .maybeSingle();
+    matchStatus = match?.status ?? null;
+  }
+
+  return {
+    queued: Boolean(queueRow && !queueRow.match_id),
+    joined_at: queueRow?.joined_at ?? null,
+    // Only a duel there is something to do in. A resolved one is reported by
+    // `match_status` so the arena can show the result, but the dashboard must
+    // not treat it as a match to enter.
+    match_id: matchId,
+    match_status: matchStatus,
+  };
+}
+
+export type LeaveResult =
+  | { ok: true; left: boolean }
+  | { ok: false; status: number; code: string; message: string };
+
+/**
+ * Takes a team back out of the queue.
+ *
+ * Only while they are still unpaired. Once `pvp_matchmake` has put them in a
+ * match the other team is already in the arena with a running clock, and
+ * removing one side would leave a duel that nothing can finish — so this
+ * refuses rather than tidying up a live match behind somebody's back.
+ */
+export async function leavePvpQueue(teamId: string): Promise<LeaveResult> {
+  const { data: row } = await db
     .from('pvp_queue')
-    .select('joined_at, match_id')
+    .select('match_id')
     .eq('team_id', teamId)
     .eq('round_id', PVP_ROUND_ID)
     .maybeSingle();
 
-  return { queued: Boolean(data && !data.match_id), joined_at: data?.joined_at ?? null };
+  if (!row) return { ok: true, left: false };
+
+  if (row.match_id) {
+    return {
+      ok: false,
+      status: 409,
+      code: 'ALREADY_MATCHED',
+      message: 'You have already been paired — your duel is waiting.',
+    };
+  }
+
+  const { error } = await db
+    .from('pvp_queue')
+    .delete()
+    .eq('team_id', teamId)
+    .is('match_id', null);
+
+  if (error) throw error;
+  return { ok: true, left: true };
 }

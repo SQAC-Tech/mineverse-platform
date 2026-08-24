@@ -21,6 +21,7 @@ import { ChoicePanel } from '@/components/game/choices/ChoicePanel';
 import { loadoutFrom } from '@/features/dashboard/gear';
 import type { CraftedItem, DashboardDuel, DashboardProgress, DashboardRound, DashboardTeam, DashboardTrader } from '@/features/dashboard/types';
 import { supabaseClient } from '@/lib/supabase/client';
+import { PvpSearch } from '@/components/game/pvp/PvpSearch';
 
 /**
  * The dashboard.
@@ -53,6 +54,15 @@ export function DashboardShell() {
   const [traders, setTraders] = useState<DashboardTrader[]>([]);
   const [duel, setDuel] = useState<DashboardDuel | null>(null);
   const [entering, setEntering] = useState(false);
+  /**
+   * Whether the searching screen is up.
+   *
+   * Held here rather than derived from `duel.queued`, because the dashboard
+   * only refetches every 45 seconds and the search has to appear on the click
+   * that started it. `PvpSearch` runs its own three-second poll while it is
+   * open, so the slow dashboard tick never gates the pairing.
+   */
+  const [searching, setSearching] = useState(false);
 
   const [showMap, setShowMap] = useState(false);
   const [showRules, setShowRules] = useState(false);
@@ -169,23 +179,41 @@ export function DashboardShell() {
         return;
       }
 
-      if (payload.data.state === 'matched') {
-        toast.success('Opponent found — entering the arena.');
-        router.push(`/round${duel?.round_id ?? 6}`);
-        return;
-      }
-
-      toast('Waiting for an opponent. You will be paired as soon as one enters.', {
-        icon: <Swords size={16} aria-hidden="true" />,
-        duration: 8000,
-      });
-      void load();
+      /**
+       * Both outcomes open the same screen.
+       *
+       * This used to branch: a team paired on its own request was pushed
+       * straight into the arena, and a team left waiting got a toast and was
+       * dropped back on the dashboard with nothing happening. So the two teams
+       * in one duel saw completely different things, and the one who pressed
+       * first saw the least.
+       *
+       * `PvpSearch` handles both — it opens already paired and counts straight
+       * down to the arena, or it searches until the other side arrives.
+       */
+      setSearching(true);
     } catch {
       toast.error('Could not reach the arena. Try again.');
     } finally {
       setEntering(false);
     }
-  }, [duel?.round_id, load, router]);
+  }, []);
+
+  /**
+   * Leaving the queue.
+   *
+   * Only reachable while still unpaired — once there is an opponent the search
+   * screen offers no way out, because the duel has already started for them.
+   */
+  const leaveQueue = useCallback(async () => {
+    setSearching(false);
+    try {
+      await fetch('/api/team/pvp/leave', { method: 'POST' });
+    } catch {
+      // The row expires with the round either way; the screen is already closed.
+    }
+    void load();
+  }, [load]);
 
   // The biome's own icon, from the catalog the round header draws with.
   const RoundIcon = roundChrome(activeRound?.round_id ?? 1).Icon;
@@ -305,8 +333,15 @@ export function DashboardShell() {
                 onClick={() => void enterDuel()}
               >
                 <Swords size={15} aria-hidden="true" />
-                {entering ? 'FINDING OPPONENT…' : duel.queued ? 'WAITING FOR OPPONENT' : 'ENTER PVP'}
+                {entering ? 'ENTERING…' : duel.queued ? 'BACK TO SEARCHING' : 'ENTER PVP'}
               </button>
+            )}
+
+            {/* Over the dashboard rather than on a route of its own: nothing has
+                been decided yet, and a team that leaves the queue should be
+                exactly where they started. */}
+            {searching && (
+              <PvpSearch arenaHref={`/round${duel?.round_id ?? 6}`} onCancel={() => void leaveQueue()} />
             )}
 
             <div className="dash__enter-below">

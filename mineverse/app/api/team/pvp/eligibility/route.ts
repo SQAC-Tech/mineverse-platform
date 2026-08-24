@@ -32,6 +32,11 @@ export async function GET() {
         round_open: duelRound?.status === 'active',
         queued: queue.queued,
         queued_at: queue.joined_at,
+        // What the searching screen watches for. `match_status` matters as much
+        // as the id: a resolved duel still has one, and sending a team back
+        // into it would put them on a dead arena.
+        match_id: queue.match_id,
+        match_status: queue.match_status,
       },
     });
   } catch (error) {
