@@ -28,16 +28,39 @@ export async function ensureTeamResources(teamId: string) {
   await db.from('resources').upsert({ team_id: teamId }, { onConflict: 'team_id', ignoreDuplicates: true });
 }
 
-export async function getTeamResources(teamId: string) {
-  await ensureTeamResources(teamId);
+const RESOURCE_COLUMNS = 'team_id, wood, stone, iron, gold, diamond, emerald, obsidian, version, updated_at';
 
-  const { data, error } = await db
+export async function getTeamResources(teamId: string) {
+  /**
+   * Read first, create only if the row is genuinely missing.
+   *
+   * This used to call `ensureTeamResources` unconditionally, so every read of a
+   * team's balance also wrote to `resources`. The round shell polls this every
+   * 25 seconds per team, which on event day came to 28,824 POSTs in eleven
+   * hours — about half of every write the platform made, all of them
+   * `INSERT ... ON CONFLICT DO NOTHING` against a row that already existed.
+   *
+   * A row that does not exist is created exactly once, on the team's first
+   * read, and never again. Reads are cheap on a database that fits in memory;
+   * writes are what spend the Disk IO budget.
+   */
+  let { data, error } = await db
     .from('resources')
-    .select('team_id, wood, stone, iron, gold, diamond, emerald, obsidian, version, updated_at')
+    .select(RESOURCE_COLUMNS)
     .eq('team_id', teamId)
-    .single();
+    .maybeSingle();
 
   if (error) throw error;
+
+  if (!data) {
+    await ensureTeamResources(teamId);
+    ({ data, error } = await db
+      .from('resources')
+      .select(RESOURCE_COLUMNS)
+      .eq('team_id', teamId)
+      .single());
+    if (error) throw error;
+  }
 
   const { count, error: pendingError } = await db
     .from('submissions')
