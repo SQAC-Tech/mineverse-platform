@@ -9,6 +9,7 @@ import {
   Panel, Btn, Table, Empty, Loading, PageTitle, Grid, StatTile, Pill, apiCall,
 } from '@/components/admin/nether-ui';
 import { STALE_AFTER_MS, proctorRules } from '@/lib/proctor/config';
+import { startPoll } from '@/lib/client/poll';
 
 interface FeedEvent {
   kind: string;
@@ -94,8 +95,7 @@ export default function ProctorPage() {
 
   useEffect(() => {
     void load();
-    const poll = window.setInterval(() => void load(), 30_000);
-    return () => window.clearInterval(poll);
+    return startPoll(() => void load(), 30_000);
   }, [load]);
 
   useEffect(() => {

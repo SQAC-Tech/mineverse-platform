@@ -8,6 +8,7 @@ import {
 import {
   Panel, Btn, Table, Empty, Loading, PageTitle, Grid, StatTile, Pill, apiCall,
 } from '@/components/admin/nether-ui';
+import { startPoll } from '@/lib/client/poll';
 
 interface RankedTeam {
   team_id: string;
@@ -159,8 +160,7 @@ export default function ScreeningAdminPage() {
 
   // Live enough to watch the window without hammering the ranking query.
   useEffect(() => {
-    const poll = window.setInterval(() => void load(), 20_000);
-    return () => window.clearInterval(poll);
+    return startPoll(() => void load(), 20_000);
   }, [load]);
 
   /**

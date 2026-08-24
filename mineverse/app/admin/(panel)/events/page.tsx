@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import { Zap, RefreshCw, CloudRain, Coins, Sprout } from 'lucide-react';
 import { Panel, Btn, Pill, statusTone, Table, Empty, Loading, PageTitle, apiCall, Field } from '@/components/admin/nether-ui';
+import { startPoll } from '@/lib/client/poll';
 
 type CatalogItem = {
   key: string;
@@ -55,8 +56,7 @@ export default function AdminEventsPage() {
 
   useEffect(() => {
     void load();
-    const poll = window.setInterval(load, 30000);
-    return () => window.clearInterval(poll);
+    return startPoll(() => void load(), 30_000);
   }, [load]);
 
   const trigger = async (item: CatalogItem) => {

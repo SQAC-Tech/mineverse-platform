@@ -3,6 +3,27 @@ import { supabaseServer } from '@/lib/supabase/server';
 
 const db = supabaseServer as any;
 
+/**
+ * How long the CDN may serve one copy of the standings to everybody.
+ *
+ * This is the only endpoint on the platform whose answer does not depend on who
+ * is asking — no session, no cookie, no team id — which makes it the only one
+ * that can be cached in front of the function rather than inside it. The page
+ * polls every thirty seconds, so without this the origin cost scales with the
+ * number of screens showing the leaderboard: a projector in the hall, the
+ * organisers' laptops and every team's second tab each pay their own database
+ * query for a row set that is identical.
+ *
+ * With it, the whole hall costs at most one query every twenty seconds, and
+ * `stale-while-revalidate` means the refresh happens behind a copy that is
+ * already being served rather than in front of a spinner.
+ *
+ * Twenty seconds is under the poll interval on purpose. Longer than the poll
+ * and a team would see the same numbers twice in a row and assume the board had
+ * frozen; the standings are meant to look live even when they have not moved.
+ */
+const LEADERBOARD_CDN_HEADER = 'public, s-maxage=20, stale-while-revalidate=60';
+
 export async function GET() {
   try {
     const { data, error } = await db
@@ -60,9 +81,13 @@ export async function GET() {
           : `Champion certified: ${certifiedChampion?.team_name}`,
         last_updated: new Date().toISOString(),
       },
+    }, {
+      // Only the success path. A cached 500 would outlive the fault that caused
+      // it and keep the board broken for everyone until the TTL ran out.
+      headers: { 'Cache-Control': LEADERBOARD_CDN_HEADER },
     });
   } catch (error) {
     console.error('Dev4 Leaderboard Error:', error);
     return NextResponse.json({ success: false, error: { code: 'SERVER_ERROR' } }, { status: 500 });
   }
-}
+}

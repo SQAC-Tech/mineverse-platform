@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { startPoll } from '@/lib/client/poll';
 
 interface LeaderboardRow {
   rank: number;
@@ -44,8 +45,7 @@ export default function LeaderboardPage() {
 
   useEffect(() => {
     void fetchLeaderboard();
-    const poll = window.setInterval(fetchLeaderboard, 30000);
-    return () => window.clearInterval(poll);
+    return startPoll(fetchLeaderboard, 30000);
   }, []);
 
   return (
@@ -132,4 +132,4 @@ export default function LeaderboardPage() {
       </div>
     </main>
   );
-}
+}

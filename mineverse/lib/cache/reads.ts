@@ -46,6 +46,9 @@ const CHECKPOINTS_TTL = 120;
 /** Frozen once the screening cut is made. */
 const SHORTLIST_TTL = 120;
 
+/** A team code is set at registration and never changes. */
+const TEAM_CODE_TTL = 3600;
+
 export interface CachedRound {
   id: number;
   name: string | null;
@@ -171,6 +174,40 @@ export async function getCachedRoundQuestions(roundId: number): Promise<any[]> {
 
     if (error) throw error;
     return (data ?? []) as any[];
+  });
+}
+
+/**
+ * A team's code, from its id.
+ *
+ * Cached for an hour, and that is not a staleness compromise: `team_code` is
+ * assigned at registration and never rewritten — nothing in the codebase
+ * updates it, and the QR codes, the desk sheets and the printed lanyards all
+ * depend on it not moving. An immutable value is the one thing a cache can
+ * hold without a correctness argument.
+ *
+ * Worth its own key because of where it was being read from. `teams` was the
+ * single most requested table on the platform — 161,393 GETs in a day against
+ * a 96-row table — and most of that was this one column: the round paper needs
+ * it to pick each team's variants, and every submission save needs it again to
+ * check the team was entitled to the question it just answered. So a team
+ * playing a round asked the database who they were on every tick and every
+ * keystroke-triggered autosave.
+ *
+ * L1 only. It is per-team, so it fans out across keys rather than
+ * concentrating on one, and each miss is a primary-key lookup — exactly the
+ * shape that is not worth spending a metered Redis command on.
+ */
+export async function getCachedTeamCode(teamId: string): Promise<string | null> {
+  return cached(`mv:team:code:${teamId}`, TEAM_CODE_TTL, async () => {
+    const { data, error } = await supabaseServer
+      .from('teams')
+      .select('team_code')
+      .eq('id', teamId)
+      .maybeSingle();
+
+    if (error) throw error;
+    return (data?.team_code as string | undefined) ?? null;
   });
 }
 

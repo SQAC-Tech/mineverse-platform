@@ -5,6 +5,7 @@ import { Swords, CheckCircle2, XCircle } from 'lucide-react';
 import { PvpArena } from './PvpArena';
 import { supabaseClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
+import { startPoll } from '@/lib/client/poll';
 
 export interface PvpQuestion {
   id: string;
@@ -88,8 +89,7 @@ export function PvpPanel() {
     // across a duelling hall, and the realtime `match_started` broadcast below
     // is what actually makes a pairing land instantly — the poll is only the
     // fallback for a dropped socket.
-    const poll = window.setInterval(fetchPvp, 12_000);
-    return () => window.clearInterval(poll);
+    return startPoll(() => void fetchPvp(), 12_000);
   }, [fetchPvp]);
 
   // Subscribe to match_started events so the panel reacts immediately
