@@ -1,9 +1,30 @@
 import { supabaseServer } from '@/lib/supabase/server';
 
-const db = supabaseServer as any;
+/**
+ * The generated types do not describe the embedded `teams(...)` select or the
+ * shape stored in `score_evidence`, so the three reads are typed here against
+ * what this function actually needs.
+ */
+interface QualifiedRow {
+  team_id: string;
+  teams: { team_code: string; team_name: string } | null;
+}
+
+interface AttemptRow {
+  team_id: string;
+  status: string;
+  completed_at: string | null;
+  score_evidence: { correct?: number; total?: number } | null;
+}
+
+interface SubmissionRow {
+  team_id: string;
+  final_score: number | null;
+}
 
 export interface Round5Standing {
   rank: number;
+  team_id: string;
   team_code: string;
   team_name: string;
   /** Correct answers in the dragon fight, out of the pack it was given. */
@@ -37,17 +58,23 @@ export interface Round5Standing {
  * than a row to hide.
  */
 export async function getRound5Leaderboard(): Promise<Round5Standing[]> {
-  const [{ data: qualified }, { data: attempts }, { data: submissions }] = await Promise.all([
-    db
+  const [qualifiedResult, attemptsResult, submissionsResult] = await Promise.all([
+    supabaseServer
       .from('team_game_state')
       .select('team_id, teams(team_code, team_name)')
       .eq('qualified_for_day2', true),
-    db.from('day2_final_boss_attempts').select('team_id, status, completed_at, score_evidence'),
-    db.from('submissions').select('team_id, final_score').eq('round_id', 5),
+    supabaseServer
+      .from('day2_final_boss_attempts')
+      .select('team_id, status, completed_at, score_evidence'),
+    supabaseServer.from('submissions').select('team_id, final_score').eq('round_id', 5),
   ]);
 
-  const bossByTeam = new Map<string, any>();
-  for (const row of attempts ?? []) {
+  const qualified = (qualifiedResult.data ?? []) as unknown as QualifiedRow[];
+  const attempts = (attemptsResult.data ?? []) as unknown as AttemptRow[];
+  const submissions = (submissionsResult.data ?? []) as unknown as SubmissionRow[];
+
+  const bossByTeam = new Map<string, AttemptRow>();
+  for (const row of attempts) {
     // A team has one attempt now, but older rows may exist from the earlier
     // retryable design — keep the one that was actually handed in.
     const held = bossByTeam.get(row.team_id);
@@ -55,14 +82,14 @@ export async function getRound5Leaderboard(): Promise<Round5Standing[]> {
   }
 
   const questionsByTeam = new Map<string, { correct: number; answered: number }>();
-  for (const row of submissions ?? []) {
+  for (const row of submissions) {
     const tally = questionsByTeam.get(row.team_id) ?? { correct: 0, answered: 0 };
     tally.answered += 1;
     if (Number(row.final_score ?? 0) >= 1) tally.correct += 1;
     questionsByTeam.set(row.team_id, tally);
   }
 
-  const rows = (qualified ?? []).map((entry: any) => {
+  const rows: Omit<Round5Standing, 'rank'>[] = qualified.map((entry) => {
     const boss = bossByTeam.get(entry.team_id);
     const evidence = (boss?.score_evidence ?? {}) as { correct?: number; total?: number };
     const tally = questionsByTeam.get(entry.team_id) ?? { correct: 0, answered: 0 };
@@ -70,6 +97,7 @@ export async function getRound5Leaderboard(): Promise<Round5Standing[]> {
     const bossCorrect = Number(evidence.correct ?? 0);
 
     return {
+      team_id: entry.team_id,
       team_code: entry.teams?.team_code ?? '—',
       team_name: entry.teams?.team_name ?? '—',
       boss_correct: bossCorrect,
@@ -82,7 +110,7 @@ export async function getRound5Leaderboard(): Promise<Round5Standing[]> {
     };
   });
 
-  rows.sort((a: any, b: any) => {
+  rows.sort((a, b) => {
     if (b.total_correct !== a.total_correct) return b.total_correct - a.total_correct;
     // A team that never finished the fight cannot win a tie-break on speed.
     if (a.boss_completed_at && b.boss_completed_at) {
@@ -93,5 +121,5 @@ export async function getRound5Leaderboard(): Promise<Round5Standing[]> {
     return a.team_code.localeCompare(b.team_code);
   });
 
-  return rows.map((row: any, index: number) => ({ rank: index + 1, ...row }));
+  return rows.map((row, index) => ({ rank: index + 1, ...row }));
 }
