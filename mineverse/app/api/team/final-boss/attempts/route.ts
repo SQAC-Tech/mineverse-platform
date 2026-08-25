@@ -1,18 +1,38 @@
+import { createHash } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { requireDay2Access, Day2Session } from '@/lib/day2/access/guard';
 import { supabaseServer } from '@/lib/supabase/server';
+import { BOSS_QUESTION_COUNT, BOSS_DURATION_SECONDS } from '@/lib/gameplay/boss/config';
 
+/**
+ * Opens the Ender Dragon fight, or hands back the one already open.
+ *
+ * ## Where the questions come from
+ *
+ * `screening_questions` — the same fifty multiple-choice questions the entry
+ * screening was run on. They are read from that table rather than copied into
+ * `questions`, so there is one row per question in the database and no second
+ * copy to drift.
+ *
+ * Twenty-five of the fifty, chosen by a hash of the team and the question, so a
+ * team gets the same paper on every reload and two teams do not get the same
+ * one. `correct_index` is never selected — the payload is handed to the browser,
+ * and the answer key must not travel with it.
+ *
+ * ## One attempt
+ *
+ * The fight is mandatory, so every qualified team takes it. That is exactly why
+ * it cannot be re-entered: a team allowed a second go after seeing the paper
+ * would be a team that failed the first on purpose.
+ */
 export async function POST() {
   const guardResult = await requireDay2Access();
-  if (guardResult instanceof NextResponse) {
-    return guardResult;
-  }
+  if (guardResult instanceof NextResponse) return guardResult;
   const session = guardResult as Day2Session;
 
-  // 1. Check prerequisites: Repaired Portal, Diamond Pickaxe, Active Round 5
   const { data: repair } = await supabaseServer
     .from('day2_portal_repair')
-    .select('*')
+    .select('team_id')
     .eq('team_id', session.team_id)
     .maybeSingle();
 
@@ -22,90 +42,102 @@ export async function POST() {
 
   const { data: craftLog } = await supabaseServer
     .from('crafting_log')
-    .select('*')
+    .select('id')
     .eq('team_id', session.team_id)
-    .eq('item', 'diamond_pickaxe') // Needs to have diamond_pickaxe
+    .eq('item', 'diamond_pickaxe')
     .maybeSingle();
 
-  // Note: if the team doesn't have diamond_pickaxe, Dev 4 handles its crafting. We just check.
   if (!craftLog) {
     return NextResponse.json({ success: false, error: 'MISSING_DIAMOND_PICKAXE' }, { status: 400 });
   }
 
   const { data: access } = await supabaseServer
     .from('team_round_access')
-    .select('*')
+    .select('is_locked')
     .eq('team_id', session.team_id)
-    .eq('round_id', 5) // Round 5
+    .eq('round_id', 5)
     .maybeSingle();
 
-  // Assume Round 5 active check
   if (!access || access.is_locked) {
     return NextResponse.json({ success: false, error: 'ROUND_5_NOT_ACTIVE' }, { status: 400 });
   }
 
-  // 2. Check cooldown & existing attempt
   const { data: lastAttempt } = await supabaseServer
     .from('day2_final_boss_attempts')
-    .select('*')
+    .select('id, status, question_payload')
     .eq('team_id', session.team_id)
     .order('started_at', { ascending: false })
     .limit(1)
     .maybeSingle();
 
   if (lastAttempt) {
+    // Reload, refresh, second tab: the same fight, with whatever time is left.
     if (lastAttempt.status === 'active') {
-       return NextResponse.json({ success: true, payload: lastAttempt.question_payload });
+      return NextResponse.json({ success: true, payload: lastAttempt.question_payload });
     }
-    if (lastAttempt.status === 'won') {
-       return NextResponse.json({ success: false, error: 'ALREADY_WON' }, { status: 400 });
-    }
-    if (lastAttempt.cooldown_until && new Date(lastAttempt.cooldown_until) > new Date()) {
-       return NextResponse.json({ success: false, error: 'ON_COOLDOWN', cooldown_until: lastAttempt.cooldown_until }, { status: 400 });
-    }
+    // Won or lost, it is over. Both are terminal; there is no cooldown to serve.
+    return NextResponse.json(
+      { success: false, error: 'ALREADY_ATTEMPTED', outcome: lastAttempt.status },
+      { status: 400 },
+    );
   }
 
-  // 3. Fetch organizer-seeded questions (Dev 5 or Organizer adds these to questions table for round 5 with a specific type? Or a separate table for boss? The prompt said "server-held question packs/test cases only... seeded database rows").
-  // Wait, if it's seeded, let's fetch from `questions` with type='boss' or something. Or maybe a specific table `day2_boss_questions`. Let's just assume `questions` with `round_id=5` and `type='boss'`.
-  // Wait, the prompt says "The Final Boss question data will be seeded into the database separately by the organizers/development team."
-  // I will check `questions` table for round 5 where `type='boss'`. But the `type` constraint in migration 01 is:
-  // check (type in ('crossword', 'aptitude', 'output', 'debugging', 'code_completion', 'coding', 'pvp'))
-  // So they can't insert 'boss' without altering the table. Maybe `type='coding'` and some marker in content? Let's just query `questions` for round 5 ordered by `order_index`. Wait, no, maybe they use a new table.
-  // Actually, Dev 3 doesn't need to create the questions table, I can just query `questions` table for round_id=5. I'll just get all `type='coding'` questions in round_id=5, or just any question for the final boss. Let's create a temporary table for `day2_boss_questions` or just fetch from `questions` table and check if any exist. Since Dev 3 didn't define a new table, I should probably check `questions` where round_id=5 and maybe it's marked as boss, or there's a convention. Let's just assume there's a `day2_boss_questions` table, or use `questions`. I will create a `day2_boss_questions` table in my migration! Oh wait, I can't modify the migration now that it's run, or can I? No, I can alter the table. Let me just use the `questions` table.
+  const { data: pool, error: poolError } = await supabaseServer
+    .from('screening_questions')
+    // No `correct_index`. This payload is handed to the browser.
+    .select('id, prompt, options, topic, difficulty');
 
-  const { data: questions } = await supabaseServer
-    .from('questions')
-    .select('id, prompt, content')
-    .eq('round_id', 5)
-    .order('order_index');
-
-  if (!questions || questions.length === 0) {
-     return NextResponse.json({ success: false, error: 'NOT_AVAILABLE' }, { status: 503 }); // 503 Service Unavailable
+  if (poolError || !pool || pool.length < BOSS_QUESTION_COUNT) {
+    console.error('Final boss: question pool unusable', poolError?.message, pool?.length);
+    return NextResponse.json({ success: false, error: 'NOT_AVAILABLE' }, { status: 503 });
   }
 
-  // Generate payload
+  /**
+   * Stable per team, different across teams — the same trick `pvp_matchmake`
+   * uses to pick a duel pack. Sorting by a hash of (team, question) is a
+   * shuffle that survives a reload without anything being written down.
+   */
+  const paper = [...pool]
+    .sort((a, b) => pick(session.team_id, a.id).localeCompare(pick(session.team_id, b.id)))
+    .slice(0, BOSS_QUESTION_COUNT);
+
+  const startedAt = new Date();
+  const deadlineAt = new Date(startedAt.getTime() + BOSS_DURATION_SECONDS * 1000);
+
   const questionPayload = {
-    questions: questions.map(q => ({
+    source: 'screening_questions',
+    started_at: startedAt.toISOString(),
+    deadline_at: deadlineAt.toISOString(),
+    duration_seconds: BOSS_DURATION_SECONDS,
+    questions: paper.map((q, index) => ({
       id: q.id,
+      order: index + 1,
       prompt: q.prompt,
-      content: q.content,
+      options: q.options,
+      topic: q.topic,
+      difficulty: q.difficulty,
     })),
   };
 
-  // 4. Create attempt
   const { data: attempt, error: attemptError } = await supabaseServer
     .from('day2_final_boss_attempts')
     .insert({
       team_id: session.team_id,
       status: 'active',
+      started_at: startedAt.toISOString(),
       question_payload: questionPayload,
     })
-    .select()
+    .select('question_payload')
     .single();
 
   if (attemptError) {
+    console.error('Final boss: could not open the fight', attemptError.message);
     return NextResponse.json({ success: false, error: 'START_FAILED' }, { status: 500 });
   }
 
   return NextResponse.json({ success: true, payload: attempt.question_payload });
+}
+
+function pick(teamId: string, questionId: string): string {
+  return createHash('md5').update(`${teamId}:${questionId}`).digest('hex');
 }
