@@ -8,6 +8,12 @@ import { normalizeOutput } from '@/lib/gameplay/code/compare';
 // grader did not know would fail a correct submission after the round, with
 // nothing on screen to explain it.
 import { resolveRuntime } from '@/lib/gameplay/code/runtimes';
+// And the same wrapper the editor runs. A Round 5 question declares a function
+// contract, so a team's answer is a `class Solution` and nothing else — there is
+// no `main` in it anywhere. Sending it to Piston bare is not a near miss, it is
+// a guaranteed failure in every language, and this grader books that as a wrong
+// answer rather than a fault of its own.
+import { contractOf, wrapForExecution, type LanguageId } from '@/lib/gameplay/code/contract';
 import { getActiveChorusBonus } from '@/lib/day2/events/service';
 import type { Day2ResourceDelta } from '@/lib/day2/events/resources';
 
@@ -88,6 +94,13 @@ async function gradeWithPiston(submission: any, question: any) {
   const cases = Array.isArray(question.hidden_test_cases) ? question.hidden_test_cases : [];
   if (cases.length === 0) return { ok: false as const, error: 'TEST_CASES_MISSING' };
 
+  // Wrapped once, not per case: the wrapper is pure and the team's code does not
+  // change between test cases.
+  const contract = contractOf(question.runtime_meta);
+  const executable = contract
+    ? wrapForExecution(contract, runtime.id as LanguageId, submission.code)
+    : submission.code;
+
   const apiKey = process.env.PISTON_API_KEY;
 
   // One run per test case. Joining every stdin into a single run let a program
@@ -105,7 +118,7 @@ async function gradeWithPiston(submission: any, question: any) {
         body: JSON.stringify({
           language: runtime.piston,
           version: question.runtime_meta?.piston_version ?? '*',
-          files: [{ name: runtime.file, content: submission.code }],
+          files: [{ name: runtime.file, content: executable }],
           stdin: (testCase as any).stdin ?? '',
           compile_timeout: 10_000,
           run_timeout: 5_000,

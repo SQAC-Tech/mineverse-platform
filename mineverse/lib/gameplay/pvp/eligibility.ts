@@ -19,14 +19,22 @@ const db = supabaseServer as any;
 /**
  * Whether beating the Blaze Guardian is also required to enter.
  *
- * On. Round 3's guardian is `mandatory: true` in `ROUND_CONFIGS`, and the duel
- * is what that mandate is for — a team that skipped the Blaze does not walk
- * into the arena on the strength of its crafting alone.
+ * Off, by an organiser ruling on the day. The Blaze turned out to be far
+ * harder than the duel it was guarding — ten wins against forty-six defeats —
+ * so the gate was keeping teams out of the round rather than qualifying them
+ * for it. The Iron Armor still gates the arena, and the craft chain behind it
+ * still has to be earned.
  *
- * The panel reads this same flag, so the checklist follows it: turn it off and
- * the Blaze line stops being drawn as well as stops being enforced.
+ * Day 2 qualification is a separate question and still counts the Blaze win:
+ * see `checkTeamEligibility` in the qualification service. Turning this off
+ * does not open that door.
+ *
+ * Everything that asks "may this team enter the duel" goes through
+ * `pvpEligibilityFrom` below, so this single flag governs the queue, the round
+ * gate and the sentence the dashboard shows — there is no second copy of the
+ * rule to keep in step.
  */
-export const PVP_REQUIRES_BLAZE_GUARDIAN = true;
+export const PVP_REQUIRES_BLAZE_GUARDIAN = false;
 
 export interface PvpEntryEligibility {
   hasIronArmor: boolean;

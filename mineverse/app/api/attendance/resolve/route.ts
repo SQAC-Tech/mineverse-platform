@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase/server';
 import { requirePanelScope } from '@/lib/panel/require-admin';
-import { markingEntitlement } from '@/lib/attendance/gates';
+import { markingEntitlement, checkpointOrderGate } from '@/lib/attendance/gates';
 
 export const dynamic = 'force-dynamic';
 
@@ -66,6 +66,18 @@ export async function POST(req: Request) {
 
   const entitlement = await markingEntitlement(team.id, Number(checkpointRow?.day ?? 1));
 
+  /**
+   * Told on the scan, refused on the tick.
+   *
+   * Same split as the entitlement warning above, and for the same reason: the
+   * volunteer needs to know while the team is still standing in front of them.
+   * Finding out only when Mark fails means the team has already been through
+   * the whole checklist for nothing.
+   */
+  const order = Number.isInteger(checkpointId)
+    ? await checkpointOrderGate(team.id, checkpointId)
+    : { ok: true as const, message: undefined };
+
   const members = [...(team.members ?? [])].sort(
     (a, b) => Number(b.is_team_lead) - Number(a.is_team_lead) || a.name.localeCompare(b.name),
   );
@@ -128,6 +140,15 @@ export async function POST(req: Request) {
       is_payment_verified: team.is_payment_verified,
       entitled: entitlement.ok,
       entitlement_message: entitlement.message ?? null,
+      /**
+       * Whether the desks have been visited in order.
+       *
+       * Reported beside `entitled` rather than folded into it, because the desk
+       * does different things about them: an unentitled team goes to an
+       * organiser, an out-of-order team goes to the earlier desk.
+       */
+      in_order: order.ok,
+      order_message: order.ok ? null : order.message ?? null,
       /**
        * The roster length, not `teams.team_size`.
        *

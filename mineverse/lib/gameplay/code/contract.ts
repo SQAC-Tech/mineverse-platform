@@ -301,6 +301,43 @@ export function starterFor(fn: FnContract, language: LanguageId): string {
 }
 
 /**
+ * Java is assembled in the opposite order, and has to be.
+ *
+ * Piston does not take the entry point from the filename — it scans the source
+ * and runs the first class it finds. With the team's `class Solution` written
+ * ahead of the harness, that first class is theirs, so every correct Java
+ * solution died at run time with
+ *
+ *     error: can't find main(String[]) method in class: Solution
+ *
+ * The only Java that ever worked here was a team that happened to declare a
+ * `main` of its own — which the starter does not, and which no other language
+ * needs. `javac Main.java && java Main` in `tests/unit/code/harness.local.test`
+ * names the class explicitly, so the local suite could not see any of this.
+ *
+ * Declaring `Main` first fixes the entry point but strands the team's imports
+ * in the middle of the file, where Java will not accept them. So they are
+ * lifted to the top and merged with the harness's own — a set, because the
+ * starter already hands out `import java.util.*;` and a duplicate import is a
+ * compile error.
+ */
+function assembleJava(harness: { prelude: string; main: string }, userCode: string): string {
+  const imports = new Set(['import java.util.*;', 'import java.io.*;']);
+
+  const body = userCode
+    .split('\n')
+    .filter((line) => {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith('import ')) return true;
+      imports.add(trimmed);
+      return false;
+    })
+    .join('\n');
+
+  return `${[...imports].join('\n')}\n${harness.main}\n${body}\n`;
+}
+
+/**
  * The team's code with the platform's wrapper around it.
  *
  * Prelude first (includes and the stdin helpers), then the team's function,
@@ -310,6 +347,7 @@ export function starterFor(fn: FnContract, language: LanguageId): string {
 export function wrapForExecution(fn: FnContract, language: LanguageId, userCode: string): string {
   const harness = HARNESSES[language]?.(fn);
   if (!harness) return userCode;
+  if (language === 'java') return assembleJava(harness, userCode);
   return `${harness.prelude}${userCode}\n${harness.main}`;
 }
 

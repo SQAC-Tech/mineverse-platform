@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase/server';
 import { requirePanelScope } from '@/lib/panel/require-admin';
 import { REGISTRATION_NO } from '@/lib/validation/schemas';
-import { markingEntitlement } from '@/lib/attendance/gates';
+import { markingEntitlement, checkpointOrderGate } from '@/lib/attendance/gates';
 
 export const dynamic = 'force-dynamic';
 
@@ -140,6 +140,26 @@ export async function POST(req: Request) {
     console.warn(`[attendance] refused ${team_id} at ${checkpoint?.label ?? checkpoint_id}: ${entitlement.reason}`);
     return NextResponse.json(
       { success: false, error: entitlement.message ?? 'This team cannot be marked present.' },
+      { status: 403 },
+    );
+  }
+
+  /**
+   * And the desks in order.
+   *
+   * Separate from the entitlement above because it answers a different
+   * question: that one asks whether the team has a seat at the event at all,
+   * this one asks whether they were here earlier today. A team can be perfectly
+   * entitled and still be turning up for the first time at the Round 3 desk,
+   * which is the case this refuses — Round 3 eliminates on the strength of
+   * Rounds 1 and 2, so being marked into it without having been marked into
+   * those is the one order that must not be possible.
+   */
+  const order = await checkpointOrderGate(String(team_id), Number(checkpoint_id));
+  if (!order.ok) {
+    console.warn(`[attendance] out of order: ${team_id} at ${checkpoint?.label ?? checkpoint_id}`);
+    return NextResponse.json(
+      { success: false, error: order.message ?? 'An earlier desk has to mark this team first.' },
       { status: 403 },
     );
   }
