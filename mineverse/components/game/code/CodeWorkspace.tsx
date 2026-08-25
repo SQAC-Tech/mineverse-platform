@@ -19,7 +19,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { promptBlocks, payoutText } from '@/components/game/custom-round-ui/round-presentation';
-import { runtimesFor, resolveRuntime, type Runtime } from '@/lib/gameplay/code/runtimes';
+import { offeredRuntimes, resolveRuntime, type Runtime } from '@/lib/gameplay/code/runtimes';
 import { contractOf, starterFor, type LanguageId } from '@/lib/gameplay/code/contract';
 import './code-workspace.css';
 
@@ -140,7 +140,16 @@ export function CodeWorkspace({
   onSubmit,
   onClose,
 }: CodeWorkspaceProps) {
-  const runtimes = runtimesFor(question.language_options);
+  /**
+   * `offeredRuntimes`, not `runtimesFor`.
+   *
+   * `runtimesFor` returns nothing for a question that names no languages, which
+   * left the picker empty and `disabled` on the `runtimes.length <= 1` test —
+   * a team could not change language at all. The shell's own dropdown has
+   * always used `offeredRuntimes`, which falls back to the default five, so the
+   * two disagreed about what was on offer for the same question.
+   */
+  const runtimes = offeredRuntimes(question.language_options);
   const active = resolveRuntime(language) ?? runtimes[0] ?? null;
 
   /* Reset restores this question's generated stub. It used to hand back the
