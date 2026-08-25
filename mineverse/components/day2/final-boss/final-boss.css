@@ -1,0 +1,908 @@
+/*
+ * Round 5 Final Boss — The Ender Dragon Battle UI.
+ *
+ * Implements the blocky Minecraft aesthetic for The End dimension:
+ *   - Dark void palette with glowing Ender purple and magenta crystal highlights
+ *   - Ender Dragon Boss Bar with segmented health/seals tracker
+ *   - Blocky Minecraft buttons with 3D bevels and hard offset shadows
+ *   - Monospace code workspace and problem statement blocks
+ *   - Responsive 2-column or stacked layout for desktop and laptop displays
+ */
+
+:root {
+  --fb-void: #0a0714;
+  --fb-panel: linear-gradient(155deg, #1c1430 0%, #0c0818 100%);
+  --fb-panel-dark: rgba(10, 6, 18, 0.88);
+  --fb-edge: #392c58;
+  --fb-edge-lit: #7957b3;
+  --fb-accent: #c489f5;
+  --fb-accent-deep: #4c1d85;
+  --fb-dragon-purple: #a855f7;
+  --fb-dragon-magenta: #d946ef;
+  --fb-crystal-glow: #e879f9;
+  --fb-gold: #f2c14e;
+  --fb-good: #6cdc8a;
+  --fb-bad: #ff6b6b;
+  --fb-font-display: var(--font-minecraft), 'Press Start 2P', ui-monospace, monospace;
+  --fb-font-body: ui-sans-serif, system-ui, 'Segoe UI', Roboto, sans-serif;
+  --fb-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.fb-page {
+  position: relative;
+  min-height: 100dvh;
+  padding: 12px clamp(12px, 2vw, 24px) 24px;
+  background: var(--fb-void);
+  color: #f2f0e6;
+  font-family: var(--fb-font-body);
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-sizing: border-box;
+}
+
+/* ── Scene Backdrop ──────────────────────────────────────────── */
+
+.fb-backdrop,
+.fb-shade,
+.fb-scrim {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+.fb-backdrop {
+  z-index: -3;
+  background: url('/round5/boss-bg.jpg') center / cover no-repeat;
+  filter: brightness(0.9);
+}
+
+.fb-shade {
+  z-index: -2;
+  background: linear-gradient(180deg, rgba(6, 4, 14, 0.5) 0%, rgba(6, 4, 14, 0.25) 40%, rgba(4, 2, 10, 0.88) 100%);
+}
+
+.fb-scrim {
+  z-index: -1;
+  background: radial-gradient(circle at 50% 30%, rgba(168, 85, 247, 0.08) 0%, rgba(10, 6, 20, 0.75) 70%, rgba(4, 2, 10, 0.92) 100%);
+}
+
+/* Floating Void Motes / Particles */
+.fb-motes {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.fb-mote {
+  position: absolute;
+  bottom: 0;
+  width: 4px;
+  height: 4px;
+  background: #d946ef;
+  box-shadow: 0 0 8px #c084fc, 0 0 16px #9333ea;
+  opacity: 0;
+  border-radius: 1px;
+  animation: fb-mote-rise 6s ease-in infinite;
+}
+
+.fb-mote:nth-child(1) { left: 10%; animation-delay: 0s; animation-duration: 5.5s; }
+.fb-mote:nth-child(2) { left: 25%; animation-delay: 1.5s; animation-duration: 7s; }
+.fb-mote:nth-child(3) { left: 45%; animation-delay: 0.8s; animation-duration: 6.2s; }
+.fb-mote:nth-child(4) { left: 65%; animation-delay: 2.2s; animation-duration: 5.8s; }
+.fb-mote:nth-child(5) { left: 80%; animation-delay: 3s; animation-duration: 7.5s; }
+.fb-mote:nth-child(6) { left: 90%; animation-delay: 1s; animation-duration: 6.8s; }
+
+@keyframes fb-mote-rise {
+  0% { opacity: 0; transform: translateY(0) scale(0.6); }
+  20% { opacity: 0.85; }
+  80% { opacity: 0.85; }
+  100% { opacity: 0; transform: translateY(-100vh) translateX(25px) scale(1.2); }
+}
+
+/* ── Top Bar ─────────────────────────────────────────────────── */
+
+.fb-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.fb-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border: 1px solid rgba(196, 137, 245, 0.35);
+  border-radius: 2px;
+  background: rgba(18, 10, 30, 0.7);
+  backdrop-filter: blur(8px);
+  color: #ddd4e6;
+  font-family: var(--fb-font-display);
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-decoration: none;
+  transition: all 150ms ease;
+}
+
+.fb-back-btn:hover {
+  background: rgba(48, 20, 78, 0.85);
+  border-color: var(--fb-accent);
+  color: #fff;
+  transform: translateX(-2px);
+}
+
+.fb-round-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  border: 1px solid rgba(168, 85, 247, 0.4);
+  border-radius: 2px;
+  background: rgba(30, 14, 52, 0.6);
+  font-family: var(--fb-font-display);
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--fb-accent);
+}
+
+/* ── Minecraft Boss Bar ──────────────────────────────────────── */
+
+.fb-bossbar {
+  width: min(880px, 100%);
+  margin: 0 auto;
+  text-align: center;
+  position: relative;
+}
+
+.fb-bossbar__head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.fb-bossbar__title {
+  margin: 0;
+  font-family: var(--fb-font-display);
+  font-size: clamp(14px, 1.8vw, 20px);
+  letter-spacing: 3px;
+  color: #f8e8ff;
+  text-shadow: 0 0 12px rgba(217, 70, 239, 0.8), 0 2px 0 #000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fb-bossbar__meter {
+  position: relative;
+  height: 22px;
+  background: #0d0617;
+  border: 2px solid #5b21b6;
+  border-radius: 3px;
+  box-shadow: 0 0 16px rgba(168, 85, 247, 0.35), inset 0 2px 4px rgba(0, 0, 0, 0.8);
+  overflow: hidden;
+}
+
+.fb-bossbar__fill {
+  height: 100%;
+  background: linear-gradient(90deg, #c026d3 0%, #a855f7 50%, #d946ef 100%);
+  box-shadow: 0 0 12px rgba(217, 70, 239, 0.9);
+  transition: width 400ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  position: relative;
+}
+
+.fb-bossbar__fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.35) 0%, transparent 60%);
+}
+
+/* Segmented Notch Lines (Minecraft Boss Bar 6-10 notches) */
+.fb-bossbar__notches {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+.fb-bossbar__notch {
+  width: 2px;
+  height: 100%;
+  background: rgba(13, 6, 23, 0.9);
+  box-shadow: 1px 0 0 rgba(255, 255, 255, 0.1);
+}
+
+.fb-bossbar__sub {
+  margin: 6px 0 0;
+  font-family: var(--fb-font-display);
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: #c489f5;
+  opacity: 0.9;
+}
+
+/* ── Panels & Cards ──────────────────────────────────────────── */
+
+.fb-card {
+  border: 2px solid var(--fb-edge);
+  border-radius: 3px;
+  background: var(--fb-panel-dark);
+  backdrop-filter: blur(10px);
+  box-shadow: 4px 4px 0 #000, 0 0 24px rgba(168, 85, 247, 0.12);
+  padding: clamp(16px, 2.5vw, 28px);
+}
+
+/* ── Gated Screen ────────────────────────────────────────────── */
+
+.fb-gated-box {
+  max-width: 680px;
+  margin: 40px auto;
+  text-align: center;
+}
+
+.fb-gated-title {
+  font-family: var(--fb-font-display);
+  font-size: clamp(18px, 2.5vw, 26px);
+  color: var(--fb-bad);
+  margin: 0 0 12px;
+  text-shadow: 0 2px 0 #000;
+}
+
+.fb-req-list {
+  list-style: none;
+  margin: 24px 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  text-align: left;
+}
+
+.fb-req-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.fb-req-item[data-met='true'] {
+  border-color: rgba(108, 220, 138, 0.4);
+  background: rgba(36, 87, 26, 0.2);
+}
+
+.fb-req-item[data-met='false'] {
+  border-color: rgba(255, 107, 107, 0.4);
+  background: rgba(100, 20, 20, 0.2);
+}
+
+/* ── Idle / Intro Screen ─────────────────────────────────────── */
+
+.fb-intro-layout {
+  max-width: 860px;
+  margin: 10px auto 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.fb-dragon-banner {
+  position: relative;
+  height: clamp(200px, 32vw, 320px);
+  border: 2px solid var(--fb-edge-lit);
+  border-radius: 3px;
+  overflow: hidden;
+  box-shadow: 4px 4px 0 #000, 0 0 30px rgba(168, 85, 247, 0.25);
+}
+
+.fb-dragon-banner__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 30%;
+  filter: brightness(0.95);
+}
+
+.fb-dragon-banner__scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(10, 6, 20, 0.2) 0%, rgba(10, 6, 20, 0.9) 90%);
+}
+
+.fb-dragon-banner__overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 20px 24px;
+}
+
+.fb-dragon-banner__tag {
+  font-family: var(--fb-font-display);
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--fb-accent);
+  margin-bottom: 6px;
+}
+
+.fb-dragon-banner__name {
+  margin: 0;
+  font-family: var(--fb-font-display);
+  font-size: clamp(20px, 3.2vw, 36px);
+  color: #fff;
+  text-shadow: 0 0 16px rgba(217, 70, 239, 0.8), 0 3px 0 #000;
+}
+
+.fb-rules-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.fb-rule-box {
+  padding: 16px;
+  border: 1px solid rgba(168, 85, 247, 0.25);
+  border-radius: 2px;
+  background: rgba(18, 10, 30, 0.6);
+}
+
+.fb-rule-box__title {
+  margin: 0 0 6px;
+  font-family: var(--fb-font-display);
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  color: var(--fb-gold);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fb-rule-box__desc {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #c9bed4;
+}
+
+/* ── Primary Action Buttons (Minecraft 3D Buttons) ──────────── */
+
+.fb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-family: var(--fb-font-display);
+  font-size: clamp(12px, 1.3vw, 15px);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 14px 28px;
+  border: 2px solid;
+  border-radius: 2px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform 100ms ease, filter 150ms ease, box-shadow 100ms ease;
+  white-space: nowrap;
+}
+
+.fb-btn--boss-challenge {
+  background: linear-gradient(180deg, #d946ef 0%, #9333ea 50%, #6b21a8 100%);
+  border-color: #f5d0fe;
+  color: #ffffff;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.45), 0 5px 0 #3b0764, 0 10px 24px rgba(168, 85, 247, 0.4);
+  text-shadow: 0 2px 0 #000;
+  width: 100%;
+  font-size: clamp(13px, 1.5vw, 17px);
+  padding: 16px 32px;
+}
+
+.fb-btn--boss-challenge:hover:not(:disabled) {
+  filter: brightness(1.12);
+  transform: translateY(-2px);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.5), 0 7px 0 #3b0764, 0 14px 30px rgba(168, 85, 247, 0.5);
+}
+
+.fb-btn--boss-challenge:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.4), 0 1px 0 #3b0764;
+}
+
+.fb-btn--strike {
+  background: linear-gradient(180deg, #4ade80 0%, #16a34a 52%, #15803d 100%);
+  border-color: #bbf7d0;
+  color: #052e16;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.55), 0 4px 0 #064e3b, 0 8px 20px rgba(22, 163, 74, 0.4);
+  font-weight: bold;
+}
+
+.fb-btn--strike:hover:not(:disabled) {
+  filter: brightness(1.1);
+  transform: translateY(-2px);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.6), 0 6px 0 #064e3b, 0 12px 24px rgba(22, 163, 74, 0.5);
+}
+
+.fb-btn--strike:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.4), 0 1px 0 #064e3b;
+}
+
+.fb-btn--secondary {
+  background: rgba(30, 16, 50, 0.8);
+  border-color: var(--fb-edge-lit);
+  color: #e2d9eb;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 3px 0 #000;
+}
+
+.fb-btn--secondary:hover:not(:disabled) {
+  background: rgba(50, 26, 80, 0.9);
+  color: #fff;
+  border-color: var(--fb-accent);
+}
+
+.fb-btn:disabled {
+  filter: grayscale(0.8) brightness(0.6);
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* ── Cooldown Screen ─────────────────────────────────────────── */
+
+.fb-cooldown-card {
+  max-width: 640px;
+  margin: 30px auto;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.fb-timer-circle {
+  position: relative;
+  width: 140px;
+  height: 140px;
+  margin: 8px 0;
+}
+
+.fb-timer-circle svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.fb-timer-circle__track {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 8;
+}
+
+.fb-timer-circle__val {
+  fill: none;
+  stroke: #ff6b6b;
+  stroke-width: 8;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 6px rgba(255, 107, 107, 0.7));
+  transition: stroke-dashoffset 950ms linear;
+}
+
+.fb-timer-circle__center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--fb-font-display);
+}
+
+.fb-timer-time {
+  font-size: 24px;
+  color: #fff;
+  letter-spacing: 1px;
+}
+
+.fb-timer-label {
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: #ff8e8e;
+  margin-top: 4px;
+}
+
+/* ── Active Battle Workspace ─────────────────────────────────── */
+
+.fb-battle-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 18px;
+  align-items: start;
+}
+
+@media (max-width: 980px) {
+  .fb-battle-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Question Selection Tabs */
+.fb-q-tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  margin-bottom: 14px;
+  scrollbar-width: thin;
+}
+
+.fb-q-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border: 1px solid var(--fb-edge);
+  border-radius: 2px;
+  background: rgba(18, 10, 30, 0.75);
+  color: #c2b6cf;
+  font-family: var(--fb-font-display);
+  font-size: 10px;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 120ms ease;
+  white-space: nowrap;
+}
+
+.fb-q-tab:hover {
+  background: rgba(45, 20, 72, 0.85);
+  border-color: var(--fb-accent);
+  color: #fff;
+}
+
+.fb-q-tab--active {
+  background: linear-gradient(180deg, #581c87 0%, #3b0764 100%);
+  border-color: var(--fb-accent);
+  color: #fff;
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.4);
+}
+
+.fb-q-tab__pip {
+  width: 7px;
+  height: 7px;
+  border-radius: 1px;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.fb-q-tab[data-filled='true'] .fb-q-tab__pip {
+  background: var(--fb-good);
+  box-shadow: 0 0 6px var(--fb-good);
+}
+
+/* Question Header & Body */
+.fb-q-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(168, 85, 247, 0.25);
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.fb-q-title {
+  margin: 0;
+  font-family: var(--fb-font-display);
+  font-size: 14px;
+  color: #f5edff;
+  letter-spacing: 1px;
+}
+
+.fb-q-type-badge {
+  padding: 4px 8px;
+  border-radius: 2px;
+  border: 1px solid rgba(196, 137, 245, 0.35);
+  background: rgba(60, 20, 100, 0.4);
+  font-family: var(--fb-font-display);
+  font-size: 9px;
+  letter-spacing: 1px;
+  color: var(--fb-accent);
+}
+
+/* Problem Statement / Code Prompt */
+.fb-prompt-text {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #e4dcf0;
+  margin: 0 0 14px;
+}
+
+.fb-prompt-code {
+  background: #08040f;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  border-left: 3px solid var(--fb-accent);
+  border-radius: 2px;
+  padding: 12px 16px;
+  margin: 12px 0 16px;
+  font-family: var(--fb-font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  color: #f1e6ff;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+/* Code Editor / Answer Workspace */
+.fb-editor-wrap {
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fb-editor-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--fb-font-display);
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--fb-accent);
+}
+
+.fb-editor-textarea {
+  width: 100%;
+  min-height: 220px;
+  background: #07030e;
+  border: 2px solid #3b2260;
+  border-radius: 2px;
+  padding: 14px;
+  font-family: var(--fb-font-mono);
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: #f8f2ff;
+  resize: vertical;
+  box-sizing: border-box;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.8);
+  outline: none;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.fb-editor-textarea:focus {
+  border-color: var(--fb-accent);
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.8), 0 0 14px rgba(168, 85, 247, 0.35);
+}
+
+/* Sidebar HUD */
+.fb-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.fb-sidecard {
+  border: 1px solid var(--fb-edge);
+  border-radius: 2px;
+  background: rgba(14, 8, 24, 0.8);
+  padding: 14px;
+}
+
+.fb-sidecard__title {
+  margin: 0 0 10px;
+  font-family: var(--fb-font-display);
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  color: var(--fb-gold);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.fb-sidecard__pips {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(32px, 1fr));
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.fb-sidepip {
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.4);
+  font-family: var(--fb-font-display);
+  font-size: 10px;
+  color: #9d91ab;
+  cursor: pointer;
+}
+
+.fb-sidepip[data-active='true'] {
+  border-color: var(--fb-accent);
+  background: #3b1464;
+  color: #fff;
+}
+
+.fb-sidepip[data-filled='true'] {
+  border-color: var(--fb-good);
+  color: var(--fb-good);
+}
+
+/* ── Victory Celebration Screen ──────────────────────────────── */
+
+.fb-victory-card {
+  max-width: 760px;
+  margin: 30px auto;
+  text-align: center;
+  padding: clamp(24px, 4vw, 44px);
+  position: relative;
+  overflow: hidden;
+}
+
+.fb-victory-egg {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 16px;
+  display: grid;
+  place-items: center;
+  border: 2px solid #ffd700;
+  border-radius: 50%;
+  background: radial-gradient(circle, #3b0764 0%, #120420 80%);
+  box-shadow: 0 0 30px rgba(255, 215, 0, 0.6), inset 0 0 16px rgba(217, 70, 239, 0.8);
+  animation: fb-egg-glow 3s ease-in-out infinite;
+}
+
+@keyframes fb-egg-glow {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 24px rgba(255, 215, 0, 0.5); }
+  50% { transform: scale(1.06); box-shadow: 0 0 40px rgba(255, 215, 0, 0.85); }
+}
+
+.fb-victory-title {
+  font-family: var(--fb-font-display);
+  font-size: clamp(22px, 3.6vw, 38px);
+  margin: 0 0 10px;
+  color: #fff;
+  text-shadow: 0 0 20px rgba(255, 215, 0, 0.8), 0 3px 0 #000;
+}
+
+.fb-victory-sub {
+  font-size: 16px;
+  color: var(--fb-good);
+  font-weight: 600;
+  margin: 0 0 20px;
+}
+
+.fb-cert-box {
+  padding: 16px 20px;
+  border: 1px solid rgba(255, 215, 0, 0.4);
+  border-radius: 2px;
+  background: rgba(30, 15, 45, 0.7);
+  margin: 20px 0;
+  text-align: left;
+}
+
+/* ── Error Banner ────────────────────────────────────────────── */
+
+.fb-error-banner {
+  padding: 12px 16px;
+  border: 1px solid #ef4444;
+  border-radius: 2px;
+  background: rgba(127, 29, 29, 0.5);
+  color: #fecaca;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+/* ── The dragon's questions are multiple choice ──────────────────
+ *
+ * The fight used to be the round's coding questions in a textarea. It is now
+ * twenty-five of the screening pack, so what the board needs is four choices,
+ * not an editor.
+ */
+
+.fb-choices {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.fb-choice-list {
+  display: grid;
+  width: 100%;
+  max-width: 720px;
+  gap: 10px;
+  margin: 0 auto;
+}
+
+/* The whole row is the target, not a radio dot at the end of it — this is
+   answered under a clock, on laptops, with a team leaning over the keyboard. */
+.fb-choice {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 16px;
+  border: 2px solid var(--fb-edge);
+  border-radius: 3px;
+  background: rgba(28, 16, 48, 0.72);
+  color: #e9e2f5;
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  transition: border-color 0.12s, background 0.12s, transform 0.12s;
+}
+
+.fb-choice:hover {
+  border-color: #a855f7;
+  background: rgba(48, 26, 80, 0.8);
+}
+
+.fb-choice:active {
+  transform: translateY(1px);
+}
+
+.fb-choice--on {
+  border-color: #c084fc;
+  background: linear-gradient(180deg, rgba(147, 51, 234, 0.42), rgba(88, 28, 135, 0.42));
+  box-shadow: 0 0 0 1px rgba(192, 132, 252, 0.5) inset;
+}
+
+.fb-choice-key {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  place-items: center;
+  border: 1px solid var(--fb-edge);
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.35);
+  color: #c9b8e4;
+  font-family: var(--font-minecraft), ui-monospace, monospace;
+  font-size: 12px;
+}
+
+.fb-choice--on .fb-choice-key {
+  border-color: #c084fc;
+  background: #7e22ce;
+  color: #fff;
+}
+
+.fb-choice-text {
+  flex: 1;
+  line-height: 1.45;
+  /* A long option wraps rather than widening the card off the board. */
+  overflow-wrap: anywhere;
+}
+
+/* ── Centre the board ────────────────────────────────────────────
+ *
+ * The question card and the battle rail were pinned to the left of a very wide
+ * screen, leaving the fight sitting in the top-left corner of a projector.
+ */
+
+.fb-battle-layout {
+  width: 100%;
+  max-width: 1280px;
+  margin-inline: auto;
+  justify-content: center;
+}
+
+.fb-q-head,
+.fb-prompt-container {
+  width: 100%;
+  max-width: 860px;
+  margin-inline: auto;
+}
