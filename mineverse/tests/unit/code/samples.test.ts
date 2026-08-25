@@ -98,6 +98,16 @@ describe('normalizeOutput', () => {
     expect(grader).toContain("import { normalizeOutput } from '@/lib/gameplay/code/compare'");
     expect(grader).not.toMatch(/function normalizeOutput/);
   });
+
+  it('runs the same wrapper the editor ran', () => {
+    // A contract question's answer is a `class Solution` with no `main` in it.
+    // The grader used to post `submission.code` to Piston bare, which cannot run
+    // in any language — and it books a failed run as a wrong answer, so every
+    // correct Round 5 submission would have been marked zero.
+    const grader = readFileSync(join(root, 'lib', 'grading', 'day2-round5.ts'), 'utf8');
+    expect(grader).toContain('wrapForExecution');
+    expect(grader).not.toMatch(/content:\s*submission\.code/);
+  });
 });
 
 describe('the run endpoint', () => {
