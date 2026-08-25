@@ -124,7 +124,7 @@ export default function AdminQualificationClient({ initialData }: { initialData:
     <>
       <PageTitle
         title="Qualification"
-        subtitle="A team qualifies only with Iron Armor, a Blaze Guardian win, and a winning PvP result. Freezing is immutable."
+        subtitle="A team qualifies with Iron Armor and a winning PvP result. The Blaze Guardian is shown for context but no longer decides. Freezing is immutable."
         actions={<Btn onClick={refresh}><RefreshCw size={12} /> Refresh</Btn>}
       />
 

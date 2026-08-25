@@ -16,7 +16,11 @@ export interface RoundConfig {
   tagline: string;
   /** Progression item craftable in this round, if any. */
   craft: CraftItem | null;
-  /** Guardian available in this round; `mandatory` gates PvP eligibility. */
+  /**
+   * Guardian available in this round. `mandatory` only draws the "Required"
+   * badge now — no gate reads it. The Blaze once stood between a team and the
+   * duel; that requirement was dropped on the day.
+   */
   guardian: { name: GuardianName; mandatory: boolean } | null;
   /**
    * Choice event that resolves in this round.
@@ -64,7 +68,7 @@ export const ROUND_CONFIGS: Record<number, RoundConfig> = {
     biome: 'mountain',
     tagline: 'Armour up — the duel comes next',
     craft: 'iron_armor',
-    guardian: { name: 'blaze_guardian', mandatory: true },
+    guardian: { name: 'blaze_guardian', mandatory: false },
     choice: 'piglin_merchant',
     marketplace: true,
     pvp: false,

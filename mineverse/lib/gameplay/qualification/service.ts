@@ -29,8 +29,9 @@ function handleQueryError(error: { message: string }, lenient: boolean, source: 
 }
 
 /**
- * Bulk eligibility snapshot. Eligibility requires Iron Armor crafted (Dev 4 crafting_log),
- * the mandatory Blaze Guardian defeated (guardian_battles), and a winning PvP result (Dev 5 pvp_results).
+ * Bulk eligibility snapshot. Eligibility requires Iron Armor crafted (Dev 4 crafting_log)
+ * and a winning PvP result (Dev 5 pvp_results). The Blaze Guardian is still read and
+ * reported, but no longer decides — see the rule at the foot of this function.
  * `lenient` reads treat a missing integration table as "no evidence" (for review views);
  * strict reads (default) fail loudly because a wrong frozen decision is worse than an error.
  */
@@ -89,8 +90,21 @@ export async function buildEligibilitySnapshot(
     }
   }
 
+  /**
+   * The Blaze Guardian is recorded but no longer decides this.
+   *
+   * It was dropped as a requirement for entering the duel on the day (see
+   * `PVP_REQUIRES_BLAZE_GUARDIAN`), which left seven teams holding a duel win
+   * they could not have earned if the Blaze had still been in the way. Counting
+   * it here would have eliminated exactly those teams — and, because the freeze
+   * writes a single stock sentence, it would have told them they missed a
+   * cutoff rather than the truth.
+   *
+   * `hasBlazeGuardian` stays on the snapshot: the panel draws it as a column,
+   * and an organiser judging a team should still be able to see it.
+   */
   for (const entry of result.values()) {
-    entry.isEligible = entry.hasIronArmor && entry.hasBlazeGuardian && entry.hasPvPWin;
+    entry.isEligible = entry.hasIronArmor && entry.hasPvPWin;
   }
 
   return result;
