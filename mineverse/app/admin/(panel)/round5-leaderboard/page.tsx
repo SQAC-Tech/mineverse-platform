@@ -30,19 +30,19 @@ export default async function Round5LeaderboardPage() {
     <>
       <PageTitle
         title="Round 5 standings"
-        subtitle="The dragon and the seven questions in one pile, no weighting. Level on the count, the earlier finish on the dragon is ahead."
+        subtitle="Answers plus weighted resources. Wood 0.5, stone 1, iron 1.5, gold 2, emerald 2, diamond 3. Level on the score, more answers wins, then the earlier finish on the dragon."
       />
 
       <Grid min={200} gap={12}>
         <StatTile label="Teams" value={String(rows.length)} />
         <StatTile label="Fought the dragon" value={`${attempted} of ${rows.length}`} />
         <StatTile label="Leader" value={leader ? leader.team_code : '—'} />
-        <StatTile label="Top score" value={leader ? String(leader.total_correct) : '—'} />
+        <StatTile label="Top score" value={leader ? String(leader.grand_total) : '—'} />
       </Grid>
 
       <Panel title="Combined">
-        <Table head={['#', 'Team', 'Dragon', 'Questions', 'Total', 'Fight', 'Resources']}>
-          {rows.length === 0 && <Empty colSpan={7}>Nobody has qualified for Day 2 yet.</Empty>}
+        <Table head={['#', 'Team', 'Dragon', 'Questions', 'Answers', 'Resource pts', 'Score', 'Fight', 'Resources']}>
+          {rows.length === 0 && <Empty colSpan={9}>Nobody has qualified for Day 2 yet.</Empty>}
           {rows.map((row) => (
             <tr key={row.team_code}>
               <td>{row.rank}</td>
@@ -59,8 +59,10 @@ export default async function Round5LeaderboardPage() {
                 {row.questions_correct}
                 <span style={{ opacity: 0.6 }}> of {row.questions_answered} answered</span>
               </td>
+              <td>{row.total_correct}</td>
+              <td>{row.resource_points}</td>
               <td>
-                <strong>{row.total_correct}</strong>
+                <strong>{row.grand_total}</strong>
               </td>
               <td>
                 <Pill tone={bossTone(row.boss_status)}>{bossLabel(row.boss_status)}</Pill>
