@@ -256,3 +256,95 @@ export async function dashboardEntitlement(
 
   return OK;
 }
+
+export interface CheckpointOrderGate {
+  ok: boolean;
+  /** The desk that has to be visited first, when this one is out of order. */
+  required?: { id: number; code: string; label: string };
+  message?: string;
+}
+
+/**
+ * The desks are a sequence, and this is what makes them one.
+ *
+ * A team that never turned up in the morning was walking to the Round 3 desk
+ * and being ticked in as though it had been there all day. The round gate only
+ * ever asked "is there a record at the desk that covers this round?", so one
+ * scan after lunch admitted a team that had played nothing — and, on day 1,
+ * that is a team entering the elimination round without having sat the two
+ * rounds it eliminates on.
+ *
+ * So a checkpoint now requires the one before it *on the same day*. Round 3
+ * requires Rounds 1 & 2; Day 2's Round 5 desk requires its Round 4 desk. The
+ * rule is read from `sequence` rather than written against checkpoint ids,
+ * because the desks are configured in the table and a hardcoded id would be
+ * wrong the moment one is added.
+ *
+ * ## The way round it, on purpose
+ *
+ * There is one, and it is deliberate: mark the team at the earlier desk. A
+ * team that genuinely was there but was missed — a scanner that failed, a
+ * volunteer who forgot — is fixed by recording the truth about the morning,
+ * which is a thing an organiser can see and audit afterwards. What is not
+ * possible is waving it through at the later desk, because that leaves no
+ * trace that anything was skipped.
+ *
+ * Fails open. If the lookup breaks mid-event this must not become the reason a
+ * hall of teams cannot be marked in — same reasoning as `attendanceGate`.
+ */
+export async function checkpointOrderGate(
+  teamId: string,
+  checkpointId: number,
+): Promise<CheckpointOrderGate> {
+  let checkpoints: Awaited<ReturnType<typeof getCachedCheckpoints>>;
+  try {
+    checkpoints = await getCachedCheckpoints();
+  } catch (error) {
+    console.error(`[gates] checkpoint order lookup failed for ${checkpointId}:`, error);
+    return { ok: true };
+  }
+
+  const here = checkpoints.find((checkpoint) => checkpoint.id === checkpointId);
+  if (!here) return { ok: true };
+
+  // The desk immediately before this one, on this day. The first desk of a day
+  // has none, so it is never gated — a team has to be able to start somewhere.
+  const previous = checkpoints
+    .filter(
+      (checkpoint) =>
+        checkpoint.day === here.day &&
+        (checkpoint.sequence ?? 0) < (here.sequence ?? 0),
+    )
+    .sort((a, b) => (b.sequence ?? 0) - (a.sequence ?? 0))[0];
+
+  if (!previous) return { ok: true };
+
+  // Demo teams walk the whole event without waiting on desks, exactly as they
+  // skip round status and locks. See `lib/gameplay/demo-teams.ts`.
+  if (await isDemoTeamId(teamId)) {
+    noteDemoBypass(`team ${teamId} checkpoint ${checkpointId}`);
+    return { ok: true };
+  }
+
+  const { data, error } = await db
+    .from('attendance_records')
+    .select('id')
+    .eq('team_id', teamId)
+    .eq('checkpoint_id', previous.id)
+    .maybeSingle();
+
+  if (error) {
+    console.error(`[gates] previous-checkpoint read failed for team ${teamId}:`, error);
+    return { ok: true };
+  }
+
+  if (data) return { ok: true };
+
+  return {
+    ok: false,
+    required: { id: previous.id, code: previous.code, label: previous.label },
+    message:
+      `This team was never marked present at "${previous.label}". ` +
+      `Mark them there first, then scan them in here.`,
+  };
+}

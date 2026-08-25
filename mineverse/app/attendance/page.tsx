@@ -46,6 +46,8 @@ type ResolvedTeam = {
   /** False when this team has no seat at this checkpoint — see `markingEntitlement`. */
   entitled: boolean;
   entitlement_message: string | null;
+  in_order: boolean;
+  order_message: string | null;
   members: Member[];
   existing: { member_ids: string[]; members_present: number; marked_at: string; method: string } | null;
   history: { checkpoint_id: number; members_present: number; label: string }[];
@@ -290,6 +292,15 @@ export default function AttendancePanel() {
                     refused.
                   </p>
                 )}
+                {/* Drawn even when the team is also unentitled: they are
+                    different problems with different fixes, and the volunteer
+                    should not solve one and be surprised by the other. */}
+                {team.in_order === false && (
+                  <p className="mt-2 rounded bg-red-500/10 px-2 py-1 text-xs font-semibold text-red-400">
+                    {team.order_message ?? 'An earlier desk has to mark this team first.'} Saving will be
+                    refused.
+                  </p>
+                )}
                 {!team.is_payment_verified && (
                   <p className="mt-2 rounded bg-amber-500/10 px-2 py-1 text-xs text-amber-400">
                     Payment not verified — check with the desk before marking.
@@ -427,7 +438,7 @@ export default function AttendancePanel() {
                 <Button
                   className="h-12 flex-1 bg-cyan-600 font-bold text-white hover:bg-cyan-500"
                   onClick={mark}
-                  disabled={busy || !team.entitled}
+                  disabled={busy || !team.entitled || team.in_order === false}
                 >
                   Mark {present.length}/{team.roster_size}
                 </Button>
