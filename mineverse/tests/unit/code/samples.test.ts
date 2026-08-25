@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { serializeSafeQuestion, type QuestionRow } from '../../../lib/gameplay/questions/contracts';
 import { normalizeOutput } from '../../../lib/gameplay/code/compare';
+import { wrapForExecution } from '../../../lib/gameplay/code/contract';
 
 const root = join(__dirname, '..', '..', '..');
 
@@ -116,5 +117,48 @@ describe('the run endpoint', () => {
   it('is rate limited per team, not per IP', () => {
     // The hall shares one campus NAT address.
     expect(source).toContain('code-run:${session.team_id}');
+  });
+});
+
+/**
+ * Piston picks the class to run by scanning the file and taking the first one,
+ * not from the filename. So for Java the wrapper's own class has to be declared
+ * ahead of the team's, or a correct solution dies at run time with
+ * "can't find main(String[]) method in class: Solution".
+ *
+ * The local harness test cannot catch this — it runs `javac Main.java && java
+ * Main`, which names the entry point that Piston has to guess.
+ */
+describe('java assembly order', () => {
+  const fn = {
+    name: 'missingMarker',
+    params: [{ name: 'markers', type: 'int[]' as const }],
+    returns: 'int' as const,
+  };
+
+  const solution = 'import java.util.*;\n\nclass Solution {\n    public int missingMarker(int[] m) { return 0; }\n}';
+
+  it('declares Main before the team class', () => {
+    const wrapped = wrapForExecution(fn, 'java', solution);
+    expect(wrapped.indexOf('public class Main')).toBeLessThan(wrapped.indexOf('class Solution'));
+  });
+
+  it('hoists the team imports above every class', () => {
+    const wrapped = wrapForExecution(fn, 'java', solution);
+    expect(wrapped.lastIndexOf('import ')).toBeLessThan(wrapped.indexOf('public class Main'));
+  });
+
+  it('does not repeat an import the harness already has', () => {
+    const wrapped = wrapForExecution(fn, 'java', solution);
+    expect(wrapped.split('import java.util.*;').length - 1).toBe(1);
+  });
+
+  it('still sandwiches the team code for every other language', () => {
+    for (const language of ['cpp', 'c', 'python', 'javascript'] as const) {
+      const wrapped = wrapForExecution(fn, language, 'MARKER');
+      // Prelude before, harness main after — the order Java is the exception to.
+      expect(wrapped.startsWith('MARKER')).toBe(false);
+      expect(wrapped.trimEnd().endsWith('MARKER')).toBe(false);
+    }
   });
 });
