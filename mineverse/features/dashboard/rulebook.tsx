@@ -361,7 +361,7 @@ function Guardians() {
       <h2 className="rb__h">Guardians</h2>
       <p className="rb__p">
         A guardian is a timed, higher-difficulty challenge with a bonus attached. Beating one pays out; losing one costs
-        you. Only the Blaze Guardian in Round 3 is compulsory.
+        you. None of them are compulsory — the duel and Day 2 are gated on the Iron Armor, not on a guardian.
       </p>
 
       {names.map((name) => {
