@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowLeft, Check, Flame, RefreshCw, Sword } from 'lucide-react';
+import { ArrowLeft, Check, Flame, Pickaxe, RefreshCw, Sword } from 'lucide-react';
 import { roundChrome } from '@/components/game/custom-round-ui/round-presentation';
 import { PortalFrame } from '@/components/day2/portal/PortalFrame';
 import { stageFor } from '@/components/day2/portal/portal-layout';
@@ -24,6 +24,7 @@ interface Day2Status {
     is_repaired: boolean;
     diamond_count: number;
     nether_core_count: number;
+    has_diamond_pickaxe?: boolean;
   };
 }
 
@@ -172,6 +173,7 @@ export function PortalRepairUI() {
   const hasFragment = Boolean(portal?.has_fragment);
   const hasDiamonds = diamonds >= DIAMONDS_REQUIRED;
   const isRepaired = Boolean(portal?.is_repaired);
+  const hasPickaxe = Boolean(portal?.has_diamond_pickaxe);
   const stage = stageFor({ hasCore, hasFragment, hasDiamonds }, { isRepaired, isIgniting: igniting });
 
   const materials: Material[] = [
@@ -308,11 +310,28 @@ export function PortalRepairUI() {
                   <Flame size={18} /> IGNITING…
                 </button>
               </>
+            ) : isRepaired && !hasPickaxe ? (
+              /**
+               * One door at a time. The repair just paid 100 diamonds and the
+               * pickaxe is the only thing they buy, so the next step is the
+               * forge — not The End, where the dragon will not let an unarmed
+               * team past `MISSING_DIAMOND_PICKAXE`.
+               */
+              <>
+                <h2 className="pr-mission__title">PORTAL LIT</h2>
+                <p className="pr-mission__body">
+                  The repair yielded 100 diamonds. Forge the Diamond Pickaxe before you step through —
+                  the Ender Dragon will not face a team without one.
+                </p>
+                <Link href="/dashboard" className="pr-cta pr-cta--ignite">
+                  <Pickaxe size={18} /> CRAFT THE DIAMOND PICKAXE
+                </Link>
+              </>
             ) : isRepaired ? (
               <>
                 <h2 className="pr-mission__title">MISSION COMPLETE</h2>
                 <p className="pr-mission__body">
-                  The End awaits. Craft the Diamond Pickaxe, then face the Ender Dragon.
+                  Pickaxe in hand and the portal lit. The Ender Dragon is waiting.
                 </p>
                 <Link href="/round5" className="pr-cta">
                   <Sword size={18} /> ENTER THE END

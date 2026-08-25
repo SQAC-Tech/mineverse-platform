@@ -76,7 +76,16 @@ export const CRAFT_RECIPES: Record<CraftItem, CraftRecipe> = {
      * the same numbers and is what actually charges; change them together.
      */
     base_cost: { iron: 10, gold: 15, diamond: 100, emerald: 3 },
-    unlock_round_id: null,
+    /**
+     * The pickaxe opens The End, the same way the wooden one opens the Cave.
+     *
+     * It used to open nothing, so a team could walk into Round 5, sit the seven
+     * questions and only meet the requirement at the dragon's door — where the
+     * boss route refuses with MISSING_DIAMOND_PICKAXE and there is no forge to
+     * go back to without losing the round clock. Gating the biome puts the
+     * refusal where the team can still act on it.
+     */
+    unlock_round_id: 5,
     marks_pvp_eligible: false,
     requires: 'iron_armor',
     requiresDay2Qualification: true,
@@ -157,9 +166,9 @@ export function craftAvailability(item: CraftItem, context: CraftContext): Craft
  * the progression is stated once, in the recipe, rather than duplicated as a
  * second table that can drift from it.
  *
- * Only Rounds 2 and 3 are gated this way today: Iron Armor and the Diamond
- * Pickaxe unlock capabilities rather than biomes, so they open no round and
- * appear here as null.
+ * Rounds 2, 3 and 5 are gated this way. The Iron Armor is the exception: it
+ * opens the duel rather than a biome, and that gate lives in
+ * `lib/gameplay/pvp/eligibility.ts`, so it declares no round here.
  */
 export function requiredCraftForRound(roundId: number): CraftItem | null {
   for (const item of CRAFT_ORDER) {

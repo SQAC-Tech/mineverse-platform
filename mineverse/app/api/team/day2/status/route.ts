@@ -68,6 +68,22 @@ export async function GET() {
     portalState = missing.length > 0 ? missing.join(', ') : 'collecting';
   }
 
+  /**
+   * Whether the pickaxe is made yet.
+   *
+   * The portal screen needs it to know which door to offer: a team that has
+   * just repaired the portal has 100 diamonds and nothing to spend them on but
+   * this, and sending it to The End first means it arrives at a dragon it
+   * cannot fight. Read here rather than in the snapshot RPC so the one extra
+   * row is fetched alongside everything else this route already returns.
+   */
+  const { data: pickaxe } = await supabaseServer
+    .from('crafting_log')
+    .select('id')
+    .eq('team_id', session.team_id)
+    .eq('item', 'diamond_pickaxe')
+    .maybeSingle();
+
   return NextResponse.json({
     success: true,
     team_id: session.team_id,
@@ -77,6 +93,7 @@ export async function GET() {
       is_repaired: isRepaired,
       diamond_count: diamondCount,
       nether_core_count: netherCoreCount,
+      has_diamond_pickaxe: Boolean(pickaxe),
     },
     final_boss: {
       last_attempt: snapshot.last_attempt ?? null,
