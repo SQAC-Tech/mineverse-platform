@@ -71,15 +71,27 @@ export async function POST() {
     .maybeSingle();
 
   if (lastAttempt) {
-    // Reload, refresh, second tab: the same fight, with whatever time is left.
-    if (lastAttempt.status === 'active') {
+    const held = (lastAttempt.question_payload ?? {}) as { source?: string };
+    /**
+     * An attempt opened before the fight became multiple choice holds a pack of
+     * coding questions with no `options` on them, which the arena renders as a
+     * question with nothing to answer. Those are reissued rather than replayed;
+     * a team must never be handed a paper it cannot fill in.
+     */
+    const stale = held.source !== 'screening_questions';
+
+    if (stale) {
+      await supabaseServer.from('day2_final_boss_attempts').delete().eq('id', lastAttempt.id);
+    } else if (lastAttempt.status === 'active') {
+      // Reload, refresh, second tab: the same fight, with whatever time is left.
       return NextResponse.json({ success: true, payload: lastAttempt.question_payload });
+    } else {
+      // Won or lost, it is over. Both are terminal; there is no cooldown to serve.
+      return NextResponse.json(
+        { success: false, error: 'ALREADY_ATTEMPTED', outcome: lastAttempt.status },
+        { status: 400 },
+      );
     }
-    // Won or lost, it is over. Both are terminal; there is no cooldown to serve.
-    return NextResponse.json(
-      { success: false, error: 'ALREADY_ATTEMPTED', outcome: lastAttempt.status },
-      { status: 400 },
-    );
   }
 
   const { data: pool, error: poolError } = await supabaseServer

@@ -23,13 +23,7 @@ import {
   Timer,
   Trophy,
 } from 'lucide-react';
-import {
-  languagePrompts,
-  offersLanguageChoice,
-  promptBlocks,
-  roundChrome,
-} from '@/components/game/custom-round-ui/round-presentation';
-import { defaultLanguageFor, offeredRuntimes } from '@/lib/gameplay/code/runtimes';
+import { promptBlocks } from '@/components/game/custom-round-ui/round-presentation';
 import { startPoll } from '@/lib/client/poll';
 
 import '@/app/theme-kit.css';
@@ -104,7 +98,6 @@ export function FinalBossUI() {
   // The chosen option's index, per question. Never the option text: the
   // server marks against `correct_index` and an index is what it compares.
   const [answers, setAnswers] = useState<Record<string, number>>({});
-  const [languages, setLanguages] = useState<Record<string, string>>({});
   const [timeLeft, setTimeLeft] = useState<number>(0);
   const editorRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -260,12 +253,9 @@ export function FinalBossUI() {
     : 100;
 
   const currentQuestion = questions ? questions[activeQuestionIndex] : null;
-  const currentLang = currentQuestion
-    ? languages[currentQuestion.id] ?? defaultLanguageFor(currentQuestion.language_options)
-    : 'python';
-  const activePrompt = currentQuestion
-    ? languagePrompts(currentQuestion)?.[currentLang] ?? currentQuestion.prompt
-    : '';
+  // The pack is multiple choice, so there is no language to pick and no
+  // per-language wording of the prompt to look up.
+  const activePrompt = currentQuestion?.prompt ?? '';
 
   const cooldownPercent = timeLeft > 0 ? (timeLeft / TOTAL_COOLDOWN_SECONDS) * 100 : 0;
   const radius = 58;
@@ -551,25 +541,7 @@ export function FinalBossUI() {
                   </div>
 
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    {offersLanguageChoice({ type: currentQuestion.type || 'coding', content: currentQuestion.content }) && (
-                      <select
-                        className="fb-round-badge"
-                        style={{ background: '#1c1030', color: '#fff', cursor: 'pointer', outline: 'none' }}
-                        value={currentLang}
-                        onChange={(e) =>
-                          setLanguages((prev) => ({ ...prev, [currentQuestion.id]: e.target.value }))
-                        }
-                      >
-                        {offeredRuntimes(currentQuestion.language_options).map((rt) => (
-                          <option key={rt.id} value={rt.id}>
-                            {rt.label}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                    <span className="fb-q-type-badge">
-                      {currentQuestion.type ? currentQuestion.type.toUpperCase() : 'CODING'}
-                    </span>
+                    <span className="fb-q-type-badge">MULTIPLE CHOICE</span>
                   </div>
                 </div>
 
