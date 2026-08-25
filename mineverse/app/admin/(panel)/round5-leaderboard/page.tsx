@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { verifyPanelToken, PANEL_COOKIE } from '@/lib/panel/session';
-import { getRound5Leaderboard } from '@/lib/gameplay/day2/leaderboard';
+import { getRound5Leaderboard, type TeamResources } from '@/lib/gameplay/day2/leaderboard';
 import { PageTitle, Panel, Table, Empty, Pill, StatTile, Grid } from '@/components/admin/nether-ui';
 
 /**
@@ -41,8 +41,8 @@ export default async function Round5LeaderboardPage() {
       </Grid>
 
       <Panel title="Combined">
-        <Table head={['#', 'Team', 'Dragon', 'Questions', 'Total', 'Fight']}>
-          {rows.length === 0 && <Empty colSpan={6}>Nobody has qualified for Day 2 yet.</Empty>}
+        <Table head={['#', 'Team', 'Dragon', 'Questions', 'Total', 'Fight', 'Resources']}>
+          {rows.length === 0 && <Empty colSpan={7}>Nobody has qualified for Day 2 yet.</Empty>}
           {rows.map((row) => (
             <tr key={row.team_code}>
               <td>{row.rank}</td>
@@ -65,6 +65,15 @@ export default async function Round5LeaderboardPage() {
               <td>
                 <Pill tone={bossTone(row.boss_status)}>{bossLabel(row.boss_status)}</Pill>
               </td>
+              <td>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 10px', fontSize: 11 }}>
+                  {RESOURCE_ORDER.map(([key, label]) => (
+                    <span key={key} style={{ opacity: row.resources[key] > 0 ? 1 : 0.35 }}>
+                      {label} <strong>{row.resources[key]}</strong>
+                    </span>
+                  ))}
+                </div>
+              </td>
             </tr>
           ))}
         </Table>
@@ -72,6 +81,17 @@ export default async function Round5LeaderboardPage() {
     </>
   );
 }
+
+/** Shown in the order a team earns them, not alphabetically. */
+const RESOURCE_ORDER: Array<[keyof TeamResources, string]> = [
+  ['wood', 'W'],
+  ['stone', 'S'],
+  ['iron', 'Fe'],
+  ['gold', 'Au'],
+  ['diamond', 'Dia'],
+  ['emerald', 'Em'],
+  ['obsidian', 'Obs'],
+];
 
 function bossLabel(status: string) {
   if (status === 'not_attempted') return 'not fought';

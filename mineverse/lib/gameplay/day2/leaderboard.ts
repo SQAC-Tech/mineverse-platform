@@ -22,6 +22,18 @@ interface SubmissionRow {
   final_score: number | null;
 }
 
+interface ResourceRow {
+  team_id: string;
+  wood: number; stone: number; iron: number;
+  gold: number; diamond: number; emerald: number; obsidian: number;
+}
+
+export type TeamResources = Omit<ResourceRow, 'team_id'>;
+
+const NO_RESOURCES: TeamResources = {
+  wood: 0, stone: 0, iron: 0, gold: 0, diamond: 0, emerald: 0, obsidian: 0,
+};
+
 export interface Round5Standing {
   rank: number;
   team_id: string;
@@ -38,6 +50,12 @@ export interface Round5Standing {
   total_correct: number;
   /** When the fight was handed in — the tie-break, and null if it never was. */
   boss_completed_at: string | null;
+  /**
+   * What the team is holding. Shown, never ranked on: the standings are the
+   * count of correct answers, and a team that spent its gold on the Diamond
+   * Pickaxe must not fall behind one that hoarded.
+   */
+  resources: TeamResources;
 }
 
 /**
@@ -58,7 +76,7 @@ export interface Round5Standing {
  * than a row to hide.
  */
 export async function getRound5Leaderboard(): Promise<Round5Standing[]> {
-  const [qualifiedResult, attemptsResult, submissionsResult] = await Promise.all([
+  const [qualifiedResult, attemptsResult, submissionsResult, resourcesResult] = await Promise.all([
     supabaseServer
       .from('team_game_state')
       .select('team_id, teams(team_code, team_name)')
@@ -67,11 +85,18 @@ export async function getRound5Leaderboard(): Promise<Round5Standing[]> {
       .from('day2_final_boss_attempts')
       .select('team_id, status, completed_at, score_evidence'),
     supabaseServer.from('submissions').select('team_id, final_score').eq('round_id', 5),
+    supabaseServer
+      .from('resources')
+      .select('team_id, wood, stone, iron, gold, diamond, emerald, obsidian'),
   ]);
 
   const qualified = (qualifiedResult.data ?? []) as unknown as QualifiedRow[];
   const attempts = (attemptsResult.data ?? []) as unknown as AttemptRow[];
   const submissions = (submissionsResult.data ?? []) as unknown as SubmissionRow[];
+  const resources = (resourcesResult.data ?? []) as unknown as ResourceRow[];
+
+  const resourcesByTeam = new Map<string, TeamResources>();
+  for (const { team_id, ...balance } of resources) resourcesByTeam.set(team_id, balance);
 
   const bossByTeam = new Map<string, AttemptRow>();
   for (const row of attempts) {
@@ -107,6 +132,7 @@ export async function getRound5Leaderboard(): Promise<Round5Standing[]> {
       questions_answered: tally.answered,
       total_correct: bossCorrect + tally.correct,
       boss_completed_at: boss?.completed_at ?? null,
+      resources: resourcesByTeam.get(entry.team_id) ?? NO_RESOURCES,
     };
   });
 
