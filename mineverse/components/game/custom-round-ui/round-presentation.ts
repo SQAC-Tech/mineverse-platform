@@ -391,7 +391,7 @@ const CHROME: Record<number, Omit<RoundChrome, 'name'>> = {
   },
   5: {
     eyebrow: 'ROUND 5', day: 'Day 2', mode: 'Final', Icon: Sparkles, themeClass: 'round-ui--end',
-    guardianArt: null, eventArt: null,
+    guardianArt: '/round5/guardian-ender-dragon.jpg', eventArt: null,
     eventIdleText: 'The End is silent. Organizers announce world events.',
   },
   // The duel. Without an entry here `roundChrome` falls through to CHROME[1],

@@ -63,8 +63,29 @@ export const CRAFT_RECIPES: Record<CraftItem, CraftRecipe> = {
   diamond_pickaxe: {
     item: 'diamond_pickaxe',
     label: 'Diamond Pickaxe',
-    base_cost: { iron: 25, gold: 20, diamond: 100, emerald: 10 },
-    unlock_round_id: null,
+    /**
+     * The diamonds come from repairing the Nether Portal, which is the step
+     * immediately before this one — see `app/api/team/portal/repair`, which
+     * tops a team up to exactly 100. So the diamond line is paid for by the
+     * round rather than saved up across the event; nothing else on the platform
+     * pays diamonds at all, and before that grant existed every qualified team
+     * held 15 and this craft was unreachable.
+     *
+     * Iron, gold and emerald are the ones a team has to arrive with, so they
+     * sit under the poorest qualified team's balance. `craft_team_item` carries
+     * the same numbers and is what actually charges; change them together.
+     */
+    base_cost: { iron: 10, gold: 15, diamond: 100, emerald: 3 },
+    /**
+     * The pickaxe opens The End, the same way the wooden one opens the Cave.
+     *
+     * It used to open nothing, so a team could walk into Round 5, sit the seven
+     * questions and only meet the requirement at the dragon's door — where the
+     * boss route refuses with MISSING_DIAMOND_PICKAXE and there is no forge to
+     * go back to without losing the round clock. Gating the biome puts the
+     * refusal where the team can still act on it.
+     */
+    unlock_round_id: 5,
     marks_pvp_eligible: false,
     requires: 'iron_armor',
     requiresDay2Qualification: true,
@@ -145,9 +166,9 @@ export function craftAvailability(item: CraftItem, context: CraftContext): Craft
  * the progression is stated once, in the recipe, rather than duplicated as a
  * second table that can drift from it.
  *
- * Only Rounds 2 and 3 are gated this way today: Iron Armor and the Diamond
- * Pickaxe unlock capabilities rather than biomes, so they open no round and
- * appear here as null.
+ * Rounds 2, 3 and 5 are gated this way. The Iron Armor is the exception: it
+ * opens the duel rather than a biome, and that gate lives in
+ * `lib/gameplay/pvp/eligibility.ts`, so it declares no round here.
  */
 export function requiredCraftForRound(roundId: number): CraftItem | null {
   for (const item of CRAFT_ORDER) {

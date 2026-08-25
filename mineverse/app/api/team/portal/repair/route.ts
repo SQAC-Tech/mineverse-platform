@@ -1,6 +1,18 @@
+import { createHash } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { requireDay2Access, Day2Session } from '@/lib/day2/access/guard';
 import { supabaseServer } from '@/lib/supabase/server';
+import { mutateTeamResource } from '@/lib/gameplay/marketplace/resource-client';
+
+/**
+ * What a repaired portal is worth in diamonds.
+ *
+ * The Diamond Pickaxe costs 100 and nothing else on the platform pays diamonds,
+ * so without this the last craft of the event is unreachable — every qualified
+ * team finished Round 3 holding the 15 this route checks for. Repairing the
+ * portal is what funds the pickaxe.
+ */
+const DIAMONDS_AFTER_REPAIR = 100;
 
 export async function POST() {
   const guardResult = await requireDay2Access();
@@ -81,5 +93,36 @@ export async function POST() {
     return NextResponse.json({ success: false, error: 'REPAIR_FAILED' }, { status: 500 });
   }
 
+  /**
+   * Top up to the target rather than adding to it: a team that somehow already
+   * holds more keeps what it has, and a retry that got past the unique-violation
+   * branch above cannot pay twice. The key is derived from the team, so the
+   * ledger refuses a second grant outright.
+   */
+  const shortfall = DIAMONDS_AFTER_REPAIR - resources.diamond;
+  if (shortfall > 0) {
+    const grant = await mutateTeamResource({
+      teamId: session.team_id,
+      delta: { diamond: shortfall },
+      sourceType: 'portal_repair',
+      sourceId: session.team_id,
+      idempotencyKey: repairGrantKey(session.team_id),
+      reason: 'Nether Portal repaired',
+    });
+
+    // The repair itself is already recorded and is what gates the round. A
+    // grant that fails must not read as a failed repair, or the team is sent
+    // back to a step it has finished.
+    if (!grant.success && grant.error !== 'CONFLICT') {
+      console.error('Portal repair: diamond grant failed', grant.message);
+    }
+  }
+
   return NextResponse.json({ success: true, repaired_at: repair.repaired_at });
+}
+
+/** Stable per team, so the grant can never be paid twice. */
+function repairGrantKey(teamId: string): string {
+  return createHash('sha1').update(`mineverse:portal-repair:${teamId}`).digest('hex').slice(0, 32)
+    .replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/, '$1-$2-$3-$4-$5');
 }

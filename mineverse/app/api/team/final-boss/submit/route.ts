@@ -1,22 +1,47 @@
 import { NextResponse } from 'next/server';
 import { requireDay2Access, Day2Session } from '@/lib/day2/access/guard';
 import { supabaseServer } from '@/lib/supabase/server';
-import { checkDeterministicAnswer, type ExpectedAnswer } from '@/lib/gameplay/grading/deterministic';
+import { BOSS_PASS_MARK } from '@/lib/gameplay/boss/config';
 
+interface SubmittedAnswer {
+  question_id: string;
+  /** Index into the question's `options`, as the arena renders them. */
+  selected_index?: number | null;
+}
+
+/**
+ * Hands in the Ender Dragon fight. Once, and then it is over.
+ *
+ * ## Marked on a count, not on perfection
+ *
+ * The fight used to demand all twenty-five and called anything less a loss with
+ * a three-minute cooldown. Round 5 is now ranked on total correct answers —
+ * the dragon and the seven questions in one pile, no weighting — so what
+ * matters is how many a team got, and `score_evidence.correct` is what the
+ * standings read. `won` and `lost` are only the label the team and the console
+ * see.
+ *
+ * ## Marked here, never in the browser
+ *
+ * `correct_index` never leaves the server: the attempt payload carries prompts
+ * and options only, and the answers arrive as an index into those options.
+ */
 export async function POST(request: Request) {
   const guardResult = await requireDay2Access();
-  if (guardResult instanceof NextResponse) {
-    return guardResult;
-  }
+  if (guardResult instanceof NextResponse) return guardResult;
   const session = guardResult as Day2Session;
 
-  const body = await request.json();
-  const answers = body.answers as { question_id: string; answer_text?: string; code?: string }[];
+  let body: { answers?: SubmittedAnswer[] };
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ success: false, error: 'MALFORMED_REQUEST' }, { status: 400 });
+  }
+  const answers = Array.isArray(body.answers) ? body.answers : [];
 
-  // Get active attempt
   const { data: attempt } = await supabaseServer
     .from('day2_final_boss_attempts')
-    .select('*')
+    .select('id, question_payload')
     .eq('team_id', session.team_id)
     .eq('status', 'active')
     .maybeSingle();
@@ -25,91 +50,80 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: false, error: 'NO_ACTIVE_ATTEMPT' }, { status: 400 });
   }
 
-  // `question_payload` is a jsonb column, so the generated types give it back as
-  // `Json`. The shape is written by the attempts route, not by a client.
   const payload = (attempt.question_payload ?? {}) as { questions?: { id: string }[] };
   const questionIds = (payload.questions ?? []).map((q) => q.id);
 
-  const { data: questions } = await supabaseServer
-    .from('questions')
-    .select('id, expected_answer')
+  const { data: questions, error: keyError } = await supabaseServer
+    .from('screening_questions')
+    .select('id, correct_index')
     .in('id', questionIds);
 
-  let allCorrect = true;
-  const scoreEvidence: any[] = [];
+  if (keyError) {
+    console.error('Final boss: answer key unavailable', keyError.message);
+    return NextResponse.json({ success: false, error: 'DATABASE_ERROR' }, { status: 500 });
+  }
 
-  for (const q of questions || []) {
-    const submitted = answers.find(a => a.question_id === q.id);
-    const text = submitted?.answer_text ?? submitted?.code ?? null;
-    const isCorrect = checkDeterministicAnswer(text, q.expected_answer as ExpectedAnswer);
-    
-    scoreEvidence.push({
-      question_id: q.id,
-      submitted: text,
-      correct: isCorrect,
-    });
+  const keyById = new Map((questions ?? []).map((q) => [q.id, q.correct_index]));
+  const submittedById = new Map(answers.map((a) => [a.question_id, a.selected_index]));
 
-    if (!isCorrect) {
-      allCorrect = false;
+  const results = questionIds.map((id) => {
+    const selected = submittedById.get(id);
+    const correctIndex = keyById.get(id);
+    // A question left blank is wrong, not unscorable — the pack is fixed and
+    // every one of the twenty-five counts against the same total.
+    const correct =
+      typeof selected === 'number' && typeof correctIndex === 'number' && selected === correctIndex;
+    return { question_id: id, selected_index: selected ?? null, correct };
+  });
+
+  const correctCount = results.filter((r) => r.correct).length;
+  const won = correctCount >= BOSS_PASS_MARK;
+  const completedAt = new Date().toISOString();
+
+  const { error: closeError } = await supabaseServer
+    .from('day2_final_boss_attempts')
+    .update({
+      status: won ? 'won' : 'lost',
+      completed_at: completedAt,
+      // No cooldown either way. There is no second attempt to cool down for.
+      cooldown_until: null,
+      score_evidence: {
+        correct: correctCount,
+        total: questionIds.length,
+        pass_mark: BOSS_PASS_MARK,
+        results,
+      },
+    })
+    .eq('id', attempt.id)
+    // Only close an attempt that is still open, so two submits cannot both land.
+    .eq('status', 'active');
+
+  if (closeError) {
+    console.error('Final boss: could not record the attempt', closeError.message);
+    return NextResponse.json({ success: false, error: 'SUBMIT_FAILED' }, { status: 500 });
+  }
+
+  /**
+   * A provisional claim is filed for a team that cleared the bar, and the
+   * organisers still certify the champion by hand. It is deliberately not the
+   * winner: Round 5 is decided on the combined count, which is not known until
+   * the ninety minutes are up and everyone's seven questions are in.
+   */
+  if (won) {
+    const { error: claimError } = await supabaseServer
+      .from('day2_provisional_winners')
+      .insert({ team_id: session.team_id, claimed_at: completedAt, status: 'pending' });
+
+    // A duplicate claim is not a failed submission; the fight is still recorded.
+    if (claimError && claimError.code !== '23505') {
+      console.error('Final boss: provisional claim failed', claimError.message);
     }
   }
 
-  if (allCorrect) {
-    // WON
-    const completedAt = new Date().toISOString();
-    
-    // Begin "transaction" equivalent
-    await supabaseServer
-      .from('day2_final_boss_attempts')
-      .update({
-        status: 'won',
-        completed_at: completedAt,
-        score_evidence: { results: scoreEvidence },
-      })
-      .eq('id', attempt.id);
-
-    // Create provisional winner claim. Check for tie-break.
-    // Actually, we just insert the provisional winner claim.
-    const { error: winnerError } = await supabaseServer
-      .from('day2_provisional_winners')
-      .insert({
-        team_id: session.team_id,
-        claimed_at: completedAt,
-        status: 'pending', // A cron or admin route checks for ties
-      });
-
-    // Check if there's exactly the same timestamp in another claim
-    const { data: ties } = await supabaseServer
-      .from('day2_provisional_winners')
-      .select('team_id')
-      .eq('claimed_at', completedAt)
-      .neq('team_id', session.team_id);
-    
-    if (ties && ties.length > 0) {
-      // Mark both as pending_tiebreak
-      const tiedTeams = [session.team_id, ...ties.map(t => t.team_id)];
-      await supabaseServer
-        .from('day2_provisional_winners')
-        .update({ status: 'pending_tiebreak' })
-        .in('team_id', tiedTeams);
-    }
-    
-    return NextResponse.json({ success: true, result: 'won' });
-
-  } else {
-    // LOST - 3 min cooldown
-    const cooldownUntil = new Date(Date.now() + 3 * 60 * 1000).toISOString();
-    
-    await supabaseServer
-      .from('day2_final_boss_attempts')
-      .update({
-        status: 'lost',
-        completed_at: new Date().toISOString(),
-        cooldown_until: cooldownUntil,
-        score_evidence: { results: scoreEvidence },
-      })
-      .eq('id', attempt.id);
-      
-    return NextResponse.json({ success: true, result: 'lost', cooldown_until: cooldownUntil });
-  }
+  return NextResponse.json({
+    success: true,
+    result: won ? 'won' : 'lost',
+    correct: correctCount,
+    total: questionIds.length,
+  });
 }
