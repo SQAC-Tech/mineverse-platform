@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { verifyPanelToken, PANEL_COOKIE } from '@/lib/panel/session';
-import { getRound5Leaderboard } from '@/lib/gameplay/day2/leaderboard';
+import { getRound5Leaderboard, type TeamResources } from '@/lib/gameplay/day2/leaderboard';
 import { PageTitle, Panel, Table, Empty, Pill, StatTile, Grid } from '@/components/admin/nether-ui';
 
 /**
@@ -30,19 +30,19 @@ export default async function Round5LeaderboardPage() {
     <>
       <PageTitle
         title="Round 5 standings"
-        subtitle="The dragon and the seven questions in one pile, no weighting. Level on the count, the earlier finish on the dragon is ahead."
+        subtitle="Answers plus weighted resources. Wood 0.5, stone 1, iron 1.5, gold 2, emerald 2, diamond 3. Level on the score, more answers wins, then the earlier finish on the dragon."
       />
 
       <Grid min={200} gap={12}>
         <StatTile label="Teams" value={String(rows.length)} />
         <StatTile label="Fought the dragon" value={`${attempted} of ${rows.length}`} />
         <StatTile label="Leader" value={leader ? leader.team_code : '—'} />
-        <StatTile label="Top score" value={leader ? String(leader.total_correct) : '—'} />
+        <StatTile label="Top score" value={leader ? String(leader.grand_total) : '—'} />
       </Grid>
 
       <Panel title="Combined">
-        <Table head={['#', 'Team', 'Dragon', 'Questions', 'Total', 'Fight']}>
-          {rows.length === 0 && <Empty colSpan={6}>Nobody has qualified for Day 2 yet.</Empty>}
+        <Table head={['#', 'Team', 'Dragon', 'Questions', 'Answers', 'Resource pts', 'Score', 'Fight', 'Resources']}>
+          {rows.length === 0 && <Empty colSpan={9}>Nobody has qualified for Day 2 yet.</Empty>}
           {rows.map((row) => (
             <tr key={row.team_code}>
               <td>{row.rank}</td>
@@ -59,11 +59,22 @@ export default async function Round5LeaderboardPage() {
                 {row.questions_correct}
                 <span style={{ opacity: 0.6 }}> of {row.questions_answered} answered</span>
               </td>
+              <td>{row.total_correct}</td>
+              <td>{row.resource_points}</td>
               <td>
-                <strong>{row.total_correct}</strong>
+                <strong>{row.grand_total}</strong>
               </td>
               <td>
                 <Pill tone={bossTone(row.boss_status)}>{bossLabel(row.boss_status)}</Pill>
+              </td>
+              <td>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 10px', fontSize: 11 }}>
+                  {RESOURCE_ORDER.map(([key, label]) => (
+                    <span key={key} style={{ opacity: row.resources[key] > 0 ? 1 : 0.35 }}>
+                      {label} <strong>{row.resources[key]}</strong>
+                    </span>
+                  ))}
+                </div>
               </td>
             </tr>
           ))}
@@ -72,6 +83,17 @@ export default async function Round5LeaderboardPage() {
     </>
   );
 }
+
+/** Shown in the order a team earns them, not alphabetically. */
+const RESOURCE_ORDER: Array<[keyof TeamResources, string]> = [
+  ['wood', 'W'],
+  ['stone', 'S'],
+  ['iron', 'Fe'],
+  ['gold', 'Au'],
+  ['diamond', 'Dia'],
+  ['emerald', 'Em'],
+  ['obsidian', 'Obs'],
+];
 
 function bossLabel(status: string) {
   if (status === 'not_attempted') return 'not fought';

@@ -22,6 +22,44 @@ interface SubmissionRow {
   final_score: number | null;
 }
 
+interface ResourceRow {
+  team_id: string;
+  wood: number; stone: number; iron: number;
+  gold: number; diamond: number; emerald: number; obsidian: number;
+}
+
+export type TeamResources = Omit<ResourceRow, 'team_id'>;
+
+const NO_RESOURCES: TeamResources = {
+  wood: 0, stone: 0, iron: 0, gold: 0, diamond: 0, emerald: 0, obsidian: 0,
+};
+
+/**
+ * What one unit of each resource is worth in the standings.
+ *
+ * An organiser ruling, and a ratio rather than a scale: the six weights sum to
+ * ten. Obsidian is not in the ruling and no team holds any, so it scores
+ * nothing rather than being given a number nobody decided.
+ */
+export const RESOURCE_WEIGHTS: TeamResources = {
+  wood: 0.5,
+  stone: 1,
+  iron: 1.5,
+  gold: 2,
+  emerald: 2,
+  diamond: 3,
+  obsidian: 0,
+};
+
+export function resourcePoints(balance: TeamResources): number {
+  let total = 0;
+  for (const key of Object.keys(RESOURCE_WEIGHTS) as (keyof TeamResources)[]) {
+    total += (balance[key] ?? 0) * RESOURCE_WEIGHTS[key];
+  }
+  // One decimal: wood is worth a half, so whole numbers would round it away.
+  return Math.round(total * 10) / 10;
+}
+
 export interface Round5Standing {
   rank: number;
   team_id: string;
@@ -38,6 +76,16 @@ export interface Round5Standing {
   total_correct: number;
   /** When the fight was handed in — the tie-break, and null if it never was. */
   boss_completed_at: string | null;
+  /**
+   * What the team is holding. Shown, never ranked on: the standings are the
+   * count of correct answers, and a team that spent its gold on the Diamond
+   * Pickaxe must not fall behind one that hoarded.
+   */
+  resources: TeamResources;
+  /** The weighted value of what they hold. */
+  resource_points: number;
+  /** Answers plus resource points. This is what the ranking is on. */
+  grand_total: number;
 }
 
 /**
@@ -58,7 +106,7 @@ export interface Round5Standing {
  * than a row to hide.
  */
 export async function getRound5Leaderboard(): Promise<Round5Standing[]> {
-  const [qualifiedResult, attemptsResult, submissionsResult] = await Promise.all([
+  const [qualifiedResult, attemptsResult, submissionsResult, resourcesResult] = await Promise.all([
     supabaseServer
       .from('team_game_state')
       .select('team_id, teams(team_code, team_name)')
@@ -67,11 +115,18 @@ export async function getRound5Leaderboard(): Promise<Round5Standing[]> {
       .from('day2_final_boss_attempts')
       .select('team_id, status, completed_at, score_evidence'),
     supabaseServer.from('submissions').select('team_id, final_score').eq('round_id', 5),
+    supabaseServer
+      .from('resources')
+      .select('team_id, wood, stone, iron, gold, diamond, emerald, obsidian'),
   ]);
 
   const qualified = (qualifiedResult.data ?? []) as unknown as QualifiedRow[];
   const attempts = (attemptsResult.data ?? []) as unknown as AttemptRow[];
   const submissions = (submissionsResult.data ?? []) as unknown as SubmissionRow[];
+  const resources = (resourcesResult.data ?? []) as unknown as ResourceRow[];
+
+  const resourcesByTeam = new Map<string, TeamResources>();
+  for (const { team_id, ...balance } of resources) resourcesByTeam.set(team_id, balance);
 
   const bossByTeam = new Map<string, AttemptRow>();
   for (const row of attempts) {
@@ -95,6 +150,8 @@ export async function getRound5Leaderboard(): Promise<Round5Standing[]> {
     const tally = questionsByTeam.get(entry.team_id) ?? { correct: 0, answered: 0 };
 
     const bossCorrect = Number(evidence.correct ?? 0);
+    const balance = resourcesByTeam.get(entry.team_id) ?? NO_RESOURCES;
+    const points = resourcePoints(balance);
 
     return {
       team_id: entry.team_id,
@@ -107,10 +164,14 @@ export async function getRound5Leaderboard(): Promise<Round5Standing[]> {
       questions_answered: tally.answered,
       total_correct: bossCorrect + tally.correct,
       boss_completed_at: boss?.completed_at ?? null,
+      resources: balance,
+      resource_points: points,
+      grand_total: Math.round((bossCorrect + tally.correct + points) * 10) / 10,
     };
   });
 
   rows.sort((a, b) => {
+    if (b.grand_total !== a.grand_total) return b.grand_total - a.grand_total;
     if (b.total_correct !== a.total_correct) return b.total_correct - a.total_correct;
     // A team that never finished the fight cannot win a tie-break on speed.
     if (a.boss_completed_at && b.boss_completed_at) {
