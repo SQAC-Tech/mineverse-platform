@@ -63,7 +63,19 @@ export const CRAFT_RECIPES: Record<CraftItem, CraftRecipe> = {
   diamond_pickaxe: {
     item: 'diamond_pickaxe',
     label: 'Diamond Pickaxe',
-    base_cost: { iron: 25, gold: 20, diamond: 100, emerald: 10 },
+    /**
+     * The diamonds come from repairing the Nether Portal, which is the step
+     * immediately before this one — see `app/api/team/portal/repair`, which
+     * tops a team up to exactly 100. So the diamond line is paid for by the
+     * round rather than saved up across the event; nothing else on the platform
+     * pays diamonds at all, and before that grant existed every qualified team
+     * held 15 and this craft was unreachable.
+     *
+     * Iron, gold and emerald are the ones a team has to arrive with, so they
+     * sit under the poorest qualified team's balance. `craft_team_item` carries
+     * the same numbers and is what actually charges; change them together.
+     */
+    base_cost: { iron: 10, gold: 15, diamond: 100, emerald: 3 },
     unlock_round_id: null,
     marks_pvp_eligible: false,
     requires: 'iron_armor',
