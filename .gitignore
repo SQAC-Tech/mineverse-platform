@@ -10,3 +10,6 @@ skills-lock.json
 
 # dependencies (any nested node_modules across the repo)
 node_modules/
+# Certificate name lists — participant names and college emails. Generated from
+# the live database, never source. Regenerate rather than commit.
+/certificates/
